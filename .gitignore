@@ -1,23 +1,32 @@
 # Python
 __pycache__/
-*.py[cod]
+*.py[codz]
+*$py.class
 *.egg-info/
 .eggs/
 build/
 dist/
+*.manifest
+*.spec
 
 # Virtual envs
 .venv/
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
+.pixi/
 
 # Django
 *.log
 local_settings.py
+db.sqlite3
+db.sqlite3-journal
 
 # Environment
 .env
+.envrc
 
 # SQLite databases
 data/*.sqlite3
@@ -30,6 +39,19 @@ staticfiles/
 .tmp/
 outputs/
 tools/xls_reverse/dumps/
+
+# Test / coverage
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+.nox/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.pyre/
 
 # OS / editor
 .DS_Store
