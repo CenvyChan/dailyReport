@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+{% if instructions %}
+<section class="page-help">
+  <h2>操作说明</h2>
+  <ol>{% for instruction in instructions %}<li>{{ instruction }}</li>{% endfor %}</ol>
+</section>
+{% endif %}
+<form id="import-form" class="import-form" data-preview-url="{% url preview_url %}" data-commit-url="{% url commit_url %}">
+  {% csrf_token %}
+  <label>Excel 文件<input id="import-file" name="file" type="file" accept=".xls,.xlsx" required></label>
+  <div class="form-actions"><button type="submit">预览</button><button id="commit-import" type="button" disabled>正式导入</button></div>
+</form>
+<section id="import-result" class="import-result" aria-live="polite"></section>
+<script src="/static/js/imports.js"></script>
+{% endblock %}

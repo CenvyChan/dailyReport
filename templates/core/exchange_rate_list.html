@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>汇率维护</h1>
+<div class="page-actions"><a href="{% url 'core:rate_create' %}">新增月份汇率</a></div>
+<table><tr><th>月份</th><th>美元兑人民币</th><th>更新时间</th><th>操作</th></tr>{% for rate in rates %}<tr><td>{{ rate.month }}</td><td>{{ rate.usd_to_cny }}</td><td>-</td><td><a href="{% url 'core:rate_edit' rate.pk %}">编辑</a></td></tr>{% empty %}<tr><td colspan="4">暂无汇率</td></tr>{% endfor %}</table>
+{% endblock %}

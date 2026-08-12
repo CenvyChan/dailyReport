@@ -1,0 +1,2 @@
+{% extends "base.html" %}
+{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<datalist id="sales-customer-options">{% for option in form.customer_options %}<option value="{{ option }}"></option>{% endfor %}</datalist><button type="submit">保存</button></form>{% endblock %}

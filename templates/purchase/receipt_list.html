@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>采购日报</h1>
+<div class="page-actions"><a href="{% url 'purchase:receipt_create' %}">新增采购</a>{% if can_import %}<a href="{% url 'purchase:import_page' %}">导入历史数据</a>{% endif %}</div>
+<table><tr><th>日期</th><th>供应商</th><th>采购员</th><th>类型</th><th>数量</th><th>币种</th><th>金额</th><th>人民币</th><th>操作</th></tr>{% for item in receipts %}<tr><td>{{ item.purchase_date }}</td><td>{{ item.supplier.name }}</td><td>{{ item.buyer.username }}</td><td>{{ item.get_purchase_type_display }}</td><td>{{ item.quantity }}</td><td>{{ item.currency }}</td><td>{{ item.original_amount }}</td><td>{{ item.amount_cny }}</td><td class="row-actions"><a href="{% url 'purchase:receipt_edit' item.pk %}">编辑</a><form method="post" action="{% url 'purchase:receipt_delete' item.pk %}">{% csrf_token %}<button class="danger" type="submit">删除</button></form></td></tr>{% empty %}<tr><td colspan="9">暂无数据</td></tr>{% endfor %}</table>
+{% endblock %}

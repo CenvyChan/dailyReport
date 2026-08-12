@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form class="filters" method="get">
+  <label>开始日期<input type="date" name="start" value="{{ filters.start|default:'' }}"></label>
+  <label>结束日期<input type="date" name="end" value="{{ filters.end|default:'' }}"></label>
+  <label>{{ person_label }}<select name="person_id"><option value="">全部</option>{% for person in people %}<option value="{{ person.id }}" {% if filters.person_id == person.id|stringformat:'s' %}selected{% endif %}>{{ person.label }}</option>{% endfor %}</select></label>
+  <label>{{ counterpart_label }}<select name="counterpart_id"><option value="">全部</option>{% for counterpart in counterparts %}<option value="{{ counterpart.id }}" {% if filters.counterpart_id == counterpart.id|stringformat:'s' %}selected{% endif %}>{{ counterpart.label }}</option>{% endfor %}</select></label>
+  <label>业务类型<select name="business_type"><option value="">全部</option>{% for value, label in type_choices %}<option value="{{ value }}" {% if filters.business_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <span class="preset-actions"><button type="submit" name="preset" value="month">本月</button><button type="submit" name="preset" value="week">本周</button><button type="submit" name="preset" value="year">本年</button></span>
+  <button type="submit">筛选</button>
+  <a class="button secondary" href=".">清除</a>
+  <a class="button" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+</form>
+<section class="summary"><span><strong>数量</strong>{{ dashboard.summary.quantity }}</span><span><strong>人民币</strong>{{ dashboard.summary.cny_amount }}</span><span><strong>美元</strong>{{ dashboard.summary.usd_amount }}</span><span><strong>折算人民币</strong>{{ dashboard.summary.amount_cny }}</span></section>
+{{ dashboard|json_script:"dashboard-data" }}
+<section class="charts"><div id="daily-trend" class="chart" data-chart="daily"></div><div id="monthly-trend" class="chart" data-chart="monthly"></div><div id="type-share" class="chart" data-chart="share"></div><div id="counterpart-rank" class="chart" data-chart="rank"></div></section>
+<script src="/static/js/echarts.min.js"></script><script src="/static/js/dashboard.js"></script>
+{% endblock %}
