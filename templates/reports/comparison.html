@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>采购入库金额与销售金额对比表</h1>
+
+<form class="comparison-filter" method="get">
+  <label for="year">统计年月</label>
+  <select id="year" name="year">
+    {% for item in years %}<option value="{{ item }}" {% if item == report.year %}selected{% endif %}>{{ item }} 年</option>{% endfor %}
+  </select>
+  <select id="month" name="month" aria-label="月份">
+    {% for item in months %}<option value="{{ item }}" {% if item == report.month %}selected{% endif %}>{{ item }} 月</option>{% endfor %}
+  </select>
+  <button type="submit">查询</button>
+  <a class="btn-link" href="{% url 'reports:monthly_comparison_export' %}?year={{ report.year }}&month={{ report.month }}">导出 Excel</a>
+</form>
+
+<p class="page-help">
+  金额均为未税口径，与日报录入金额一致；外币按录入当月的汇率快照折算人民币。
+  每天占比 = 当日采购 ÷ 当日销售，超过 100% 说明当天进货多于出货，属正常波动。
+  当日销售为 0 时占比显示「-」。
+</p>
+
+<table class="comparison">
+  <thead>
+    <tr><th>日期</th><th class="num">采购入库金额</th><th class="num">销售金额</th><th class="num">每天占比</th><th>备注</th></tr>
+  </thead>
+  <tbody>
+    {% for row in report.rows %}
+    <tr {% if not row.has_data %}class="empty-day"{% endif %}>
+      <td>{{ row.date|date:"Y-m-d" }}</td>
+      <td class="num">{{ row.purchase_amount|floatformat:2 }}</td>
+      <td class="num">{{ row.sales_amount|floatformat:2 }}</td>
+      <td class="num {% if row.over_full %}over{% endif %}">
+        {% if row.share == None %}-{% else %}{{ row.share|floatformat:2 }}%{% endif %}
+      </td>
+      <td></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th>月度合计</th>
+      <th class="num">{{ report.purchase_total|floatformat:2 }}</th>
+      <th class="num">{{ report.sales_total|floatformat:2 }}</th>
+      <th class="num total-share">{% if report.share_total == None %}-{% else %}{{ report.share_total|floatformat:2 }}%{% endif %}</th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
+
+<p class="page-help">本月有数据的天数：{{ report.days_with_data }} 天。</p>
+{% endblock %}

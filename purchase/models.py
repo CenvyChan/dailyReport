@@ -11,11 +11,12 @@ class PurchaseReceipt(models.Model):
         MANUAL = "MANUAL", "手工录入"
         HISTORY_IMPORT = "HISTORY_IMPORT", "历史数据导入"
 
+    company = models.ForeignKey("core.Company", verbose_name="公司", on_delete=models.PROTECT, related_name="purchase_receipts")
     supplier = models.ForeignKey("core.Supplier", verbose_name="供应商", on_delete=models.PROTECT)
     buyer = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="采购员", on_delete=models.PROTECT)
     purchase_type = models.CharField("采购类型", max_length=10, choices=PurchaseType.choices)
     purchase_date = models.DateField("采购日期")
-    quantity = models.PositiveIntegerField("数量")
+    quantity = models.DecimalField("数量", max_digits=18, decimal_places=3)
     currency = models.CharField("币种", max_length=3, editable=False)
     original_amount = models.DecimalField("原币金额", max_digits=18, decimal_places=6)
     exchange_rate = models.DecimalField("汇率快照", max_digits=10, decimal_places=4)
@@ -32,6 +33,12 @@ class PurchaseReceipt(models.Model):
         ordering = ["-purchase_date", "-id"]
         verbose_name = "采购日报"
         verbose_name_plural = "采购日报"
+        # 列表页和报表都是「按公司过滤 + 按日期倒序」，方向与 ordering 一致才能
+        # 免掉临时排序。第二条给普通采购员用：他们的查询还会叠加 buyer。
+        indexes = [
+            models.Index(fields=["company", "-purchase_date", "-id"], name="pr_company_date_idx"),
+            models.Index(fields=["company", "buyer", "-purchase_date"], name="pr_company_buyer_idx"),
+        ]
 
     def __str__(self):
         return f"{self.purchase_date} {self.supplier} 采购日报"

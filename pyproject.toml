@@ -1,0 +1,35 @@
+[tool.ruff]
+# 与 Dockerfile 的 python:3.12-slim 保持一致
+target-version = "py312"
+line-length = 120
+exclude = [
+    "*/migrations/*",
+    # 一次性的 VBA/xls 调试脚本，靠 Excel COM 跑，不参与 Django 应用
+    "tools/",
+    "docs/",
+    "staticfiles/",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes：未使用的导入/变量、未定义名字
+    "E",    # pycodestyle 错误
+    "W",    # pycodestyle 警告
+    "UP",   # pyupgrade
+    "B",    # bugbear：常见陷阱
+    "DJ",   # flake8-django
+    "C4",   # 推导式写法
+]
+ignore = [
+    "E501",  # 行宽由 line-length 控制，注释里的长中文不算问题
+    "B008",  # Django 的 default=timezone.now 之类是惯例
+    # scripts/ 下必须先把项目根塞进 sys.path、设好 DJANGO_SETTINGS_MODULE
+    # 再导入 django，顺序不能调。
+    "E402",
+    # 模型内部顺序（Meta / __str__ / 自定义方法）不值得为此改动现有代码
+    "DJ012",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# settings 需要按顺序读 .env 再定义配置
+"config/settings.py" = ["E402"]

@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from core.models import Customer
+from core.testing import company_a, company_b
 from reports.services import sales_dashboard
 from sales.models import SalesShipment
 
@@ -12,8 +13,10 @@ from sales.models import SalesShipment
 class SalesDashboardTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser("admin", password="pw")
-        customer = Customer.objects.create(name="客户 A")
+        self.company = company_a()
+        customer = Customer.objects.create(company=self.company, name="客户 A")
         SalesShipment.objects.create(
+            company=self.company,
             customer=customer,
             owner=self.admin,
             sale_type="DOMESTIC",
@@ -25,6 +28,7 @@ class SalesDashboardTests(TestCase):
             amount_cny="88.00",
         )
         SalesShipment.objects.create(
+            company=self.company,
             customer=customer,
             owner=self.admin,
             sale_type="EXPORT",
@@ -37,7 +41,13 @@ class SalesDashboardTests(TestCase):
         )
 
     def test_summary_keeps_cny_usd_and_converted_total_separate(self):
-        dashboard = sales_dashboard(self.admin, {"start": "2026-08-01", "end": "2026-08-31"})
+        dashboard = sales_dashboard(self.admin, self.company, {"start": "2026-08-01", "end": "2026-08-31"})
         self.assertEqual(dashboard["summary"]["cny_amount"], Decimal("88.00"))
         self.assertEqual(dashboard["summary"]["usd_amount"], Decimal("100.00"))
         self.assertEqual(dashboard["summary"]["amount_cny"], Decimal("768.67"))
+
+    def test_another_company_summary_excludes_these_rows(self):
+        dashboard = sales_dashboard(self.admin, company_b(), {"start": "2026-08-01", "end": "2026-08-31"})
+
+        self.assertEqual(dashboard["summary"]["amount_cny"], Decimal("0"))
+        self.assertEqual(dashboard["summary"]["quantity"], 0)

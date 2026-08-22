@@ -11,7 +11,7 @@ from sales.models import SalesShipment
 
 class AdminLocalizationTests(SimpleTestCase):
     def test_custom_models_and_site_header_are_chinese(self):
-        self.assertEqual(admin.site.site_header, "轻量日报系统管理")
+        self.assertEqual(admin.site.site_header, "FINOSSReportSystem")
         self.assertEqual(Customer._meta.verbose_name, "客户")
         self.assertEqual(Supplier._meta.verbose_name, "供应商")
         self.assertEqual(ExchangeRate._meta.verbose_name, "月度汇率")
@@ -36,7 +36,7 @@ class AdminFriendlyPageTests(TestCase):
     def test_admin_pages_use_chinese_and_explain_key_fields(self):
         response = self.client.get(reverse("admin:index"))
 
-        self.assertContains(response, "轻量日报系统管理")
+        self.assertContains(response, "FINOSSReportSystem")
         self.assertContains(response, "基础管理")
         self.assertContains(response, "销售管理")
         self.assertContains(response, "采购管理")

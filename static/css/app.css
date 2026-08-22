@@ -3,7 +3,13 @@
 body { margin: 0; }
 nav { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 28px; background: #17324d; color: #fff; }
 nav a { color: #fff; text-decoration: none; font-size: 14px; }
-nav span { margin-left: auto; color: #cfdae4; font-size: 13px; }
+nav span { color: #cfdae4; font-size: 13px; }
+/* 当前公司标签起分隔作用：它之前是菜单，它和之后是账号相关的操作。 */
+nav .nav-company { margin-left: auto; padding: 3px 10px; border-radius: 11px; background: #24597f; color: #fff; white-space: nowrap; }
+nav .company-switch { display: flex; align-items: center; gap: 6px; margin: 0; }
+nav .company-switch label { color: #cfdae4; font-size: 13px; }
+nav .company-switch select { height: 28px; padding: 2px 6px; font-size: 13px; }
+nav .company-switch button { padding: 4px 10px; font-size: 13px; }
 nav form { margin: 0; }
 main { max-width: 1180px; margin: 30px auto; padding: 0 24px; }
 h1 { margin: 0 0 20px; font-size: 22px; font-weight: 600; }
@@ -13,9 +19,18 @@ button, .button { border: 1px solid #005f9e; background: #005f9e; color: #fff; p
 .danger { border-color: #9d2d2d; background: #9d2d2d; }
 table { width: 100%; margin-top: 16px; border-collapse: collapse; background: #fff; font-size: 14px; }
 th, td { padding: 10px 12px; border-bottom: 1px solid #dce3e8; text-align: left; white-space: nowrap; }
-th { background: #eaf0f4; color: #40515f; font-weight: 600; }
+/* 默认每页 50 条、9 列的表滚到中段就看不到列名了，表头吸顶。
+   position: sticky 要配 border-collapse 下的背景色，否则内容会透上来。 */
+th { position: sticky; top: 0; z-index: 1; background: #eaf0f4; color: #40515f; font-weight: 600; box-shadow: inset 0 -1px 0 #dce3e8; }
 tr:hover td { background: #f7fafb; }
+/* 列多的时候横向滚动条应该出现在表格上，而不是整个文档 */
+.table-scroll { overflow-x: auto; }
+.empty-hint { color: #7d8b96; }
 form p { max-width: 360px; display: grid; gap: 5px; }
+/* Django 默认 errorlist 是黑色小圆点列表，不红不显眼，用户容易看漏 */
+.errorlist { margin: 0 0 6px; padding-left: 18px; color: #9d2d2d; font-size: 13px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid #4a9ad4; outline-offset: 0; border-color: #4a9ad4; }
+button:hover:not(:disabled), .button:hover { filter: brightness(1.08); }
 .row-actions { display: flex; align-items: center; gap: 10px; }
 .row-actions form { margin: 0; }
 .row-actions button { padding: 4px 8px; }
@@ -30,7 +45,58 @@ input, select { height: 34px; border: 1px solid #aebbc5; border-radius: 3px; pad
 .import-result { margin-top: 18px; max-width: 720px; }
 .import-result p { margin: 0; font-weight: 600; }
 .import-result ul { margin: 10px 0 0; padding-left: 20px; color: #9d2d2d; }
+/* 成功和失败此前都是同一个黑色段落，看不出区别。 */
+.import-result[data-kind="ok"] p { color: #1f5130; }
+.import-result[data-kind="fail"] p { color: #9d2d2d; }
+.import-result[data-kind="busy"] p { color: #5e6f7d; }
+button:disabled { background: #b9c2c9; border-color: #b9c2c9; cursor: not-allowed; }
 .summary strong { color: #5e6f7d; font-size: 12px; margin-right: 6px; }
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
 .chart { min-height: 340px; background: #fff; border: 1px solid #dce3e8; }
-@media (max-width: 720px) { nav { height: auto; min-height: 52px; gap: 10px; padding: 10px 14px; flex-wrap: wrap; align-content: center; } nav span { margin-left: auto; } nav form { margin-left: 0; } main { padding: 0 14px; } .charts { grid-template-columns: 1fr; } table { display: block; overflow-x: auto; } .filters, .import-form { align-items: stretch; flex-direction: column; } .filters label, .import-form label { width: 100%; } }
+.page-help { max-width: 720px; color: #5e6f7d; font-size: 13px; line-height: 1.7; }
+.messages { max-width: 720px; margin: 0 0 16px; padding: 10px 16px; list-style: none; background: #e8f4ea; border-left: 4px solid #2e7d43; color: #1f5130; font-size: 14px; }
+/* 失败和警告不能和成功长一个样，否则用户以为操作成功了 */
+.messages li.error { color: #8a1f1f; }
+.messages li.warning { color: #7a4a00; }
+.messages:has(li.error) { background: #fdecec; border-left-color: #c0392b; color: #8a1f1f; }
+.messages:has(li.warning) { background: #fdf6e3; border-left-color: #c98a00; color: #7a4a00; }
+/* 停用的账号灰显，一眼能看出哪些人已离职 */
+.row-inactive { color: #9aa5ad; }
+.row-inactive td { background: #f7f9fa; }
+.login-head { display: flex; align-items: center; gap: 16px; }
+.login-head h1 { margin: 0; }
+.help-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; }
+.help-link:hover { text-decoration: underline; }
+.help-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #005f9e; color: #fff; font-weight: 700; font-size: 13px; }
+@media (max-width: 720px) { nav { height: auto; min-height: 52px; gap: 10px; padding: 10px 14px; flex-wrap: wrap; align-content: center; } nav > .nav-company { margin-left: auto; } nav form { margin-left: 0; } main { padding: 0 14px; } .charts { grid-template-columns: 1fr; } .table-scroll { overflow-x: auto; } .filters, .import-form { align-items: stretch; flex-direction: column; } .filters label, .import-form label { width: 100%; } }
+
+/* ---- 采购销售对比表：配色对齐业务方现用 Excel ---- */
+.comparison-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.comparison-filter label { font-weight: 600; }
+.comparison-filter select { padding: 6px 10px; }
+.btn-link { padding: 6px 14px; border: 1px solid #c8d1d9; border-radius: 4px; text-decoration: none; }
+
+table.comparison { width: 100%; border-collapse: collapse; margin-top: 8px; }
+table.comparison th, table.comparison td { border: 1px solid #b8c4d0; padding: 6px 12px; }
+table.comparison thead th { background: #bdd7ee; text-align: center; font-weight: 700; }
+table.comparison .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 入库列绿、销售列米黄，与 Excel 一致，便于业务方核对 */
+table.comparison tbody td:nth-child(2) { background: #e2efda; }
+table.comparison tbody td:nth-child(3) { background: #fff2cc; }
+table.comparison tbody td:nth-child(4) { background: #e2efda; }
+table.comparison tbody td:nth-child(5) { background: #fdf2e2; }
+table.comparison tbody tr.empty-day td { color: #8c959f; }
+table.comparison tbody td.over { color: #c00000; font-weight: 700; }
+table.comparison tfoot th { background: #bdd7ee; font-weight: 700; }
+table.comparison tfoot th.num { text-align: right; }
+/* 合计占比用红底，和 Excel 的强调一致 */
+table.comparison tfoot th.total-share { background: #ff0000; color: #fff; }
+
+/* ---- 列表筛选与分页 ---- */
+.list-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0 14px; }
+.list-filter input, .list-filter select { padding: 6px 10px; }
+.list-filter input[type="search"] { min-width: 200px; }
+.pagination { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.pagination a { padding: 4px 10px; border: 1px solid #c8d1d9; border-radius: 4px; text-decoration: none; }
+.pagination .disabled { padding: 4px 10px; color: #a0a8b0; }
+.pagination .page-info, .page-info { color: #656d76; font-size: 14px; }

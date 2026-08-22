@@ -1,0 +1,339 @@
+Attribute VB_Name = "modDailyReport"
+Option Explicit
+
+'============================================================
+' {{REP_SHEET}} —— 按日期动态输出明细 + 三行汇总
+'   明细区从第 6 行开始，行数 = 当日实际条目数（无空行、不截断）
+'   明细区之后紧跟 3 行汇总：当日合计 / 本月至今累计 / 当月总计
+'   当日合计的求和范围随明细行数自动改写
+'   数据表全程只读，不做任何写入
+'
+' 本文件由 tools/xls_reverse/vba_src/dailyreport.bas.tmpl 生成。
+' 要改逻辑请改模板后重新注入，不要只改某个工作簿里的副本。
+'============================================================
+
+Private Const REP_SHEET As String = "{{REP_SHEET}}"
+Private Const DATA_SHEET As String = "数据表"
+Private Const CAT_L As String = "{{CAT_L}}"    ' 归到 L:M 列的类别
+Private Const CAT_N As String = "{{CAT_N}}"    ' 归到 N 列的类别
+Private Const EMPTY_MSG As String = "{{EMPTY_MSG}}"
+Private Const DETAIL_START As Long = 6      ' 明细起始行
+Private Const COL_LAST As Long = 15         ' 最右列 = O
+
+' 数据表列序：1对方单位 2业务跟单 3类别 4日期 5数量 6金额
+Private Const SRC_PARTY As Long = 1
+Private Const SRC_OWNER As Long = 2
+Private Const SRC_CAT As Long = 3
+Private Const SRC_DATE As Long = 4
+Private Const SRC_QTY As Long = 5
+Private Const SRC_AMOUNT As Long = 6
+
+' 日报表列序
+Private Const REP_NO As Long = 1             ' A   序号
+Private Const REP_PARTY As Long = 2          ' B:E 供应商 / 客户
+Private Const REP_QTY As Long = 6            ' F:I 入库 / 出货数量
+Private Const REP_CAT As Long = 10           ' J:K 币别 / 方式
+Private Const REP_AMT_L As Long = 12         ' L:M 人民币
+Private Const REP_AMT_N As Long = 14         ' N   美金
+Private Const REP_OWNER As Long = 15         ' O   负责人
+
+
+Public Sub RefreshDailyReport()
+    Dim wsRep As Worksheet, wsData As Worksheet
+    Dim y As Long, m As Long, d As Long
+    Dim targetDate As Date, targetSerial As Long
+    Dim src As Variant
+    Dim hit() As Long
+    Dim n As Long, i As Long, s As Long, r As Long
+    Dim curN As Long, need As Long
+    Dim lastSrc As Long, lastDetail As Long, sumRow As Long
+    Dim prevEvents As Boolean, prevCalc As Long, prevScreen As Boolean
+
+    Set wsRep = ThisWorkbook.Worksheets(REP_SHEET)
+    Set wsData = ThisWorkbook.Worksheets(DATA_SHEET)
+    HookSpinners wsRep
+
+    y = Val(wsRep.Range("C2").Value)
+    m = Val(wsRep.Range("F2").Value)
+    d = Val(wsRep.Range("I2").Value)
+    If y < 1900 Or m < 1 Or m > 12 Or d < 1 Or d > 31 Then Exit Sub
+    On Error Resume Next
+    targetDate = DateSerial(y, m, d)
+    If Err.Number <> 0 Then
+        Err.Clear
+        Exit Sub
+    End If
+    On Error GoTo 0
+    If Month(targetDate) <> m Or Day(targetDate) <> d Then Exit Sub  ' 如 2月30日
+    targetSerial = CLng(CDbl(targetDate))
+
+    curN = CurrentDetailCount(wsRep)
+    If curN < 1 Then Exit Sub                ' 找不到汇总行，结构异常，不动
+
+    prevEvents = Application.EnableEvents
+    prevCalc = Application.Calculation
+    prevScreen = Application.ScreenUpdating
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+
+    On Error GoTo CleanUp
+
+    ' ---- 1. 按日期筛出源数据行（保持数据表原有顺序）----
+    ' 一律用 .Value2：数据表里有几个「数字被套了 yyyy/m/d 格式」的单元格
+    ' （如 $F$1701 底层是 30469.5，.Value 会读成 1983/6/2 的 Date），
+    ' .Value2 拿到的是底层数值，跟 Excel 的 SUM/SUMIFS 口径一致。
+    ' 代价是日期列也变成序列号，下面按序列号比较。
+    lastSrc = LastSourceRow(wsData)
+    n = 0
+    If lastSrc >= 2 Then
+        src = wsData.Range(wsData.Cells(2, SRC_PARTY), _
+                           wsData.Cells(lastSrc, SRC_AMOUNT)).Value2
+        ReDim hit(1 To UBound(src, 1))
+        For i = 1 To UBound(src, 1)
+            If IsNumeric(src(i, SRC_DATE)) Then
+                If Int(CDbl(src(i, SRC_DATE))) = targetSerial Then
+                    n = n + 1
+                    hit(n) = i
+                End If
+            End If
+        Next
+    End If
+
+    ' ---- 2. 把明细区行数调整到 n（无数据时保留 1 行提示）----
+    need = n
+    If need < 1 Then need = 1
+    If curN > need Then
+        wsRep.Rows(DETAIL_START + need & ":" & DETAIL_START + curN - 1).Delete Shift:=xlUp
+    ElseIf curN < need Then
+        wsRep.Rows(DETAIL_START).Copy
+        wsRep.Rows(DETAIL_START + 1).Resize(need - curN).Insert Shift:=xlDown
+        Application.CutCopyMode = False
+    End If
+    lastDetail = DETAIL_START + need - 1
+
+    ' ---- 3. 写明细 ----
+    wsRep.Range(wsRep.Cells(DETAIL_START, 1), _
+                wsRep.Cells(lastDetail, COL_LAST)).ClearContents
+    If n = 0 Then
+        wsRep.Cells(DETAIL_START, REP_PARTY).Value = EMPTY_MSG
+        wsRep.Cells(DETAIL_START, REP_AMT_N).Value = 0
+    Else
+        For i = 1 To n
+            r = DETAIL_START + i - 1
+            s = hit(i)
+            wsRep.Cells(r, REP_NO).Value = i
+            wsRep.Cells(r, REP_PARTY).Value = src(s, SRC_PARTY)
+            wsRep.Cells(r, REP_QTY).Value = src(s, SRC_QTY)
+            wsRep.Cells(r, REP_CAT).Value = src(s, SRC_CAT)
+            wsRep.Cells(r, REP_AMT_N).Value = 0
+            If src(s, SRC_CAT) = CAT_L Then
+                wsRep.Cells(r, REP_AMT_L).Value = src(s, SRC_AMOUNT)
+            ElseIf src(s, SRC_CAT) = CAT_N Then
+                wsRep.Cells(r, REP_AMT_N).Value = src(s, SRC_AMOUNT)
+            End If
+            wsRep.Cells(r, REP_OWNER).Value = src(s, SRC_OWNER)
+        Next
+    End If
+
+    ' ---- 4. 三行汇总（当日合计的范围跟着明细行走）----
+    sumRow = lastDetail + 1
+    WriteSummary wsRep, sumRow, lastDetail, n
+
+    SetupDateValidation wsRep, wsData
+
+CleanUp:
+    Application.Calculation = prevCalc
+    Application.ScreenUpdating = prevScreen
+    Application.EnableEvents = prevEvents
+    If Err.Number <> 0 Then
+        MsgBox "刷新日报表出错：" & Err.Number & " " & Err.Description, vbExclamation
+        Err.Clear
+    End If
+End Sub
+
+
+'============================================================
+' 关键：C2/F2/I2 上挂的是三个 Forms 旋转按钮（Spinner）。
+' Forms 控件往 LinkedCell 写值【不会触发 Worksheet_Change】，
+' 所以必须给每个按钮挂 OnAction，点一下就重建明细区。
+'============================================================
+Public Sub HookSpinners(ws As Worksheet)
+    Dim shp As Shape, lc As String
+    For Each shp In ws.Shapes
+        If shp.Type = msoFormControl Then
+            lc = ""
+            On Error Resume Next
+            lc = shp.ControlFormat.LinkedCell
+            On Error GoTo 0
+            If InStr(1, lc, "$C$2") > 0 Or InStr(1, lc, "$F$2") > 0 _
+               Or InStr(1, lc, "$I$2") > 0 Then
+                ' Excel 会把 OnAction 读回成 "工作簿名!RefreshDailyReport"，
+                ' 所以用 InStr 判断，不能直接等号比较
+                If InStr(1, shp.OnAction, "RefreshDailyReport") = 0 Then
+                    shp.OnAction = "RefreshDailyReport"
+                End If
+            End If
+        End If
+    Next
+End Sub
+
+
+'--- 数据表最后一行。不能用 End(xlUp)：数据表上残留着自动筛选，
+'--- End 会停在最后一个「可见」单元格，导致被筛掉的行整批漏读。
+Private Function LastSourceRow(ws As Worksheet) As Long
+    Dim r As Long
+    r = ws.UsedRange.Row + ws.UsedRange.Rows.Count - 1
+    ' UsedRange 可能被空白格式撑大，往上收缩到真正有值的行
+    Do While r >= 2
+        If Len(CStr(ws.Cells(r, SRC_PARTY).Value)) > 0 _
+           Or Len(CStr(ws.Cells(r, SRC_DATE).Value)) > 0 Then Exit Do
+        r = r - 1
+    Loop
+    LastSourceRow = r
+End Function
+
+
+'--- 当前明细行数 = 「合计」行行号 - 明细起始行 ---
+Private Function CurrentDetailCount(ws As Worksheet) As Long
+    Dim r As Long, probe As String
+    CurrentDetailCount = -1
+    For r = DETAIL_START To DETAIL_START + 10000
+        probe = CStr(ws.Cells(r, 1).Formula) & "|" & CStr(ws.Cells(r, 1).Text)
+        If InStr(1, probe, "合计") > 0 Then
+            CurrentDetailCount = r - DETAIL_START
+            Exit Function
+        End If
+    Next
+End Function
+
+
+Private Sub WriteSummary(ws As Worksheet, sumRow As Long, _
+                         lastDetail As Long, n As Long)
+    Dim dRange As String, mFirst As String, mLast As String
+    dRange = "DATE($C$2,$F$2,$I$2)"
+    mFirst = "DATE($C$2,$F$2,1)"
+    mLast = "EOMONTH(DATE($C$2,$F$2,1),0)"
+
+    ' 第 1 行：当日合计 —— 只对上方动态明细区求和
+    ws.Cells(sumRow, 1).Formula = "=TEXT(" & dRange & ",""yy/m/d"")&""合计："""
+    If n = 0 Then
+        ws.Cells(sumRow, REP_QTY).Value = 0
+        ws.Cells(sumRow, REP_AMT_L).Value = 0
+        ws.Cells(sumRow, REP_AMT_N).Value = 0
+    Else
+        ws.Cells(sumRow, REP_QTY).Formula = _
+            "=SUM(F" & DETAIL_START & ":I" & lastDetail & ")"
+        ws.Cells(sumRow, REP_AMT_L).Formula = _
+            "=SUM(L" & DETAIL_START & ":M" & lastDetail & ")"
+        ws.Cells(sumRow, REP_AMT_N).Formula = _
+            "=SUM(N" & DETAIL_START & ":N" & lastDetail & ")"
+    End If
+
+    ' 第 2 行：本月 1 日至选定日累计
+    ws.Cells(sumRow + 1, 1).Formula = "=TEXT(" & mFirst & ",""yy/m/d"")&""-""&TEXT(" _
+        & dRange & ",""m/d"")&""累计："""
+    ws.Cells(sumRow + 1, REP_QTY).Formula = SumIfsQty(mFirst, dRange)
+    ws.Cells(sumRow + 1, REP_AMT_L).Formula = SumIfsAmt(mFirst, dRange, CAT_L)
+    ws.Cells(sumRow + 1, REP_AMT_N).Formula = SumIfsAmt(mFirst, dRange, CAT_N)
+
+    ' 第 3 行：当月总计
+    ws.Cells(sumRow + 2, 1).Formula = "=TEXT(" & mFirst & ",""yy/m"")&""月总计："""
+    ws.Cells(sumRow + 2, REP_QTY).Formula = SumIfsQty(mFirst, mLast)
+    ws.Cells(sumRow + 2, REP_AMT_L).Formula = SumIfsAmt(mFirst, mLast, CAT_L)
+    ws.Cells(sumRow + 2, REP_AMT_N).Formula = SumIfsAmt(mFirst, mLast, CAT_N)
+End Sub
+
+
+Private Function SumIfsQty(dFrom As String, dTo As String) As String
+    SumIfsQty = "=SUMIFS(" & DATA_SHEET & "!$E:$E," & DATA_SHEET & "!$D:$D,"">=""&" _
+        & dFrom & "," & DATA_SHEET & "!$D:$D,""<=""&" & dTo & ")"
+End Function
+
+
+Private Function SumIfsAmt(dFrom As String, dTo As String, cat As String) As String
+    SumIfsAmt = "=SUMIFS(" & DATA_SHEET & "!$F:$F," & DATA_SHEET & "!$D:$D,"">=""&" _
+        & dFrom & "," & DATA_SHEET & "!$D:$D,""<=""&" & dTo & "," _
+        & DATA_SHEET & "!$C:$C,""" & cat & """)"
+End Function
+
+
+'============================================================
+' 日期选择：C2/F2/I2 三个下拉，只列出数据表里真实存在的年/月/日
+'============================================================
+Public Sub SetupDateValidation(wsRep As Worksheet, wsData As Worksheet)
+    Dim lastSrc As Long, i As Long
+    Dim arrD As Variant, dt As Date
+    Dim selY As Long, selM As Long
+    Dim ys As Collection, ms As Collection, ds As Collection
+
+    Set ys = New Collection
+    Set ms = New Collection
+    Set ds = New Collection
+    selY = Val(wsRep.Range("C2").Value)
+    selM = Val(wsRep.Range("F2").Value)
+
+    lastSrc = LastSourceRow(wsData)
+    If lastSrc >= 2 Then
+        arrD = wsData.Range(wsData.Cells(2, SRC_DATE), wsData.Cells(lastSrc, SRC_DATE)).Value2
+        For i = 1 To UBound(arrD, 1)
+            If IsNumeric(arrD(i, 1)) Then
+                If CDbl(arrD(i, 1)) >= 1 Then
+                    dt = CDate(CDbl(arrD(i, 1)))
+                    PushUnique ys, Year(dt)
+                    If Year(dt) = selY Then PushUnique ms, Month(dt)
+                    If Year(dt) = selY And Month(dt) = selM Then PushUnique ds, Day(dt)
+                End If
+            End If
+        Next
+    End If
+
+    ApplyList wsRep.Range("C2"), SortedJoin(ys)
+    ApplyList wsRep.Range("F2"), SortedJoin(ms)
+    ApplyList wsRep.Range("I2"), SortedJoin(ds)
+End Sub
+
+
+Private Sub PushUnique(c As Collection, v As Long)
+    On Error Resume Next
+    c.Add v, CStr(v)
+    On Error GoTo 0
+End Sub
+
+
+Private Function SortedJoin(c As Collection) As String
+    Dim a() As Long, i As Long, j As Long, t As Long
+    If c.Count = 0 Then Exit Function
+    ReDim a(1 To c.Count)
+    For i = 1 To c.Count
+        a(i) = c(i)
+    Next
+    For i = 1 To UBound(a) - 1
+        For j = i + 1 To UBound(a)
+            If a(j) < a(i) Then
+                t = a(i): a(i) = a(j): a(j) = t
+            End If
+        Next
+    Next
+    For i = 1 To UBound(a)
+        SortedJoin = SortedJoin & IIf(i = 1, "", ",") & CStr(a(i))
+    Next
+End Function
+
+
+Private Sub ApplyList(rg As Range, lst As String)
+    On Error Resume Next
+    rg.Validation.Delete
+    On Error GoTo 0
+    If Len(lst) = 0 Or Len(lst) > 255 Then Exit Sub
+    With rg.Validation
+        .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+             Operator:=xlBetween, Formula1:=lst
+        .IgnoreBlank = True
+        .InCellDropdown = True
+        .ShowInput = False
+        .ShowError = True
+        .ErrorTitle = "日期选择"
+        .ErrorMessage = "请从下拉列表中选择数据表里已有的日期。"
+    End With
+End Sub

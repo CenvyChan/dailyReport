@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }} - {{ nav_company.name }}</h1>
+<p class="page-help">收件组属于当前公司，只会推送这家公司的销售和采购数据。</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>
+{% endblock %}

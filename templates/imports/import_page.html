@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <h1>{{ title }}</h1>
+{% if template_kind %}
+<p class="page-actions"><a class="button" href="{% url 'core:import_template' template_kind %}">下载导入模板</a></p>
+{% endif %}
 {% if instructions %}
 <section class="page-help">
   <h2>操作说明</h2>
-  <ol>{% for instruction in instructions %}<li>{{ instruction }}</li>{% endfor %}</ol>
+  <ol>{% if template_kind %}<li>建议先下载导入模板，按模板的列名和格式填写后再上传。</li>{% endif %}{% for instruction in instructions %}<li>{{ instruction }}</li>{% endfor %}</ol>
 </section>
 {% endif %}
 <form id="import-form" class="import-form" data-preview-url="{% url preview_url %}" data-commit-url="{% url commit_url %}">
@@ -13,5 +17,5 @@
   <div class="form-actions"><button type="submit">预览</button><button id="commit-import" type="button" disabled>正式导入</button></div>
 </form>
 <section id="import-result" class="import-result" aria-live="polite"></section>
-<script src="/static/js/imports.js"></script>
+<script src="{% static 'js/imports.js' %}"></script>
 {% endblock %}

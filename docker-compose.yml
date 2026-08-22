@@ -1,0 +1,59 @@
+services:
+  web:
+    build: .
+    image: daily-report:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # SQLite 数据库和备份必须挂出来，否则重建容器数据全丢。
+      - ./data:/app/data
+      - ./backups:/app/backups
+      # 日志也要挂出来，否则容器一重建排查线索就没了。
+      - ./logs:/app/logs
+
+  mailer:
+    build: .
+    image: daily-report:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    # 复用同一镜像跑发信循环，替代 Windows 计划任务。
+    # 每 10 分钟检查一次哪个收件组到点了；命令内部保证同一天不重复发送。
+    # 先 sleep 再发，给 web 容器留出跑 migrate 的时间；失败不退出，等下一轮重试。
+    command: >
+      sh -c "while true; do
+        sleep 600;
+        python manage.py send_daily_report || true;
+      done"
+    depends_on:
+      - web
+
+  backup:
+    build: .
+    image: daily-report:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/backups
+      - ./logs:/app/logs
+    # 备份不能只写在文档里「建议加 cron」——上线后大概率没人配，
+    # 而 data 卷一旦损坏就全丢。这里每 24 小时自动备份一次，保留 30 份。
+    # 用的是 SQLite 在线备份 API，运行中执行也安全；备份完会跑
+    # integrity_check，损坏就非零退出，日志里能看到。
+    # 先等 60 秒让 web 跑完 migrate，然后立刻备一次，不用等满一天。
+    command: >
+      sh -c "sleep 60;
+      while true; do
+        python scripts/backup_sqlite.py --keep 30 >> /app/logs/backup.log 2>&1 || true;
+        sleep 86400;
+      done"
+    depends_on:
+      - web

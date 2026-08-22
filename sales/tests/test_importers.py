@@ -5,6 +5,8 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
 
+from core.models import CompanyMembership, Customer
+from core.testing import company_a, company_b
 from sales.importers import (
     ImportPreview,
     commit_sales_import,
@@ -12,6 +14,7 @@ from sales.importers import (
     validate_exchange_rate_rows,
     validate_sales_rows,
 )
+from sales.models import SalesShipment
 
 
 class SalesImportFlowTests(SimpleTestCase):
@@ -21,16 +24,15 @@ class SalesImportFlowTests(SimpleTestCase):
         preview = ImportPreview(0, [], [], rate_errors=[{"row_number": 2}])
         preview_import.return_value = preview
 
-        result = import_sales_history("history.xls", actor=object())
+        result = import_sales_history("history.xls", actor=object(), company=object())
 
         self.assertIs(result, preview)
         commit_import.assert_not_called()
 
 
 class SalesImportCommitTests(TestCase):
-    def test_imported_owner_is_added_to_sales_group(self):
-        admin = User.objects.create_superuser("admin")
-        preview = ImportPreview(
+    def _preview(self):
+        return ImportPreview(
             1,
             [],
             [
@@ -48,10 +50,33 @@ class SalesImportCommitTests(TestCase):
             exchange_rates=(),
         )
 
-        commit_sales_import(preview, actor=admin, source_file="history.xls")
+    def test_imported_owner_is_added_to_sales_group_and_company(self):
+        admin = User.objects.create_superuser("admin")
+
+        commit_sales_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
 
         owner = User.objects.get(username="sales-owner")
         self.assertTrue(owner.groups.filter(name="sales").exists())
+        self.assertTrue(CompanyMembership.objects.filter(user=owner, company=company_a()).exists())
+
+    def test_import_creates_master_data_and_rows_inside_the_target_company(self):
+        admin = User.objects.create_superuser("admin")
+
+        commit_sales_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+
+        self.assertTrue(Customer.objects.filter(company=company_b(), name="Customer A").exists())
+        self.assertFalse(Customer.objects.filter(company=company_a(), name="Customer A").exists())
+        self.assertEqual(SalesShipment.objects.filter(company=company_b()).count(), 1)
+        self.assertEqual(SalesShipment.objects.filter(company=company_a()).count(), 0)
+
+    def test_the_same_source_file_can_be_imported_into_both_companies(self):
+        admin = User.objects.create_superuser("admin")
+
+        commit_sales_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
+        commit_sales_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+
+        self.assertEqual(SalesShipment.objects.filter(company=company_a()).count(), 1)
+        self.assertEqual(SalesShipment.objects.filter(company=company_b()).count(), 1)
 
 
 class SalesImporterTests(SimpleTestCase):

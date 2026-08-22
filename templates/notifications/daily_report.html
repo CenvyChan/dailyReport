@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>{{ report.company.name }} 经营日报</title></head>
+<body style="font-family:'Microsoft YaHei',Arial,sans-serif;color:#222;font-size:14px">
+<h2 style="margin:0 0 4px">{{ report.company.name }} 经营日报</h2>
+<p style="margin:0 0 16px;color:#666">业务日期：{{ report.report_date|date:"Y年n月j日" }}　金额口径：外币按录入当月汇率快照折算人民币</p>
+
+{% for section in section_list %}
+<h3 style="margin:20px 0 6px">{{ section.title }}</h3>
+<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #ddd">
+<tr style="background:#f5f5f5"><th align="left">口径</th><th align="right">笔数</th><th align="right">数量</th><th align="right">人民币</th><th align="right">美元</th><th align="right">折人民币合计</th></tr>
+<tr><td>当日</td><td align="right">{{ section.data.today.count }}</td><td align="right">{{ section.data.today.quantity }}</td><td align="right">{{ section.data.today.cny_amount|floatformat:2 }}</td><td align="right">{{ section.data.today.usd_amount|floatformat:2 }}</td><td align="right"><b>{{ section.data.today.amount_cny|floatformat:2 }}</b></td></tr>
+<tr><td>本月累计</td><td align="right">{{ section.data.month.count }}</td><td align="right">{{ section.data.month.quantity }}</td><td align="right">{{ section.data.month.cny_amount|floatformat:2 }}</td><td align="right">{{ section.data.month.usd_amount|floatformat:2 }}</td><td align="right"><b>{{ section.data.month.amount_cny|floatformat:2 }}</b></td></tr>
+<tr><td>本年累计</td><td align="right">{{ section.data.year.count }}</td><td align="right">{{ section.data.year.quantity }}</td><td align="right">{{ section.data.year.cny_amount|floatformat:2 }}</td><td align="right">{{ section.data.year.usd_amount|floatformat:2 }}</td><td align="right"><b>{{ section.data.year.amount_cny|floatformat:2 }}</b></td></tr>
+</table>
+
+{% if section.data.rows %}
+<h4 style="margin:14px 0 6px">当日明细（{{ section.data.rows|length }} 笔）</h4>
+<table cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #ddd">
+<tr style="background:#f5f5f5">{% for header in section.data.headers %}<th align="left">{{ header }}</th>{% endfor %}</tr>
+{% for row in section.data.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+</table>
+{% else %}<p style="color:#999">当日无{{ section.title }}记录。</p>{% endif %}
+{% endfor %}
+
+<p style="margin-top:24px;color:#888;font-size:12px">本邮件由日报系统自动发送，请勿直接回复。</p>
+</body></html>

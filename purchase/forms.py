@@ -22,19 +22,36 @@ class PurchaseReceiptForm(forms.ModelForm):
             "original_amount": "填写原币金额，无需自行换算人民币。",
         }
 
-    def __init__(self, *args, user, **kwargs):
+    def __init__(self, *args, user, company, **kwargs):
         super().__init__(*args, **kwargs)
-        options = supplier_options_for(user)
-        self.supplier_options = [label for _, label in options]
-        self._supplier_lookup = {label: supplier for supplier, label in options}
+        options = supplier_options_for(user, company)
+        self.supplier_options = [label for _, label, _ in options]
+        # 标签 -> (供应商, 归属人)：负责人跟着所选供应商走，不取当前操作人，
+        # 否则管理员代录时会误判成「供应商未分配给采购负责人」。
+        self._supplier_lookup = {label: (supplier, owner) for supplier, label, owner in options}
+        self.resolved_owner = None
         if self.instance and self.instance.pk and not self.is_bound:
-            self.initial["supplier"] = next((label for supplier, label in options if supplier.pk == self.instance.supplier_id), self.instance.supplier.name)
+            self.initial["supplier"] = next(
+                (label for supplier, label, owner in options
+                 if supplier.pk == self.instance.supplier_id and owner == self.instance.buyer),
+                next((label for supplier, label, _ in options if supplier.pk == self.instance.supplier_id),
+                     self.instance.supplier.name),
+            )
 
     def clean_supplier(self):
         value = str(self.cleaned_data["supplier"]).strip()
-        supplier = self._supplier_lookup.get(value)
-        if supplier is None and value.isdigit():
-            supplier = next((item for item in self._supplier_lookup.values() if str(item.pk) == value), None)
-        if supplier is None:
+        found = self._supplier_lookup.get(value)
+        if found is None and value.isdigit():
+            # 同一供应商可能分给多人，按 ID 提交时无法确定负责人，只在唯一时接受。
+            matches = {(supplier, owner) for supplier, owner in self._supplier_lookup.values() if str(supplier.pk) == value}
+            if len(matches) == 1:
+                found = matches.pop()
+            elif matches:
+                raise forms.ValidationError("该供应商分配给多位采购员，请从候选列表中选择具体负责人")
+        if found is None:
             raise forms.ValidationError("请选择列表中的供应商")
+        supplier, owner = found
+        if owner is None:
+            raise forms.ValidationError("该供应商还没有分配采购负责人，请先在「采购供应商归属」中分配")
+        self.resolved_owner = owner
         return supplier

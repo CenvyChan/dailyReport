@@ -1,0 +1,18 @@
+{{ report.company.name }} {{ report.report_date|date:"Y年n月j日" }} 经营日报
+================================================================
+
+{% if sales %}【销售】
+当日：{{ sales.today.count }} 笔，数量 {{ sales.today.quantity }}，人民币 {{ sales.today.cny_amount|floatformat:2 }}，美元 {{ sales.today.usd_amount|floatformat:2 }}，折人民币合计 {{ sales.today.amount_cny|floatformat:2 }}
+本月累计（{{ report.month_start|date:"n月1日" }} 至今）：数量 {{ sales.month.quantity }}，折人民币合计 {{ sales.month.amount_cny|floatformat:2 }}
+本年累计：数量 {{ sales.year.quantity }}，折人民币合计 {{ sales.year.amount_cny|floatformat:2 }}
+{% if sales.top_counterparts %}当日客户前 5：{% for row in sales.top_counterparts %}{{ row.customer__name }} {{ row.amount_cny|floatformat:2 }}{% if not forloop.last %}；{% endif %}{% endfor %}
+{% endif %}
+{% endif %}{% if purchase %}【采购】
+当日：{{ purchase.today.count }} 笔，数量 {{ purchase.today.quantity }}，人民币 {{ purchase.today.cny_amount|floatformat:2 }}，美元 {{ purchase.today.usd_amount|floatformat:2 }}，折人民币合计 {{ purchase.today.amount_cny|floatformat:2 }}
+本月累计（{{ report.month_start|date:"n月1日" }} 至今）：数量 {{ purchase.month.quantity }}，折人民币合计 {{ purchase.month.amount_cny|floatformat:2 }}
+本年累计：数量 {{ purchase.year.quantity }}，折人民币合计 {{ purchase.year.amount_cny|floatformat:2 }}
+{% if purchase.top_counterparts %}当日供应商前 5：{% for row in purchase.top_counterparts %}{{ row.supplier__name }} {{ row.amount_cny|floatformat:2 }}{% if not forloop.last %}；{% endif %}{% endfor %}
+{% endif %}
+{% endif %}
+金额口径：外币按录入当月汇率快照折算人民币。当日明细见附件。
+本邮件由日报系统自动发送，请勿直接回复。

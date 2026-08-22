@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FINOSSReportSystem · 用户使用指南</title>
+<style>
+:root{
+  --ink:#1f2328; --muted:#656d76; --line:#d8dee4; --bg:#f6f8fa;
+  --brand:#0969da; --ok:#1a7f37; --warn:#9a6700; --danger:#cf222e;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.75 "Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink);background:var(--bg)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+header.top{background:#fff;border-bottom:1px solid var(--line);padding:28px 0;margin-bottom:28px}
+header.top .wrap{padding-bottom:0}
+h1{margin:0 0 6px;font-size:26px}
+.sub{color:var(--muted);margin:0}
+nav.toc{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin-bottom:28px}
+nav.toc strong{display:block;margin-bottom:8px}
+nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:32px}
+nav.toc a{color:var(--brand);text-decoration:none}
+nav.toc a:hover{text-decoration:underline}
+section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px 28px;margin-bottom:22px}
+h2{margin:0 0 4px;font-size:20px;padding-bottom:10px;border-bottom:2px solid var(--brand);display:inline-block}
+h3{font-size:16px;margin:24px 0 8px}
+p{margin:10px 0}
+ol.steps{padding-left:0;list-style:none;counter-reset:s}
+ol.steps>li{counter-increment:s;position:relative;padding:0 0 14px 38px;margin:0}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:13px;text-align:center;line-height:24px;font-weight:700}
+.note,.warn,.tip{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:14px}
+.note{border-color:var(--brand);background:#ddf4ff}
+.warn{border-color:var(--danger);background:#ffebe9}
+.tip{border-color:var(--ok);background:#dafbe1}
+.note b,.warn b,.tip b{display:block;margin-bottom:2px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--bg);font-weight:600}
+code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px;
+  font-family:Consolas,"Courier New",monospace}
+
+/* ---- 界面原型 ---- */
+.mock{border:1px solid #c8d1d9;border-radius:8px;overflow:hidden;margin:16px 0;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.mock .bar{background:#e8ecf0;border-bottom:1px solid #c8d1d9;padding:7px 12px;display:flex;align-items:center;gap:7px}
+.mock .dot{width:11px;height:11px;border-radius:50%;background:#c8d1d9}
+.mock .url{flex:1;background:#fff;border:1px solid #d8dee4;border-radius:4px;padding:3px 10px;
+  font:12px Consolas,monospace;color:var(--muted)}
+.mock .body{padding:0}
+.appnav{background:#24292f;color:#e6edf3;padding:9px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px}
+.appnav a{color:#e6edf3;text-decoration:none;opacity:.85}
+.appnav a.on{opacity:1;font-weight:700;border-bottom:2px solid #58a6ff;padding-bottom:2px}
+.appnav .spacer{flex:1}
+.chip{background:#2d6cdf;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;white-space:nowrap}
+.screen{padding:20px 22px}
+.screen h4{margin:0 0 14px;font-size:17px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.inp{border:1px solid #c8d1d9;border-radius:6px;padding:7px 10px;background:#fff;font-size:14px;min-height:34px}
+.inp.sel{background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23656d76'/></svg>") no-repeat right 10px center}
+.inp.ph{color:#8c959f}
+.btn{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;padding:7px 18px;font-size:14px;font-weight:600}
+.btn.gray{background:#f6f8fa;color:var(--ink);border:1px solid #c8d1d9}
+.btn.dim{background:#94a3b8}
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.grow{flex:1;min-width:150px}
+table.data{margin:0;font-size:13px}
+table.data th{background:#f6f8fa}
+.callout{display:inline-block;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;
+  font-size:12px;font-weight:700;text-align:center;line-height:20px;margin-right:6px}
+.legend{margin:10px 0 0;padding-left:0;list-style:none;font-size:14px}
+.legend li{margin:5px 0}
+.kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.kpi div{flex:1;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:9px 12px;background:#f6f8fa}
+.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi b{font-size:18px}
+.chartbox{border:1px dashed #c8d1d9;border-radius:6px;height:96px;display:flex;align-items:center;
+  justify-content:center;color:#8c959f;font-size:13px;background:#fbfcfd}
+.faq dt{font-weight:700;margin-top:14px}
+.faq dd{margin:4px 0 0 0;color:#333}
+footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
+@media(max-width:720px){nav.toc ol{columns:1}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1>FINOSSReportSystem · 用户使用指南</h1>
+  <p class="sub">面向销售、采购与管理人员　·　访问地址 <code>http://172.16.77.80:8001/</code></p>
+</div></header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <strong>目录</strong>
+  <ol>
+    <li><a href="#login">登录与选择公司</a></li>
+    <li><a href="#switch">切换公司</a></li>
+    <li><a href="#entry">录入日报</a></li>
+    <li><a href="#import">导入历史数据</a></li>
+    <li><a href="#report">查看报表与导出</a></li>
+    <li><a href="#mail">每日邮件推送</a></li>
+    <li><a href="#faq">常见问题</a></li>
+  </ol>
+</nav>
+
+<div class="note">
+  <b>先理解一件事：数据按公司隔离</b>
+  系统里有飞诺斯和宁波汇慧两家公司。你的账号和密码两家共用，但<b>业务数据完全分开</b>——登录飞诺斯时看到的客户、日报、报表，都只属于飞诺斯。所以每次操作前，先确认导航栏上「当前公司」是不是你要的那家。
+</div>
+
+<!-- 1 登录 -->
+<section id="login">
+  <h2>1. 登录与选择公司</h2>
+  <p>浏览器打开 <code>http://172.16.77.80:8001/</code>，会跳到登录页。<b>先选公司，再输账号密码。</b></p>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/accounts/login/</span></div>
+    <div class="body"><div class="screen">
+      <h4>日报登录</h4>
+      <p style="font-size:13px;color:#656d76;margin-top:0">先选择要进入的公司，再输入账号密码；各公司的业务数据相互隔离，账号和角色在公司之间共用。</p>
+      <div class="field"><label><span class="callout">1</span>公司</label><div class="inp sel">飞诺斯电子科技有限公司</div></div>
+      <div class="field"><label>用户名</label><div class="inp ph">你的账号</div></div>
+      <div class="field"><label>密码</label><div class="inp ph">••••••••</div></div>
+      <div class="btn">登录</div>
+    </div></div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="callout">1</span>下拉框里只会出现<b>你被授权的公司</b>。如果少了某家，说明还没给你开权限，找管理员添加。</li>
+  </ul>
+
+  <h3>首次登录必须改密码</h3>
+  <p>管理员给你的是初始密码。第一次登录后系统会强制跳到「完善账号信息」页，需要<b>填写本人邮箱并修改密码</b>，完成后才能进入其他功能。邮箱用于接收日报推送，之后可在「个人设置」里改。</p>
+  <div class="tip"><b>密码建议</b>不要用工号、生日、连续数字。改完请自己记牢，忘记只能找管理员重置。</div>
+  <div class="warn"><b>登录提示「当前账号没有该公司的访问权限」</b>说明你选错了公司，或者管理员还没给你授权这家公司。换一家试试，或联系管理员。</div>
+</section>
+
+<!-- 2 切换公司 -->
+<section id="switch">
+  <h2>2. 切换公司</h2>
+  <p>登录后，导航栏右侧显示<b>当前公司</b>。如果你被授权了两家公司，旁边会出现切换下拉框；只授权一家的话不显示，也不需要切换。</p>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/sales/shipments/</span></div>
+    <div class="body">
+      <div class="appnav">
+        <a class="on" href="#">销售</a><a href="#">采购</a><a href="#">销售分析</a><a href="#">采购分析</a>
+        <span class="spacer"></span>
+        <span class="chip">当前公司：飞诺斯</span>
+        <span><span class="callout">1</span>切换公司 <span style="border:1px solid #57606a;border-radius:4px;padding:1px 8px">飞诺斯 ▾</span> <span class="btn gray" style="padding:2px 10px;font-size:12px">切换</span></span>
+        <span style="opacity:.8">zhangsan</span><span class="btn gray" style="padding:2px 10px;font-size:12px">退出</span>
+      </div>
+      <div class="screen">
+        <h4>销售日报</h4>
+        <table class="data">
+          <tr><th>日期</th><th>客户</th><th>负责人</th><th>类型</th><th>数量</th><th>金额</th></tr>
+          <tr><td>2026-08-21</td><td>示例客户乙</td><td>lisi</td><td>内销</td><td>534,464</td><td>12,345.67</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="callout">1</span>选好公司点「切换」。切换后<b>所有页面</b>（日报、报表、导出、导入）都跟着换到那家公司的数据。</li>
+  </ul>
+  <div class="note"><b>怎么确认切换成功</b>看「当前公司」这个标签变了没有。列表里的数据也会整体变化——两家公司的客户和金额本来就不一样。</div>
+</section>
+
+<!-- 3 录入 -->
+<section id="entry">
+  <h2>3. 录入日报</h2>
+  <p>销售人员用「销售」菜单，采购人员用「采购」菜单。两边操作完全对称，下面以销售为例。</p>
+
+  <ol class="steps">
+    <li>点导航栏「销售」，进入销售日报列表。</li>
+    <li>点「新增出货」。</li>
+    <li>填写客户、销售类型、出货日期、数量、金额，保存。</li>
+  </ol>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/sales/shipments/new/</span></div>
+    <div class="body">
+      <div class="appnav"><a class="on" href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
+      <div class="screen">
+        <h4>新增销售日报</h4>
+        <div class="field"><label><span class="callout">1</span>客户　<span style="font-size:12px">可输入客户名称或销售业务员进行筛选，然后从候选列表中选择</span></label><div class="inp ph">输入关键字后从下拉中选择…</div></div>
+        <div class="row">
+          <div class="field grow"><label><span class="callout">2</span>销售类型</label><div class="inp sel">内销</div></div>
+          <div class="field grow"><label>出货日期</label><div class="inp">2026-08-21</div></div>
+        </div>
+        <div class="row">
+          <div class="field grow"><label>数量</label><div class="inp">100</div></div>
+          <div class="field grow"><label><span class="callout">3</span>金额（原币）</label><div class="inp">12345.67</div></div>
+        </div>
+        <div class="btn">保存</div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="callout">1</span>客户框<b>必须从下拉候选里选</b>，手打一个不存在的名字保存不了。候选里只有分配给你的客户；缺客户找管理员建档并分配。</li>
+    <li><span class="callout">2</span><b>内销记人民币，外销记美元</b>。选错会导致金额口径错误。</li>
+    <li><span class="callout">3</span>只填<b>原币金额</b>。外销填美元原值，系统按出货月份的汇率自动折算人民币，不用自己算。</li>
+  </ul>
+
+  <div class="warn">
+    <b>提示「飞诺斯电子科技有限公司缺少 2026年08月 的美元兑人民币汇率」</b>
+    外销/国外采购要用汇率折算，但这家公司这个月的汇率还没维护。汇率是<b>按公司分别维护</b>的，一家有不代表另一家也有。请管理员在「汇率」里补录后再保存。
+  </div>
+
+  <h3>修改与删除</h3>
+  <p>列表每行右侧有「编辑」「删除」。你只能看到和操作<b>自己名下</b>的日报（管理员可见全部）。所有修改删除都会记进操作日志，可追溯。</p>
+  <div class="warn"><b>删除不可撤销</b>点删除前请再确认一遍行内容。</div>
+</section>
+
+<!-- 4 导入 -->
+<section id="import">
+  <h2>4. 导入历史数据</h2>
+  <p>批量导入历史数据由<b>管理员</b>操作。共 5 个导入入口，流程一致：<b>下载模板 → 按模板填写 → 上传预览 → 正式导入</b>。</p>
+
+  <table>
+    <tr><th>导入什么</th><th>菜单入口</th><th>模板里的列</th></tr>
+    <tr><td>客户</td><td>客户导入</td><td>客户名称</td></tr>
+    <tr><td>供应商</td><td>供应商导入</td><td>供应商名称</td></tr>
+    <tr><td>用户</td><td>用户（页内「导入用户」）</td><td>用户名、姓名、角色、初始密码<br>角色可写多个，用「、」分隔，如「销售、采购」</td></tr>
+    <tr><td>销售历史</td><td>销售 → 导入历史数据</td><td>「数据表」：客户名称、业务跟单、销售类型、出货日期、数量、金额<br>「汇率」：日期、汇率</td></tr>
+    <tr><td>采购历史</td><td>采购 → 导入历史数据</td><td>供应商、采购员、采购类型、采购日期、数量、金额</td></tr>
+  </table>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/sales/imports/</span></div>
+    <div class="body">
+      <div class="appnav"><a href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
+      <div class="screen">
+        <h4>销售数据导入</h4>
+        <p><span class="callout">1</span><span class="btn gray">下载导入模板</span></p>
+        <div style="background:#f6f8fa;border:1px solid var(--line);border-radius:6px;padding:12px 16px;font-size:13px">
+          <b>操作说明</b>
+          <ol style="margin:6px 0 0;padding-left:20px">
+            <li>建议先下载导入模板，按模板的列名和格式填写后再上传。</li>
+            <li><b>数据将导入当前公司「飞诺斯电子科技有限公司」</b>，切换公司后重新导入不会互相覆盖。</li>
+            <li>文件需要包含数据表和汇率两个工作表。</li>
+            <li>只有预览没有错误时才能正式导入。</li>
+          </ol>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Excel 文件</label><div class="inp ph">选择文件（.xls 或 .xlsx）</div></div>
+        <p><span class="callout">2</span><span class="btn">预览</span>　<span class="callout">3</span><span class="btn dim">正式导入</span></p>
+      </div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="callout">1</span><b>务必先下载模板</b>。列名必须和模板一致，否则导入识别不到。模板里有两行示例和一个「填写说明」工作表。</li>
+    <li><span class="callout">2</span>先点「预览」。预览<b>只校验、不写库</b>，会列出每个错误在第几行、哪个字段。</li>
+    <li><span class="callout">3</span>预览零错误后，「正式导入」才可点击。</li>
+  </ul>
+
+  <div class="note">
+    <b>填模板注意</b>
+    <ul style="margin:6px 0 0;padding-left:20px">
+      <li>示例行是给你照着改的，<b>正式导入前替换成真实数据或删掉</b>，否则示例也会被导进去。</li>
+      <li>工作表名称不要改：销售模板必须保留「数据表」和「汇率」两个表名。</li>
+      <li>销售类型只填<b>内销 / 外销</b>；采购类型只填<b>国内采购 / 国外采购</b>；角色填<b>管理员 / 销售 / 采购 / 报表查看者</b>，兼岗可写多个（如「销售、采购」）。</li>
+      <li>日期写成 <code>2026-08-10</code>；汇率表的日期写成 <code>2026年8月</code>。</li>
+    </ul>
+  </div>
+
+  <div class="warn">
+    <b>导入会自动建账号并授权当前公司</b>
+    「业务跟单」「采购员」列里的用户名，如果系统里没有会<b>自动创建账号</b>并授予当前公司的访问权限；如果是另一家公司的已有账号，那个人就同时能进这家公司了。导入前请核对名单。
+  </div>
+  <div class="tip"><b>采购导入没有汇率表</b>国外采购请先在「汇率」页面维护好对应月份，再来导入，否则预览会报「缺少该月份美元兑人民币汇率」。</div>
+</section>
+
+<!-- 5 报表 -->
+<section id="report">
+  <h2>5. 查看报表与导出</h2>
+  <p>导航栏「销售分析」「采购分析」是图表看板，只统计<b>当前公司</b>的数据。</p>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/reports/sales/</span></div>
+    <div class="body">
+      <div class="appnav"><a href="#">销售</a><a href="#">采购</a><a class="on" href="#">销售分析</a><a href="#">采购分析</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
+      <div class="screen">
+        <h4>销售报表</h4>
+        <div class="row" style="margin-bottom:14px">
+          <div class="field"><label>开始日期</label><div class="inp" style="min-width:120px">2026-08-01</div></div>
+          <div class="field"><label>结束日期</label><div class="inp" style="min-width:120px">2026-08-21</div></div>
+          <div class="field"><label>负责人</label><div class="inp sel" style="min-width:100px">全部</div></div>
+          <div class="field"><label>客户</label><div class="inp sel" style="min-width:100px">全部</div></div>
+          <div class="field"><span class="callout">1</span><span class="btn gray">本月</span> <span class="btn gray">本周</span> <span class="btn gray">本年</span></div>
+          <div class="field"><span class="btn">筛选</span> <span class="callout">2</span><span class="btn gray">导出 Excel</span></div>
+        </div>
+        <div class="kpi">
+          <div><span>数量</span><b>1,250</b></div>
+          <div><span>人民币</span><b>986,540</b></div>
+          <div><span>美元</span><b>32,000</b></div>
+          <div><span>折算人民币</span><b>1,214,380</b></div>
+        </div>
+        <div class="chartbox">日趋势 / 月趋势 / 类型占比 / 客户排行（ECharts 图表）</div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="callout">1</span>「本月 / 本周 / 本年」是快捷时间段，点一下自动填好日期。</li>
+    <li><span class="callout">2</span>「导出 Excel」导出的是<b>当前筛选条件下</b>的明细，文件名带公司代码（如 <code>sales-report-A.xlsx</code>），不会混进另一家公司的数据。</li>
+  </ul>
+
+  <div class="note">
+    <b>看懂金额口径</b>
+    「人民币」和「美元」是<b>各自币种的原币合计</b>，两者不能直接相加；「折算人民币」才是总额，按每笔录入当月的汇率快照折算。历史汇率变动不会改动已保存的日报金额。
+  </div>
+</section>
+
+<!-- 6 邮件 -->
+<section id="mail">
+  <h2>6. 每日邮件推送</h2>
+  <p>系统每天定时把当天数据发到指定邮箱，收件人不用登录系统也能看到。收件组由管理员配置。</p>
+
+  <h3>邮件里有什么</h3>
+  <table>
+    <tr><th>内容</th><th>说明</th></tr>
+    <tr><td>标题</td><td><code>[飞诺斯电子科技有限公司] 2026-08-21 经营日报</code>，带公司名和业务日期</td></tr>
+    <tr><td>三档汇总</td><td>当日、本月累计、本年累计；每档都分列人民币、美元、折算人民币合计</td></tr>
+    <tr><td>当日明细</td><td>正文里的表格，逐笔列出</td></tr>
+    <tr><td>Excel 附件</td><td>当日明细，销售和采购分两个工作表</td></tr>
+  </table>
+
+  <div class="note"><b>一家公司一封邮件</b>飞诺斯的收件组只会收到飞诺斯的数据，两家不会混在一封里。</div>
+  <div class="tip"><b>当天没数据不发邮件</b>如果某天一笔都没录，系统默认跳过不发，避免收到空邮件。</div>
+  <div class="warn"><b>没收到邮件？</b>先检查垃圾邮件箱；再确认当天是否真的有数据录入；仍有问题联系管理员查「邮件发送记录」，里面有每次发送的成败和失败原因。</div>
+</section>
+
+<!-- 7 FAQ -->
+<section id="faq">
+  <h2>7. 常见问题</h2>
+  <dl class="faq">
+    <dt>登录时下拉框里没有我要的公司？</dt>
+    <dd>管理员还没给你授权这家公司。账号是两家共用的，但需要逐家开授权。</dd>
+
+    <dt>登录后提示「当前账号没有可进入的公司」？</dt>
+    <dd>你的账号一家公司都没授权。找管理员在「用户公司授权」里添加。</dd>
+
+    <dt>导航栏没有「切换公司」？</dt>
+    <dd>说明你只被授权了一家公司，不需要切换，属正常。</dd>
+
+    <dt>客户下拉框里找不到某个客户？</dt>
+    <dd>三种可能：① 客户还没在<b>这家公司</b>建档（另一家有不算）；② 客户没分配给你；③ 客户被停用了。都需要管理员处理。</dd>
+
+    <dt>为什么明明录过的日报，切换公司后看不到了？</dt>
+    <dd>正常。日报属于录入时所在的那家公司，切回去就能看到。</dd>
+
+    <dt>保存时提示缺少汇率？</dt>
+    <dd>外销/国外采购需要当月汇率，而汇率按公司分别维护。请管理员在「汇率」里补录这家公司这个月的汇率。</dd>
+
+    <dt>上传 Excel 提示格式或数值无效？</dt>
+    <dd>先下载模板对照列名。常见原因：日期格式不对、数量填了小数或 0、金额是文本（单元格左上角有绿色小三角）、销售类型写了「内销售」之类不认的词。</dd>
+
+    <dt>忘记密码怎么办？</dt>
+    <dd>找管理员重置。重置后会给你一个新的初始密码，下次登录会要求你再改一次。</dd>
+
+    <dt>能同时开两个浏览器窗口，一个看飞诺斯一个看宁波汇慧吗？</dt>
+    <dd>不行。当前公司记录在同一个登录会话里，切换会影响所有已打开的页面。需要对比两家数据时，请分别导出 Excel。</dd>
+  </dl>
+</section>
+
+<footer>FINOSSReportSystem · 用户使用指南　|　遇到本指南没写到的问题，请联系系统管理员</footer>
+</div>
+</body>
+</html>

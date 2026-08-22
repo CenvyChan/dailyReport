@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>邮件推送 - {{ nav_company.name }}</h1>
+<div class="page-actions"><a href="{% url 'notifications:mailing_list_create' %}">新增收件组</a></div>
+<p class="page-help">收件组只推送当前公司的数据。计划任务每 10 分钟检查一次，到点后发送当天的明细和汇总；同一天同一收件组只会成功发送一次。</p>
+
+<table><tr><th>名称</th><th>推送内容</th><th>收件人</th><th>发送时间</th><th>附件</th><th>状态</th><th>操作</th></tr>
+{% for item in mailing_lists %}<tr><td>{{ item.name }}</td><td>{{ item.get_scope_display }}</td><td>{{ item.recipients }}</td><td>{{ item.send_at }}</td><td>{% if item.attach_workbook %}Excel{% else %}无{% endif %}</td><td>{% if item.is_active %}启用{% else %}停用{% endif %}</td><td class="row-actions"><a href="{% url 'notifications:mailing_list_edit' item.pk %}">编辑</a><form method="post" action="{% url 'notifications:mailing_list_send_now' item.pk %}" onsubmit="return confirm('确认立即向收件组「{{ item.name|escapejs }}」发送今天的日报？收件人会立刻收到邮件。')">{% csrf_token %}<button type="submit">立即发送</button></form></td></tr>{% empty %}<tr><td colspan="7">还没有配置收件组</td></tr>{% endfor %}
+</table>
+
+<h2>最近发送记录</h2>
+<table><tr><th>发送时间</th><th>业务日期</th><th>收件组</th><th>结果</th><th>收件人数</th><th>说明</th></tr>
+{% for log in logs %}<tr><td>{{ log.created_at }}</td><td>{{ log.report_date }}</td><td>{{ log.mailing_list.name }}</td><td>{{ log.get_status_display }}</td><td>{{ log.recipient_count }}</td><td>{{ log.message|default:"-" }}</td></tr>{% empty %}<tr><td colspan="6">暂无发送记录</td></tr>{% endfor %}
+</table>
+{% endblock %}

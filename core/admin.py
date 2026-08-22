@@ -10,15 +10,25 @@ from django.db.models import Count, Model
 from django.forms.models import model_to_dict
 from django.utils.html import format_html
 
-from core.models import Customer, ExchangeRate, OperationLog, PurchaseAssignment, SalesAssignment, Supplier
+from core.models import (
+    Company,
+    CompanyMembership,
+    Customer,
+    ExchangeRate,
+    OperationLog,
+    PurchaseAssignment,
+    SalesAssignment,
+    Supplier,
+)
 from core.services.audit import record_audit
 from core.services.users import ROLE_LABELS, role_label
+from notifications.models import MailingList
 from purchase.models import PurchaseReceipt
 from sales.models import SalesShipment
 
 
-admin.site.site_header = "轻量日报系统管理"
-admin.site.site_title = "轻量日报管理"
+admin.site.site_header = "FINOSSReportSystem"
+admin.site.site_title = "FINOSSReportSystem"
 admin.site.index_title = "系统配置与数据维护"
 apps.get_app_config("auth").verbose_name = "用户与权限"
 
@@ -31,6 +41,8 @@ ACTION_LABELS = {
     "MIGRATION_CREATE": "系统初始化",
 }
 MODEL_LABELS = {
+    "core.Company": "公司",
+    "core.CompanyMembership": "用户公司授权",
     "core.Customer": "客户",
     "core.Supplier": "供应商",
     "core.SalesAssignment": "销售客户归属",
@@ -40,10 +52,13 @@ MODEL_LABELS = {
     "auth.Group": "业务角色",
     "sales.SalesShipment": "销售日报",
     "purchase.PurchaseReceipt": "采购日报",
+    "notifications.MailingList": "邮件收件组",
 }
 MODEL_CLASSES = {
     model._meta.label: model
     for model in (
+        Company,
+        CompanyMembership,
         Customer,
         Supplier,
         SalesAssignment,
@@ -51,12 +66,15 @@ MODEL_CLASSES = {
         ExchangeRate,
         SalesShipment,
         PurchaseReceipt,
+        MailingList,
     )
 }
 EXTRA_FIELD_LABELS = {
     ("auth.User", "username"): "用户名",
     ("auth.User", "first_name"): "姓名",
     ("auth.User", "role"): "角色",
+    ("auth.User", "roles"): "角色",
+    ("auth.User", "companies"): "可进入公司",
     ("auth.User", "must_change_password"): "首次登录必须改密",
 }
 ROLE_DESCRIPTIONS = {
@@ -100,6 +118,8 @@ def _field_label(model_label, field_name):
 def _readable_value(model_label, field_name, value):
     if isinstance(value, bool):
         return "是" if value else "否"
+    if model_label == "auth.User" and field_name == "roles":
+        return "、".join(role_label(role) for role in value) if isinstance(value, list) else role_label(value)
     if model_label == "auth.User" and field_name == "role":
         return role_label(value)
     model = MODEL_CLASSES.get(model_label)
@@ -181,11 +201,36 @@ class RoleGroupAdmin(DjangoGroupAdmin):
         return False
 
 
+@admin.register(Company)
+class CompanyAdmin(AuditedAdmin):
+    list_display = ("code", "name", "is_active", "sort_order")
+    search_fields = ("code", "name")
+    field_help_texts = {
+        "code": "登录页和导出文件名使用的短代码，例如 A、B；创建后不建议修改。",
+        "name": "登录页公司下拉里显示的名称。",
+        "is_active": "停用后不再出现在登录页，但历史数据保留。",
+        "sort_order": "数字越小越靠前；登录页默认选中排在最前的公司。",
+    }
+
+
+@admin.register(CompanyMembership)
+class CompanyMembershipAdmin(AuditedAdmin):
+    list_display = ("user", "company")
+    list_filter = ("company",)
+    search_fields = ("user__username", "company__name")
+    field_help_texts = {
+        "user": "用户和角色在各公司之间共享，这里只决定该账号能进入哪几家公司。",
+        "company": "授权后该用户登录时可以选择这家公司。",
+    }
+
+
 @admin.register(Customer)
 class CustomerAdmin(AuditedAdmin):
-    list_display = ("name", "is_active")
+    list_display = ("name", "company", "is_active")
+    list_filter = ("company", "is_active")
     search_fields = ("name",)
     field_help_texts = {
+        "company": "客户归属公司；A、B 两家公司的客户资料互不可见。",
         "name": "用于销售日报选择和报表汇总；请使用公司统一的客户全称。",
         "is_active": "停用后保留历史数据，但不再用于新增销售日报。",
     }
@@ -193,9 +238,11 @@ class CustomerAdmin(AuditedAdmin):
 
 @admin.register(Supplier)
 class SupplierAdmin(AuditedAdmin):
-    list_display = ("name", "is_active")
+    list_display = ("name", "company", "is_active")
+    list_filter = ("company", "is_active")
     search_fields = ("name",)
     field_help_texts = {
+        "company": "供应商归属公司；A、B 两家公司的供应商资料互不可见。",
         "name": "用于采购日报选择和报表汇总；请使用公司统一的供应商全称。",
         "is_active": "停用后保留历史数据，但不再用于新增采购日报。",
     }
@@ -204,6 +251,7 @@ class SupplierAdmin(AuditedAdmin):
 @admin.register(SalesAssignment)
 class SalesAssignmentAdmin(AuditedAdmin):
     list_display = ("user", "customer")
+    list_filter = ("customer__company",)
     search_fields = ("user__username", "customer__name")
     field_help_texts = {
         "user": "选择负责该客户的销售业务员。",
@@ -214,6 +262,7 @@ class SalesAssignmentAdmin(AuditedAdmin):
 @admin.register(PurchaseAssignment)
 class PurchaseAssignmentAdmin(AuditedAdmin):
     list_display = ("user", "supplier")
+    list_filter = ("supplier__company",)
     search_fields = ("user__username", "supplier__name")
     field_help_texts = {
         "user": "选择负责该供应商的采购员。",
@@ -223,8 +272,10 @@ class PurchaseAssignmentAdmin(AuditedAdmin):
 
 @admin.register(ExchangeRate)
 class ExchangeRateAdmin(AuditedAdmin):
-    list_display = ("month", "usd_to_cny")
+    list_display = ("month", "company", "usd_to_cny")
+    list_filter = ("company",)
     field_help_texts = {
+        "company": "汇率按公司分别维护，两家公司可以使用不同口径。",
         "month": "请选择对应月份的 1 日；系统按日报日期所在月份匹配汇率。",
         "usd_to_cny": "填写 1 美元可兑换的人民币金额；日报保存后会保留当时的汇率快照。",
     }

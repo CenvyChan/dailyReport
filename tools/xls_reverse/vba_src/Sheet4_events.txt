@@ -1,0 +1,9 @@
+Private Sub Worksheet_Change(ByVal Target As Range)
+    ' 改动 C2(年) / F2(月) / I2(日) 任一格，立即重算当日明细与汇总
+    If Application.Intersect(Target, Me.Range("$C$2,$F$2,$I$2")) Is Nothing Then Exit Sub
+    RefreshDailyReport
+End Sub
+
+Private Sub Worksheet_Activate()
+    RefreshDailyReport
+End Sub

@@ -2,5 +2,7 @@
 {% block content %}
 <h1>汇率维护</h1>
 <div class="page-actions"><a href="{% url 'core:rate_create' %}">新增月份汇率</a></div>
-<table><tr><th>月份</th><th>美元兑人民币</th><th>更新时间</th><th>操作</th></tr>{% for rate in rates %}<tr><td>{{ rate.month }}</td><td>{{ rate.usd_to_cny }}</td><td>-</td><td><a href="{% url 'core:rate_edit' rate.pk %}">编辑</a></td></tr>{% empty %}<tr><td colspan="4">暂无汇率</td></tr>{% endfor %}</table>
+<p class="page-help">汇率按公司分别维护，只需选择年月。外销和国外采购录入时会取当月汇率生成快照，之后修改汇率不影响已保存的日报。</p>
+<table><tr><th>月份</th><th>美元兑人民币</th><th>操作</th></tr>{% for rate in rates %}<tr><td>{{ rate.month|date:"Y年n月" }}</td><td>{{ rate.usd_to_cny }}</td><td><a href="{% url 'core:rate_edit' rate.pk %}">编辑</a></td></tr>{% empty %}<tr><td colspan="3">暂无汇率</td></tr>{% endfor %}</table>
+{% include "includes/pagination.html" %}
 {% endblock %}

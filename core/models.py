@@ -3,27 +3,65 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 
+class Company(models.Model):
+    code = models.SlugField("公司代码", max_length=20, unique=True)
+    name = models.CharField("公司名称", max_length=120, unique=True)
+    is_active = models.BooleanField("启用", default=True)
+    sort_order = models.PositiveSmallIntegerField("排序", default=0)
+
+    class Meta:
+        ordering = ["sort_order", "code"]
+        verbose_name = "公司"
+        verbose_name_plural = "公司"
+
+    def __str__(self):
+        return self.name
+
+
+class CompanyMembership(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="用户", on_delete=models.CASCADE)
+    company = models.ForeignKey(Company, verbose_name="公司", on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = "用户公司授权"
+        verbose_name_plural = "用户公司授权"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "company"], name="unique_company_membership")
+        ]
+
+    def __str__(self):
+        return f"{self.user} → {self.company}"
+
+
 class Customer(models.Model):
-    name = models.CharField("客户名称", max_length=120, unique=True)
+    company = models.ForeignKey(Company, verbose_name="公司", on_delete=models.PROTECT, related_name="customers")
+    name = models.CharField("客户名称", max_length=120)
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:
         ordering = ["name"]
         verbose_name = "客户"
         verbose_name_plural = "客户"
+        constraints = [
+            models.UniqueConstraint(fields=["company", "name"], name="unique_customer_per_company")
+        ]
 
     def __str__(self):
         return self.name
 
 
 class Supplier(models.Model):
-    name = models.CharField("供应商名称", max_length=120, unique=True)
+    company = models.ForeignKey(Company, verbose_name="公司", on_delete=models.PROTECT, related_name="suppliers")
+    name = models.CharField("供应商名称", max_length=120)
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:
         ordering = ["name"]
         verbose_name = "供应商"
         verbose_name_plural = "供应商"
+        constraints = [
+            models.UniqueConstraint(fields=["company", "name"], name="unique_supplier_per_company")
+        ]
 
     def __str__(self):
         return self.name
@@ -64,13 +102,17 @@ class PurchaseAssignment(models.Model):
 
 
 class ExchangeRate(models.Model):
-    month = models.DateField("月份", unique=True)
+    company = models.ForeignKey(Company, verbose_name="公司", on_delete=models.PROTECT, related_name="exchange_rates")
+    month = models.DateField("月份")
     usd_to_cny = models.DecimalField("美元兑人民币", max_digits=10, decimal_places=4)
 
     class Meta:
         ordering = ["-month"]
         verbose_name = "月度汇率"
         verbose_name_plural = "月度汇率"
+        constraints = [
+            models.UniqueConstraint(fields=["company", "month"], name="unique_exchange_rate_per_company")
+        ]
 
     def clean(self):
         if self.month is not None and self.month.day != 1:

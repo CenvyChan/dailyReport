@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from core.models import Customer, OperationLog, Supplier
+from core.testing import company_a
 from purchase.models import PurchaseReceipt
 from sales.models import SalesShipment
 
@@ -14,7 +15,10 @@ class CoreAdminAuditTests(TestCase):
         admin = User.objects.create_superuser("admin", password="pw")
         self.client.force_login(admin)
 
-        response = self.client.post(reverse("admin:core_customer_add"), {"name": "客户 A", "is_active": "on"})
+        response = self.client.post(
+            reverse("admin:core_customer_add"),
+            {"company": company_a().pk, "name": "客户 A", "is_active": "on"},
+        )
 
         self.assertRedirects(response, reverse("admin:core_customer_changelist"))
         customer = Customer.objects.get(name="客户 A")
@@ -24,9 +28,11 @@ class CoreAdminAuditTests(TestCase):
         admin = User.objects.create_superuser("admin", password="pw")
         owner = User.objects.create_user("sales-a")
         buyer = User.objects.create_user("buyer-a")
-        customer = Customer.objects.create(name="客户 A")
-        supplier = Supplier.objects.create(name="供应商 A")
+        company = company_a()
+        customer = Customer.objects.create(company=company, name="客户 A")
+        supplier = Supplier.objects.create(company=company, name="供应商 A")
         shipment = SalesShipment.objects.create(
+            company=company,
             customer=customer,
             owner=owner,
             sale_type="DOMESTIC",
@@ -38,6 +44,7 @@ class CoreAdminAuditTests(TestCase):
             amount_cny="10",
         )
         receipt = PurchaseReceipt.objects.create(
+            company=company,
             supplier=supplier,
             buyer=buyer,
             purchase_type="DOMESTIC",
@@ -53,6 +60,7 @@ class CoreAdminAuditTests(TestCase):
         response = self.client.post(
             reverse("admin:sales_salesshipment_change", args=[shipment.pk]),
             {
+                "company": company.pk,
                 "customer": customer.pk,
                 "owner": owner.pk,
                 "sale_type": "DOMESTIC",
@@ -72,6 +80,7 @@ class CoreAdminAuditTests(TestCase):
         response = self.client.post(
             reverse("admin:purchase_purchasereceipt_change", args=[receipt.pk]),
             {
+                "company": company.pk,
                 "supplier": supplier.pk,
                 "buyer": buyer.pk,
                 "purchase_type": "DOMESTIC",

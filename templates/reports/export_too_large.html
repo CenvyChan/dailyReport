@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>导出范围过大</h1>
+<section class="page-help">
+  <p>{{ message }}</p>
+  <p>可以这样缩小范围：</p>
+  <ol>
+    <li>用筛选栏的「本月」「本周」按钮，或手工填开始和结束日期。</li>
+    <li>按负责人或客户/供应商筛选后再导出。</li>
+    <li>确实要全量数据时，请按月份分几次导出。</li>
+  </ol>
+</section>
+<p class="page-actions">{% if back_url %}<a class="button" href="{{ back_url }}">返回重新筛选</a>{% else %}<a class="button" href="{% url 'sales:shipment_list' %}">返回</a>{% endif %}</p>
+{% endblock %}

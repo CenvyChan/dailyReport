@@ -1,0 +1,28 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="pagination" aria-label="分页">
+  {% if page.has_previous %}
+    <a href="?{{ querystring }}&page=1">首页</a>
+    <a href="?{{ querystring }}&page={{ page.previous_page_number }}">上一页</a>
+  {% else %}
+    <span class="disabled">首页</span><span class="disabled">上一页</span>
+  {% endif %}
+  <span class="page-info">第 {{ page.number }} / {{ page.paginator.num_pages }} 页，共 {{ page.paginator.count }} 条</span>
+  {% if page.has_next %}
+    <a href="?{{ querystring }}&page={{ page.next_page_number }}">下一页</a>
+    <a href="?{{ querystring }}&page={{ page.paginator.num_pages }}">末页</a>
+  {% else %}
+    <span class="disabled">下一页</span><span class="disabled">末页</span>
+  {% endif %}
+  {# listing.paginate 一直支持 size 参数，但此前界面上没有入口，功能等于点不到 #}
+  <form class="page-size" method="get">
+    {% for key, value in request.GET.items %}{% if key != 'size' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+    <label for="page-size">每页</label>
+    <select id="page-size" name="size" onchange="this.form.submit()">
+      {% for choice in page.size_choices %}<option value="{{ choice }}" {% if choice == page.current_size %}selected{% endif %}>{{ choice }}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit">应用</button></noscript>
+  </form>
+</nav>
+{% else %}
+<p class="page-info">共 {{ page.paginator.count }} 条</p>
+{% endif %}

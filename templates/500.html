@@ -1,0 +1,29 @@
+{# 不继承 base.html：500 说明请求已经出错，context processor 可能也失败了，
+   继承会在渲染错误页时再抛一次异常，用户就只剩浏览器的默认白屏。 #}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>系统出错 - FINOSSReportSystem</title>
+  <style>
+    body { margin: 0; padding: 40px 20px; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #2f3d47; background: #f4f5f7; }
+    .box { max-width: 560px; margin: 0 auto; padding: 28px 32px; background: #fff; border: 1px solid #dce3e8; }
+    h1 { margin: 0 0 12px; font-size: 20px; color: #8a1f1f; }
+    ol { padding-left: 20px; line-height: 1.9; color: #5e6f7d; font-size: 14px; }
+    a { color: #005f9e; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>系统出错了</h1>
+    <p>刚才的操作没有完成，<strong>数据没有被修改</strong>。</p>
+    <ol>
+      <li>可以先返回上一页重试一次。</li>
+      <li>如果还是不行，请把当前时间和刚才的操作告诉管理员。</li>
+      <li>管理员可在服务器 <code>logs/app.log</code> 里查到对应的错误详情。</li>
+    </ol>
+    <p><a href="/">返回首页</a></p>
+  </div>
+</body>
+</html>

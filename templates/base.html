@@ -1,2 +1,44 @@
-{% load static %}
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>轻量日报</title><link rel="stylesheet" href="{% static 'css/app.css' %}"></head><body>{% if user.is_authenticated %}<nav>{% if nav_can_sales %}<a href="/sales/shipments/">销售</a>{% endif %}{% if nav_can_purchase %}<a href="/purchase/receipts/">采购</a>{% endif %}<a href="/reports/sales/">销售分析</a><a href="/reports/purchase/">采购分析</a>{% if nav_is_administrator %}<a href="/core/rates/">汇率</a><a href="/core/users/">用户</a><a href="/core/customers/imports/">客户导入</a><a href="/core/suppliers/imports/">供应商导入</a>{% endif %}<span>{{ user.username }}</span><form method="post" action="/accounts/logout/">{% csrf_token %}<button type="submit">退出</button></form></nav>{% endif %}<main>{% block content %}{% endblock %}</main></body></html>
+{% load static display %}<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# 带上公司名：同时开着 A、B 两家的标签页时要能分辨，否则容易看错数据 #}
+  <title>{% block title %}{% if nav_company %}{{ nav_company.name }} - {% endif %}FINOSSReportSystem{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<nav>
+  {% if nav_can_sales %}<a href="/sales/shipments/">销售</a>{% endif %}
+  {% if nav_can_purchase %}<a href="/purchase/receipts/">采购</a>{% endif %}
+  <a href="/reports/sales/">销售分析</a>
+  <a href="/reports/purchase/">采购分析</a>
+  {% if nav_can_comparison %}<a href="/reports/comparison/">采销对比</a>{% endif %}
+  {% if nav_can_sales %}<a href="/core/customers/">客户</a>{% endif %}
+  {% if nav_can_purchase %}<a href="/core/suppliers/">供应商</a>{% endif %}
+  {% if nav_is_administrator %}<a href="/core/rates/">汇率</a><a href="/core/users/">用户</a><a href="/core/notifications/">邮件推送</a>{% endif %}
+  <span class="nav-company">当前公司：{% if nav_company %}{{ nav_company.name }}{% else %}未授权{% endif %}</span>
+  {% if nav_companies|length > 1 %}
+  <form class="company-switch" method="post" action="{% url 'core:switch_company' %}">
+    {% csrf_token %}
+    <label for="company-switch">切换公司</label>
+    <select id="company-switch" name="company">
+      {% for item in nav_companies %}<option value="{{ item.pk }}" {% if nav_company and item.pk == nav_company.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+    </select>
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit">切换</button>
+  </form>
+  {% endif %}
+  <a class="help-link" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="打开用户使用指南"><span class="help-icon" aria-hidden="true">?</span>帮助</a>
+  <a href="/core/profile/">{{ user|person }}</a>
+  <form method="post" action="/accounts/logout/">{% csrf_token %}<button type="submit">退出</button></form>
+</nav>
+{% endif %}
+<main>
+  {# messages 原先只在 profile 和 mailing_list 两个页面渲染，别处 add_message 会被静默吞掉 #}
+  {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

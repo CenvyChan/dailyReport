@@ -4,18 +4,20 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
 
+from core.models import CompanyMembership, Supplier
+from core.testing import company_a, company_b
 from purchase.importers import (
     ImportPreview,
     commit_purchase_import,
     validate_purchase_rates,
     validate_purchase_rows,
 )
+from purchase.models import PurchaseReceipt
 
 
 class PurchaseImportCommitTests(TestCase):
-    def test_imported_buyer_is_added_to_purchase_group(self):
-        admin = User.objects.create_superuser("admin")
-        preview = ImportPreview(
+    def _preview(self):
+        return ImportPreview(
             1,
             [],
             [
@@ -32,10 +34,24 @@ class PurchaseImportCommitTests(TestCase):
             rate_errors=[],
         )
 
-        commit_purchase_import(preview, actor=admin, source_file="history.xls")
+    def test_imported_buyer_is_added_to_purchase_group_and_company(self):
+        admin = User.objects.create_superuser("admin")
+
+        commit_purchase_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
 
         buyer = User.objects.get(username="purchase-buyer")
         self.assertTrue(buyer.groups.filter(name="purchase").exists())
+        self.assertTrue(CompanyMembership.objects.filter(user=buyer, company=company_a()).exists())
+
+    def test_import_creates_master_data_and_rows_inside_the_target_company(self):
+        admin = User.objects.create_superuser("admin")
+
+        commit_purchase_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+
+        self.assertTrue(Supplier.objects.filter(company=company_b(), name="Supplier A").exists())
+        self.assertFalse(Supplier.objects.filter(company=company_a(), name="Supplier A").exists())
+        self.assertEqual(PurchaseReceipt.objects.filter(company=company_b()).count(), 1)
+        self.assertEqual(PurchaseReceipt.objects.filter(company=company_a()).count(), 0)
 
 
 class PurchaseImporterTests(SimpleTestCase):

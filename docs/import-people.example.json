@@ -1,0 +1,6 @@
+{
+  "_说明": "把此文件复制为 data/newsource/people.json 并填入真实姓名。左边是源表「业务跟单」「采购员」列里的中文姓名，右边是系统登录名。data/newsource/ 不进版本库，真实员工姓名不会被提交。",
+  "_用法": "python manage.py import_history --company FNS --password '初始密码'",
+  "张三": "zhangsan",
+  "李四": "lisi"
+}

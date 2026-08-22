@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 与 Dockerfile 的 python:3.12-slim 保持一致
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: 代码检查
+        run: ruff check .
+
+      - name: Django 配置自检
+        # DEBUG=False + 占位 key，确认生产配置能起得来
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+          DJANGO_DEBUG: "False"
+        run: python manage.py check --deploy --fail-level ERROR
+
+      - name: 迁移完整性
+        # 模型改了却忘记生成迁移时，这一步会失败
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: 测试
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+        run: python manage.py test --verbosity 2

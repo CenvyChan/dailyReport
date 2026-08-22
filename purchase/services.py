@@ -1,23 +1,27 @@
 from decimal import Decimal
 
+from core.errors import MissingExchangeRate
 from core.models import ExchangeRate, PurchaseAssignment
 from core.services.audit import record_audit
 from core.services.permissions import is_administrator
 from purchase.models import PurchaseReceipt
 
 
-def purchase_queryset_for(user):
-    queryset = PurchaseReceipt.objects.select_related("supplier", "buyer")
+def purchase_queryset_for(user, company):
+    if company is None:
+        return PurchaseReceipt.objects.none()
+    queryset = PurchaseReceipt.objects.filter(company=company).select_related("supplier", "buyer")
     return queryset if is_administrator(user) else queryset.filter(buyer=user)
 
 
 def _receipt_snapshot(receipt):
     return {
+        "company_id": receipt.company_id,
         "supplier_id": receipt.supplier_id,
         "buyer_id": receipt.buyer_id,
         "purchase_type": receipt.purchase_type,
         "purchase_date": receipt.purchase_date.isoformat(),
-        "quantity": receipt.quantity,
+        "quantity": str(receipt.quantity),
         "currency": receipt.currency,
         "original_amount": str(receipt.original_amount),
         "exchange_rate": str(receipt.exchange_rate),
@@ -26,13 +30,15 @@ def _receipt_snapshot(receipt):
     }
 
 
-def _amount_fields(*, purchase_type, purchase_date, original_amount):
+def _amount_fields(*, company, purchase_type, purchase_date, original_amount):
     currency = "CNY" if purchase_type == PurchaseReceipt.PurchaseType.DOMESTIC else "USD"
     applied_rate = Decimal("1")
     if currency == "USD":
-        applied_rate = ExchangeRate.objects.get(
-            month=purchase_date.replace(day=1)
-        ).usd_to_cny
+        month = purchase_date.replace(day=1)
+        rate = ExchangeRate.objects.filter(company=company, month=month).first()
+        if rate is None:
+            raise MissingExchangeRate(company, month)
+        applied_rate = rate.usd_to_cny
     amount = Decimal(str(original_amount))
     return {
         "currency": currency,
@@ -41,20 +47,26 @@ def _amount_fields(*, purchase_type, purchase_date, original_amount):
     }
 
 
-def _ensure_supplier_assignment(buyer, supplier):
+def _ensure_supplier_assignment(buyer, supplier, company):
+    if supplier.company_id != company.pk:
+        raise PermissionError("供应商不属于当前公司")
     if not PurchaseAssignment.objects.filter(user=buyer, supplier=supplier).exists():
         raise PermissionError("供应商未分配给采购负责人")
 
 
-def create_purchase_receipt(*, actor, data):
+def create_purchase_receipt(*, actor, company, data):
     payload = dict(data)
-    buyer = payload.pop("buyer", actor)
+    # buyer 由调用方按供应商归属带出；缺省才退回操作人自己。
+    buyer = payload.pop("buyer", None) or actor
+    # 非管理员只能录到自己名下；管理员代录时 buyer 是系统按归属算出来的，放行。
     if buyer != actor and not is_administrator(actor):
         raise PermissionError("不能代替其他采购人员录入")
-    _ensure_supplier_assignment(buyer, payload["supplier"])
+    _ensure_supplier_assignment(buyer, payload["supplier"], company)
     receipt = PurchaseReceipt.objects.create(
         buyer=buyer,
+        company=company,
         **_amount_fields(
+            company=company,
             purchase_type=payload["purchase_type"],
             purchase_date=payload["purchase_date"],
             original_amount=payload["original_amount"],
@@ -74,17 +86,26 @@ def create_purchase_receipt(*, actor, data):
 def update_purchase_receipt(*, actor, receipt, data):
     payload = dict(data)
     stored_receipt = PurchaseReceipt.objects.get(pk=receipt.pk)
-    _ensure_supplier_assignment(stored_receipt.buyer, payload["supplier"])
+    # 换供应商时负责人要跟着换，否则拿旧负责人去校验新供应商的归属必然失败。
+    buyer = payload.pop("buyer", None) or stored_receipt.buyer
+    if buyer != stored_receipt.buyer and not is_administrator(actor):
+        raise PermissionError("不能把日报转给其他采购人员")
+    _ensure_supplier_assignment(buyer, payload["supplier"], stored_receipt.company)
     before = _receipt_snapshot(stored_receipt)
+    receipt.buyer = buyer
     for field in ("supplier", "purchase_type", "purchase_date", "quantity", "original_amount"):
         setattr(receipt, field, payload[field])
     for field, value in _amount_fields(
+        company=receipt.company,
         purchase_type=receipt.purchase_type,
         purchase_date=receipt.purchase_date,
         original_amount=receipt.original_amount,
     ).items():
         setattr(receipt, field, value)
     receipt.save()
+    # 从库里读回，让 quantity 等 Decimal 字段按存储精度归一，
+    # 否则审计日志里 before 是 "1.000"、after 是 "2"，无法直接比对。
+    receipt.refresh_from_db()
     record_audit(
         actor=actor,
         instance=receipt,

@@ -11,4 +11,6 @@ urlpatterns = [
     path("api/purchase/", views.purchase_dashboard_api, name="purchase_dashboard_api"),
     path("sales/export/", views.sales_export, name="sales_export"),
     path("purchase/export/", views.purchase_export, name="purchase_export"),
+    path("comparison/", views.monthly_comparison_view, name="monthly_comparison"),
+    path("comparison/export/", views.monthly_comparison_export, name="monthly_comparison_export"),
 ]

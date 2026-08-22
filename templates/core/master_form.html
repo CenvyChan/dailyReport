@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }} - {{ nav_company.name }}</h1>
+<p class="page-help">资料保存到当前公司「{{ nav_company.name }}」，另一家公司看不到。</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>
+<p class="page-actions"><a href="{% url back_url %}">返回列表</a></p>
+{% endblock %}
