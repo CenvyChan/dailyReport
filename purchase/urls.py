@@ -12,4 +12,5 @@ urlpatterns = [
     path("imports/", views.import_page, name="import_page"),
     path("imports/preview/", views.import_preview, name="import_preview"),
     path("imports/commit/", views.import_commit, name="import_commit"),
+    path("imports/errors/", views.import_errors_export, name="import_errors_export"),
 ]

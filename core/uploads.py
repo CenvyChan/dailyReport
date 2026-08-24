@@ -7,7 +7,7 @@
 import logging
 from io import BytesIO
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 
 from core.errors import ImportFileError, MissingExchangeRate
 
@@ -44,6 +44,24 @@ def read_upload(request):
             "请删掉无关的工作表或分批导入。"
         )
     return BytesIO(uploaded.read()), uploaded.name
+
+
+def error_workbook_response(sections, *, filename):
+    """把错误清单包成 xlsx 下载响应。
+
+    文件名用 RFC 5987 的 filename* 传，否则中文名在部分浏览器上会变乱码。
+    """
+    from urllib.parse import quote
+
+    from core.import_errors import build_error_workbook
+
+    content = build_error_workbook(sections)
+    response = HttpResponse(
+        content,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
+    return response
 
 
 def import_response(handler):

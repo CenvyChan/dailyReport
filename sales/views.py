@@ -6,7 +6,8 @@ from core.errors import MissingExchangeRate
 from core.services.listing import paginate, search_queryset
 from core.services.permissions import can_access_sales, customer_queryset_for, is_administrator
 from core.responses import forbidden_page
-from core.uploads import import_response, read_upload
+from core.excel import read_rows
+from core.uploads import error_workbook_response, import_response, read_upload
 from sales.forms import SalesShipmentForm
 from sales.importers import commit_sales_import, preview_sales_import
 from sales.services import (
@@ -180,6 +181,7 @@ def import_page(request):
             "title": "销售数据导入",
             "preview_url": "sales:import_preview",
             "commit_url": "sales:import_commit",
+            "errors_url": "sales:import_errors_export",
             "template_kind": "sales",
             "instructions": [
                 f"数据将导入当前公司「{request.company.name}」，切换公司后重新导入不会互相覆盖。",
@@ -227,5 +229,34 @@ def import_commit(request):
             preview, actor=request.user, company=request.company, source_file=filename
         )
         return JsonResponse({"imported": count})
+
+    return import_response(handler)
+
+
+@login_required
+def import_errors_export(request):
+    """把校验错误连同原始行导出成 Excel。
+
+    重新解析一遍上传的文件而不是缓存预览结果：会话里存几千行原始数据代价大，
+    而导出是低频操作，多解析一次可以接受。
+    """
+    denied = _import_denied(request, as_page=False)
+    if denied:
+        return denied
+
+    def handler():
+        content, _ = read_upload(request)
+        preview = preview_sales_import(content)
+        content.seek(0)
+        data_rows = read_rows(content, "数据表")
+        content.seek(0)
+        rate_rows = read_rows(content, "汇率")
+        return error_workbook_response(
+            [
+                ("数据表", data_rows, preview.error_rows),
+                ("汇率", rate_rows, preview.rate_errors or []),
+            ],
+            filename="销售导入错误清单.xlsx",
+        )
 
     return import_response(handler)

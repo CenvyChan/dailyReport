@@ -10,7 +10,7 @@ from django.contrib.auth.models import Group, User
 from django.db import transaction
 
 from core.errors import MissingExchangeRate
-from core.excel import read_rows, require_columns
+from core.excel import is_blank, read_rows, require_columns
 from core.models import Customer, ExchangeRate, SalesAssignment
 from core.services.audit import record_audit
 from core.services.companies import grant_company_access
@@ -62,18 +62,18 @@ def validate_sales_rows(rows):
     valid_rows = []
     for row_number, row in enumerate(rows, start=2):
         missing = next(
-            (aliases[0] for aliases in SALES_COLUMNS if all(row.get(alias) in (None, "") for alias in aliases)),
+            (aliases[0] for aliases in SALES_COLUMNS if all(is_blank(row.get(alias)) for alias in aliases)),
             None,
         )
         if missing:
             errors.append({"row_number": row_number, "field": missing, "message": "不能为空"})
             continue
-        customer_name = next(row[alias] for alias in SALES_COLUMNS[0] if row.get(alias) not in (None, ""))
-        owner_name = next(row[alias] for alias in SALES_COLUMNS[1] if row.get(alias) not in (None, ""))
-        type_value = next(row[alias] for alias in SALES_COLUMNS[2] if row.get(alias) not in (None, ""))
-        date_value = next(row[alias] for alias in SALES_COLUMNS[3] if row.get(alias) not in (None, ""))
-        quantity_value = next(row[alias] for alias in SALES_COLUMNS[4] if row.get(alias) not in (None, ""))
-        amount_value = next(row[alias] for alias in SALES_COLUMNS[5] if row.get(alias) not in (None, ""))
+        customer_name = next(row[alias] for alias in SALES_COLUMNS[0] if not is_blank(row.get(alias)))
+        owner_name = next(row[alias] for alias in SALES_COLUMNS[1] if not is_blank(row.get(alias)))
+        type_value = next(row[alias] for alias in SALES_COLUMNS[2] if not is_blank(row.get(alias)))
+        date_value = next(row[alias] for alias in SALES_COLUMNS[3] if not is_blank(row.get(alias)))
+        quantity_value = next(row[alias] for alias in SALES_COLUMNS[4] if not is_blank(row.get(alias)))
+        amount_value = next(row[alias] for alias in SALES_COLUMNS[5] if not is_blank(row.get(alias)))
         if str(type_value).strip() not in SALE_TYPES:
             errors.append({"row_number": row_number, "field": "销售类型", "message": "仅支持内销或外销"})
             continue

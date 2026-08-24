@@ -42,6 +42,22 @@ def read_rows(path, sheet_name=0):
     return read_sheet(path, sheet_name).to_dict("records")
 
 
+def is_blank(value):
+    """判断单元格是否为空。
+
+    不能只比 (None, "")：pandas 把空单元格读成 float('nan')，而 nan 既不是
+    None 也不等于 ""，于是空值会被当成有内容一路放过去，最后 get_or_create
+    出一个名叫「nan」的客户。nan 不等于自身，用这个特性识别。
+
+    只有空白的字符串也算空，Excel 里手敲的空格看不出来。
+    """
+    if value is None:
+        return True
+    if isinstance(value, float) and value != value:
+        return True
+    return isinstance(value, str) and not value.strip()
+
+
 def require_columns(rows, columns, *, sheet_label="首个工作表"):
     """校验表头是否含有需要的列，缺列就抛 ImportFileError 说明缺哪些、现有哪些。
 

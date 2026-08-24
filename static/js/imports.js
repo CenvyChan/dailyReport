@@ -12,6 +12,45 @@
   // 导致同一份数据被导入两遍、金额翻倍。
   let busy = false;
 
+  // 网页上只列出错误时，用户得对着行号回 Excel 里逐条翻找。几百行数据里错几行
+  // 就很痛苦，所以给一个把「原始内容 + 行号 + 原因」导出成表格的入口。
+  const errorsUrl = form.dataset.errorsUrl;
+
+  const downloadErrors = async (button) => {
+    if (!fileInput.files.length) return;
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = "正在生成…";
+    const data = new FormData();
+    data.append("file", fileInput.files[0]);
+    try {
+      const response = await fetch(errorsUrl, {
+        method: "POST",
+        body: data,
+        headers: { "X-CSRFToken": csrfToken },
+      });
+      if (!response.ok) {
+        button.textContent = "生成失败，请重试";
+        button.disabled = false;
+        return;
+      }
+      // 后端用 filename* 传中文名，这里解出来作为下载名。
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const matched = disposition.match(/filename\*=UTF-8''([^;]+)/);
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = matched ? decodeURIComponent(matched[1]) : "错误清单.xlsx";
+      link.click();
+      URL.revokeObjectURL(link.href);
+      button.textContent = original;
+      button.disabled = false;
+    } catch {
+      button.textContent = "生成失败，请重试";
+      button.disabled = false;
+    }
+  };
+
   const show = (message, errors = [], kind = "info") => {
     result.replaceChildren();
     result.dataset.kind = kind;
@@ -28,6 +67,17 @@
         list.append(item);
       });
       result.append(list);
+      if (errorsUrl && fileInput.files.length) {
+        const download = document.createElement("button");
+        download.type = "button";
+        download.className = "button";
+        download.textContent = "下载错误清单";
+        download.addEventListener("click", () => downloadErrors(download));
+        const actions = document.createElement("p");
+        actions.className = "page-actions";
+        actions.append(download);
+        result.append(actions);
+      }
     }
   };
 

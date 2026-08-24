@@ -35,7 +35,8 @@ from core.services.users import (
     set_user_active,
 )
 from core.templates_export import TEMPLATES, build_template
-from core.uploads import import_response, read_upload
+from core.excel import read_rows
+from core.uploads import error_workbook_response, import_response, read_upload
 
 
 def _admin_only(request):
@@ -177,7 +178,7 @@ def import_template_download(request, kind):
     return response
 
 
-def _import_page(request, *, title, preview_url, commit_url, instructions, template_kind=None):
+def _import_page(request, *, title, preview_url, commit_url, instructions, template_kind=None, errors_url=None):
     denied = _admin_company_denied(request)
     if denied:
         return denied
@@ -188,6 +189,7 @@ def _import_page(request, *, title, preview_url, commit_url, instructions, templ
             "title": title,
             "preview_url": preview_url,
             "commit_url": commit_url,
+            "errors_url": errors_url,
             "instructions": [f"数据将导入当前公司「{request.company.name}」。", *instructions],
             "template_kind": template_kind,
         },
@@ -205,6 +207,26 @@ def _preview(request, previewer):
         return JsonResponse(
             {"valid_row_count": preview.valid_row_count, "error_rows": preview.error_rows}
         )
+
+    return import_response(handler)
+
+
+def _errors_export(request, previewer, *, filename):
+    """把校验错误连同原始行导出成 Excel。
+
+    重新解析一遍上传的文件而不是缓存预览结果：会话里存几千行原始数据代价大，
+    而导出是低频操作，多解析一次可以接受。
+    """
+    denied = _admin_company_denied(request, as_page=False)
+    if denied:
+        return denied
+
+    def handler():
+        content, _ = read_upload(request)
+        preview = previewer(content)
+        content.seek(0)
+        rows = read_rows(content)
+        return error_workbook_response([("错误清单", rows, preview.error_rows)], filename=filename)
 
     return import_response(handler)
 
@@ -236,6 +258,7 @@ def customer_import_page(request):
         title="客户导入",
         preview_url="core:customer_import_preview",
         commit_url="core:customer_import_commit",
+        errors_url="core:customer_import_errors",
         template_kind="customer",
         instructions=[
             "Excel 首行使用“客户名称”列，也兼容“名称”列。",
@@ -256,12 +279,18 @@ def customer_import_commit(request):
 
 
 @login_required
+def customer_import_errors(request):
+    return _errors_export(request, preview_customer_import, filename="客户导入错误清单.xlsx")
+
+
+@login_required
 def supplier_import_page(request):
     return _import_page(
         request,
         title="供应商导入",
         preview_url="core:supplier_import_preview",
         commit_url="core:supplier_import_commit",
+        errors_url="core:supplier_import_errors",
         template_kind="supplier",
         instructions=[
             "Excel 首行使用“供应商名称”列，也兼容“供应商”或“名称”列。",
@@ -282,12 +311,18 @@ def supplier_import_commit(request):
 
 
 @login_required
+def supplier_import_errors(request):
+    return _errors_export(request, preview_supplier_import, filename="供应商导入错误清单.xlsx")
+
+
+@login_required
 def user_import_page(request):
     return _import_page(
         request,
         title="用户导入",
         preview_url="core:user_import_preview",
         commit_url="core:user_import_commit",
+        errors_url="core:user_import_errors",
         template_kind="user",
         instructions=[
             "Excel 首行字段为：用户名、姓名、角色、初始密码。",
@@ -306,6 +341,11 @@ def user_import_preview(request):
 @login_required
 def user_import_commit(request):
     return _commit(request, preview_user_import, commit_user_import)
+
+
+@login_required
+def user_import_errors(request):
+    return _errors_export(request, preview_user_import, filename="用户导入错误清单.xlsx")
 
 
 def _master_denied(request, allowed, denial):

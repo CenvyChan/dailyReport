@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from core.excel import read_rows
+from core.excel import is_blank, read_rows
 from core.models import Customer, Supplier
 from core.services.audit import record_audit
 from core.services.permissions import is_administrator
@@ -49,7 +49,7 @@ def validate_named_rows(rows, *, field, aliases=None):
     valid_rows = []
     errors = []
     for row_number, row in enumerate(rows, start=2):
-        value = next((row.get(alias) for alias in aliases if row.get(alias) not in (None, "")), None)
+        value = next((row.get(alias) for alias in aliases if not is_blank(row.get(alias))), None)
         name = str(value).strip() if value is not None else ""
         if not name:
             errors.append({"row_number": row_number, "field": field, "message": "不能为空"})
@@ -62,7 +62,7 @@ def validate_user_rows(rows):
     valid_rows = []
     errors = []
     for row_number, row in enumerate(rows, start=2):
-        missing = next((field for field in ("用户名", "角色", "初始密码") if row.get(field) in (None, "")), None)
+        missing = next((field for field in ("用户名", "角色", "初始密码") if is_blank(row.get(field))), None)
         if missing:
             errors.append({"row_number": row_number, "field": missing, "message": "不能为空"})
             continue
