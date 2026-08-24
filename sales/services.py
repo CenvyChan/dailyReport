@@ -3,15 +3,21 @@ from decimal import Decimal
 from core.errors import MissingExchangeRate
 from core.models import ExchangeRate, SalesAssignment
 from core.services.audit import record_audit
-from core.services.permissions import is_administrator
+from core.services.permissions import can_edit_shipment, is_administrator, is_read_only
 from sales.models import SalesShipment
 
 
 def sales_queryset_for(user, company):
+    """本公司全部销售日报。
+
+    公司仍是硬隔离边界，但公司内不再按 owner 过滤：业务员要能看到同事的记录
+    才能核对整体口径，report_viewer 更是必须看得到全部。
+    写权限改由 can_edit_shipment 按客户绑定关系单独判断——原先是拿这个 queryset
+    当对象权限用（取不到就 404），放开后那道守卫失效，视图层已换成显式校验。
+    """
     if company is None:
         return SalesShipment.objects.none()
-    queryset = SalesShipment.objects.filter(company=company).select_related("customer", "owner")
-    return queryset if is_administrator(user) else queryset.filter(owner=user)
+    return SalesShipment.objects.filter(company=company).select_related("customer", "owner")
 
 
 def _shipment_snapshot(shipment):
@@ -55,6 +61,8 @@ def _ensure_customer_assignment(owner, customer, company):
 
 
 def create_sales_shipment(*, actor, company, data):
+    if is_read_only(actor):
+        raise PermissionError("报表查看角色不能录入日报")
     payload = dict(data)
     # owner 由调用方按客户归属带出；缺省才退回操作人自己。
     owner = payload.pop("owner", None) or actor
@@ -86,6 +94,11 @@ def create_sales_shipment(*, actor, company, data):
 def update_sales_shipment(*, actor, shipment, data):
     payload = dict(data)
     stored_shipment = SalesShipment.objects.get(pk=shipment.pk)
+    # actor 必须对这条记录有写权限。此前这里只校验「负责人字段有没有被换人」，
+    # 而 actor 本身从不参与判断——写权限完全靠视图层 queryset 取不到就 404 兜着。
+    # 可见范围放开到全公司后那道守卫失效，所以校验必须落到服务层。
+    if not can_edit_shipment(actor, stored_shipment):
+        raise PermissionError("只能修改自己负责客户的日报")
     # 换客户时负责人要跟着换，否则拿旧负责人去校验新客户的归属必然失败。
     owner = payload.pop("owner", None) or stored_shipment.owner
     if owner != stored_shipment.owner and not is_administrator(actor):
@@ -117,6 +130,9 @@ def update_sales_shipment(*, actor, shipment, data):
 
 
 def delete_sales_shipment(*, actor, shipment):
+    # 删除此前零校验，谁拿到实例都能删。
+    if not can_edit_shipment(actor, shipment):
+        raise PermissionError("只能删除自己负责客户的日报")
     record_audit(
         actor=actor,
         instance=shipment,

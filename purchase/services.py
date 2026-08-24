@@ -3,15 +3,16 @@ from decimal import Decimal
 from core.errors import MissingExchangeRate
 from core.models import ExchangeRate, PurchaseAssignment
 from core.services.audit import record_audit
-from core.services.permissions import is_administrator
+from core.services.permissions import can_edit_receipt, is_administrator, is_read_only
 from purchase.models import PurchaseReceipt
 
 
 def purchase_queryset_for(user, company):
+    """本公司全部采购日报。口径与 sales_queryset_for 一致：公司内不再按 buyer
+    过滤，写权限由 can_edit_receipt 按供应商绑定关系单独判断。"""
     if company is None:
         return PurchaseReceipt.objects.none()
-    queryset = PurchaseReceipt.objects.filter(company=company).select_related("supplier", "buyer")
-    return queryset if is_administrator(user) else queryset.filter(buyer=user)
+    return PurchaseReceipt.objects.filter(company=company).select_related("supplier", "buyer")
 
 
 def _receipt_snapshot(receipt):
@@ -55,6 +56,8 @@ def _ensure_supplier_assignment(buyer, supplier, company):
 
 
 def create_purchase_receipt(*, actor, company, data):
+    if is_read_only(actor):
+        raise PermissionError("报表查看角色不能录入日报")
     payload = dict(data)
     # buyer 由调用方按供应商归属带出；缺省才退回操作人自己。
     buyer = payload.pop("buyer", None) or actor
@@ -86,6 +89,10 @@ def create_purchase_receipt(*, actor, company, data):
 def update_purchase_receipt(*, actor, receipt, data):
     payload = dict(data)
     stored_receipt = PurchaseReceipt.objects.get(pk=receipt.pk)
+    # 此前 actor 完全不参与判断，写权限靠视图层 queryset 取不到就 404 兜着；
+    # 可见范围放开后那道守卫失效，校验必须落到服务层。
+    if not can_edit_receipt(actor, stored_receipt):
+        raise PermissionError("只能修改自己负责供应商的日报")
     # 换供应商时负责人要跟着换，否则拿旧负责人去校验新供应商的归属必然失败。
     buyer = payload.pop("buyer", None) or stored_receipt.buyer
     if buyer != stored_receipt.buyer and not is_administrator(actor):
@@ -117,6 +124,9 @@ def update_purchase_receipt(*, actor, receipt, data):
 
 
 def delete_purchase_receipt(*, actor, receipt):
+    # 删除此前零校验，谁拿到实例都能删。
+    if not can_edit_receipt(actor, receipt):
+        raise PermissionError("只能删除自己负责供应商的日报")
     record_audit(
         actor=actor,
         instance=receipt,

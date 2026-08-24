@@ -6,7 +6,12 @@ from purchase.forms import PurchaseReceiptForm
 from core.errors import MissingExchangeRate
 from core.services.listing import paginate, search_queryset
 from reports.services import summary_of
-from core.services.permissions import can_access_purchase, is_administrator
+from core.services.permissions import (
+    can_access_purchase,
+    can_edit_receipt,
+    editable_supplier_ids,
+    is_administrator,
+)
 from core.responses import forbidden_page
 from core.excel import read_rows
 from core.uploads import error_workbook_response, import_response, read_upload
@@ -47,11 +52,18 @@ def receipt_list(request):
     # 复用分析页的 summary_of，两处口径必须一致。
     totals = summary_of(queryset)
     page, querystring = paginate(request, queryset)
+    # 逐行调 can_edit_receipt 会是每行一次查询，先把绑定的供应商 id 取成集合。
+    editable = editable_supplier_ids(request.user, request.company)
+    rows = [
+        {"item": item, "can_edit": editable is None or item.supplier_id in editable}
+        for item in page.object_list
+    ]
     return render(
         request,
         "purchase/receipt_list.html",
         {
             "page": page,
+            "rows": rows,
             "totals": totals,
             "receipts": page.object_list,
             "querystring": querystring,
@@ -107,6 +119,10 @@ def receipt_edit(request, pk):
     if denied:
         return denied
     receipt = get_object_or_404(purchase_queryset_for(request.user, request.company), pk=pk)
+    # 可见范围已放开到全公司，写权限必须独立判断。403 而非 404：记录存在且看得到，
+    # 只是不该由他改。
+    if not can_edit_receipt(request.user, receipt):
+        return forbidden_page(request, "这笔日报的供应商不在你的负责范围内，只有该供应商的采购员或管理员可以修改")
     if request.method == "POST":
         form = PurchaseReceiptForm(request.POST, instance=receipt, user=request.user, company=request.company)
         if not form.is_valid():
@@ -148,9 +164,11 @@ def receipt_delete(request, pk):
     denied = _denied(request)
     if denied:
         return denied
-    receipt = get_object_or_404(purchase_queryset_for(request.user, request.company), pk=pk)
     if request.method != "POST":
         return JsonResponse({"error": "只允许使用 POST 请求"}, status=405)
+    receipt = get_object_or_404(purchase_queryset_for(request.user, request.company), pk=pk)
+    if not can_edit_receipt(request.user, receipt):
+        return forbidden_page(request, "这笔日报的供应商不在你的负责范围内，只有该供应商的采购员或管理员可以删除")
     delete_purchase_receipt(actor=request.user, receipt=receipt)
     return redirect("purchase:receipt_list")
 

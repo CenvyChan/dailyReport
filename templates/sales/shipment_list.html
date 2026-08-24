@@ -34,8 +34,8 @@
         </tr>
       </thead>
       <tbody>
-      {% for item in shipments %}
-        <tr>
+      {% for row in rows %}
+        <tr>{% with item=row.item %}
           <td>{{ item.shipment_date|date:"Y-m-d" }}</td>
           <td>{{ item.customer.name }}</td>
           <td>{{ item.owner|person }}</td>
@@ -45,12 +45,16 @@
           <td class="num">{{ item.original_amount|money }}</td>
           <td class="num num-key">{{ item.amount_cny|money }}</td>
           <td class="row-actions">
+            {% comment %} 没有写权限就不渲染按钮：可见范围是全公司，但改删只限自己
+               负责的客户。渲染出来再报错等于让人白点一次。 {% endcomment %}
+            {% if row.can_edit %}
             <a class="edit" href="{% url 'sales:shipment_edit' item.pk %}">编辑</a>
             <form method="post" action="{% url 'sales:shipment_delete' item.pk %}" onsubmit="return confirm('确认删除 {{ item.shipment_date|date:"Y-m-d" }} 客户「{{ item.customer.name|escapejs }}」金额 {{ item.original_amount|money }} 的这笔记录？删除后无法恢复。')">
               {% csrf_token %}<button class="del" type="submit">删除</button>
             </form>
+            {% else %}<span class="row-readonly" title="该客户不在你的负责范围内">—</span>{% endif %}
           </td>
-        </tr>
+        {% endwith %}</tr>
       {% empty %}
         <tr><td colspan="9" class="empty-hint">{% if search or start or end %}没有符合当前筛选条件的记录，可以点「清除」看全部。{% else %}还没有出货记录，点上方「新增出货」开始录入。{% endif %}</td></tr>
       {% endfor %}

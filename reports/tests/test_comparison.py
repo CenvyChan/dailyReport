@@ -163,34 +163,43 @@ class ComparisonViewTests(TestCase):
 
         self.assertEqual(self.client.get(reverse("reports:monthly_comparison")).status_code, 200)
 
-    def test_sales_only_role_cannot_open_the_comparison(self):
+    def test_sales_role_can_open_the_comparison(self):
+        """对比表现在与明细同口径。此前只放管理员和 report_viewer，理由是导入会
+        自动给业务员建归属、业务员会因此蒙到全公司汇总；而明细本身已经放开到全
+        公司可见，再挡着对比表就没有意义了。"""
         seller = User.objects.create_user("seller")
         seller.groups.add(Group.objects.get(name="sales"))
         login_with_company(self.client, seller, self.company)
 
-        self.assertEqual(self.client.get(reverse("reports:monthly_comparison")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("reports:monthly_comparison")).status_code, 200)
 
-    def test_a_salesperson_with_assignments_cannot_open_the_comparison(self):
-        """对比表是全公司口径、不按 owner 过滤。而导入会自动给业务员建客户和
-        供应商归属，can_view_*_reports 因此对他们成立——若拿那个当门禁，普通
-        业务员就能看到全公司采销汇总。这里锁住不允许。"""
+    def test_a_salesperson_with_assignments_can_open_the_comparison(self):
         seller = User.objects.create_user("both_sides")
         SalesAssignment.objects.create(customer=self.customer, user=seller)
         PurchaseAssignment.objects.create(supplier=self.supplier, user=seller)
         login_with_company(self.client, seller, self.company)
+
+        self.assertEqual(self.client.get(reverse("reports:monthly_comparison")).status_code, 200)
+
+    def test_a_user_with_no_business_role_still_cannot_open_the_comparison(self):
+        """放开给业务线成员，不等于放开给任何登录用户。"""
+        outsider = User.objects.create_user("outsider")
+        login_with_company(self.client, outsider, self.company)
 
         self.assertEqual(self.client.get(reverse("reports:monthly_comparison")).status_code, 403)
         self.assertEqual(
             self.client.get(reverse("reports:monthly_comparison_export")).status_code, 403
         )
 
-    def test_comparison_link_is_hidden_from_a_salesperson_with_assignments(self):
+    def test_comparison_link_is_offered_to_a_salesperson_with_assignments(self):
+        """导航入口和视图门禁必须同一条规则，否则会出现看得到链接点进去 403，
+        或者能访问却找不到入口。"""
         seller = User.objects.create_user("assigned")
         SalesAssignment.objects.create(customer=self.customer, user=seller)
         PurchaseAssignment.objects.create(supplier=self.supplier, user=seller)
         login_with_company(self.client, seller, self.company)
 
-        self.assertNotContains(self.client.get(reverse("sales:shipment_list")), "采销对比")
+        self.assertContains(self.client.get(reverse("sales:shipment_list")), "采销对比")
 
     def test_navigation_offers_the_comparison_to_permitted_users(self):
         login_with_company(self.client, self.admin, self.company)

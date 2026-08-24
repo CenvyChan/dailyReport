@@ -88,15 +88,26 @@ class SalesViewTests(TestCase):
         self.assertEqual(audit.before_data["customer_id"], shipment.customer_id)
         self.assertEqual(audit.after_data, {})
 
-    def test_owner_cannot_edit_another_salesperson_shipment(self):
+    def test_another_salespersons_shipment_is_visible_but_not_editable(self):
+        """可见范围放开到全公司后，别人的记录看得到但改不了。
+
+        状态码从 404 变成 403 是有意的：记录确实存在、用户在列表里也看得到，
+        说清楚「不该由你改」比装作不存在更好懂。
+        """
         other_user = User.objects.create_user("sales-b")
         other_customer = Customer.objects.create(company=self.company, name="客户 B")
         SalesAssignment.objects.create(user=other_user, customer=other_customer)
         shipment = make_shipment(self.company, other_customer, other_user)
 
-        response = self.client.get(reverse("sales:shipment_edit", args=[shipment.pk]))
+        listed = self.client.get(reverse("sales:shipment_list"))
+        self.assertContains(listed, "客户 B")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            self.client.get(reverse("sales:shipment_edit", args=[shipment.pk])).status_code, 403
+        )
+        self.assertEqual(
+            self.client.post(reverse("sales:shipment_delete", args=[shipment.pk])).status_code, 403
+        )
 
     def test_list_hides_shipments_belonging_to_another_company(self):
         other_customer = Customer.objects.create(company=company_b(), name="客户 B 家")

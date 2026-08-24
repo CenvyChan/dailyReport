@@ -282,7 +282,7 @@ def _comparison_denied(request):
     业务员也返回 True（见 core/services/permissions.py 的 can_access_sales），
     而导入时会自动给业务员建归属，等于让业务员看到全公司采销汇总。
     """
-    if not can_view_comparison(request.user):
+    if not can_view_comparison(request.user, request.company):
         return forbidden_page(request, "对比表是全公司口径报表，需要管理员或报表查看权限")
     if request.company is None:
         return forbidden_page(request, "当前账号没有可进入的公司，请联系管理员授权")
