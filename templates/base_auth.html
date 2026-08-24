@@ -1,0 +1,35 @@
+{% load static %}<!doctype html>
+{# 登录/改密这类未登录页面的骨架。不继承 base.html：那个模板带导航栏和
+   1180px 的 main 容器，套在登录页上会让表单孤零零挂在左上角。 #}
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FINOSSReportSystem{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="auth-body">
+<div class="auth-split">
+
+  {# 左侧品牌区：深蓝延续导航栏的 #17324d，让登录页和系统内部是一套视觉 #}
+  <section class="auth-brand">
+    <div class="auth-mark">
+      <span class="auth-logo" aria-hidden="true">F</span>
+      <span>FINOSS 飞诺斯</span>
+    </div>
+    <div class="auth-title">
+      <h1>采购销售日报<br>数据管理平台</h1>
+    </div>
+    <p class="auth-brand-foot">内部系统 · 请勿对外分享账号</p>
+  </section>
+
+  <section class="auth-panel">
+    <div class="auth-card">
+      {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

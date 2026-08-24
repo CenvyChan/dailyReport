@@ -67,8 +67,6 @@ button:disabled { background: #b9c2c9; border-color: #b9c2c9; cursor: not-allowe
 /* 停用的账号灰显，一眼能看出哪些人已离职 */
 .row-inactive { color: #9aa5ad; }
 .row-inactive td { background: #f7f9fa; }
-.login-head { display: flex; align-items: center; gap: 16px; }
-.login-head h1 { margin: 0; }
 .help-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; }
 .help-link:hover { text-decoration: underline; }
 .help-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #005f9e; color: #fff; font-weight: 700; font-size: 13px; }
@@ -211,4 +209,73 @@ td.num-key { font-weight: 600; }
   .field-row { grid-template-columns: 1fr; gap: 0; }
   .table-foot { flex-direction: column; align-items: stretch; }
   .page-head { align-items: stretch; }
+}
+
+/* ================= 登录/改密页（base_auth.html）=================
+   不走 base.html 的导航 + 1180px main 容器：那套布局会让登录表单
+   孤零零挂在页面左上角。这里是左右分栏的独立骨架。 */
+.auth-body { margin: 0; }
+.auth-split { min-height: 100vh; display: flex; }
+
+/* 左侧品牌区。深蓝沿用导航栏的 #17324d，保证登录页和系统内部是一套视觉 */
+.auth-brand {
+  flex: 1; display: flex; flex-direction: column; justify-content: space-between;
+  padding: 48px 56px; color: #fff;
+  background: linear-gradient(150deg, #17324d 0%, #1d4468 55%, #24597f 100%);
+  position: relative; overflow: hidden;
+}
+/* 极淡的网格纹理，暗示「报表/数据」，不抢主体。纯 CSS 实现，不引外部图片 */
+.auth-brand::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .035;
+  background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.auth-mark { display: flex; align-items: center; gap: 12px; font-size: 15px; letter-spacing: .5px; }
+.auth-logo {
+  width: 38px; height: 38px; border-radius: 9px; background: rgba(255, 255, 255, .14);
+  display: grid; place-items: center; font-weight: 700; font-size: 17px;
+  border: 1px solid rgba(255, 255, 255, .2);
+}
+/* 标题垂直居中：品牌区只有标题一块内容，靠上会让中间空一大片 */
+.auth-title { margin: auto 0; }
+.auth-title h1 { margin: 0; font-size: 32px; font-weight: 600; line-height: 1.4; color: #fff; }
+/* 标题下一条短线收口，避免纯标题看起来像没排完 */
+.auth-title h1::after {
+  content: ""; display: block; width: 54px; height: 3px; margin-top: 22px;
+  background: rgba(255, 255, 255, .32); border-radius: 2px;
+}
+.auth-brand-foot { margin: 0; font-size: 12px; color: #7e99b3; }
+
+/* 右侧表单区 */
+.auth-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; background: #f5f7f9; }
+.auth-card { width: 100%; max-width: 372px; }
+.auth-card .messages { max-width: none; }
+.auth-head { margin-bottom: 26px; }
+.auth-head h2 { margin: 0 0 8px; font-size: 22px; font-weight: 600; }
+.auth-head p { margin: 0; font-size: 13px; color: #5d6f7f; line-height: 1.7; }
+
+/* 表单：逐字段渲染（不用 form.as_p，那会套上 form p{max-width:360px}）。
+   .field / .req / .help 复用表单页已有的类名和层次约定。 */
+.auth-form .field { display: grid; gap: 6px; margin-bottom: 16px; max-width: none; }
+.auth-form .field > label { font-size: 13px; font-weight: 600; color: #40515f; }
+.auth-form .field > label .req { color: #c0392b; margin-left: 3px; }
+.auth-form .field .help { font-size: 12px; color: #7b8b99; line-height: 1.6; }
+/* 密码规则的 help_text 是 Django 生成的 <ul>，默认项目符号缩进太深 */
+.auth-form .field .help ul { margin: 0; padding-left: 16px; }
+/* 输入框比全站的 34px 高一档：登录页只有三个字段，点击目标可以给足 */
+.auth-form input, .auth-form select { width: 100%; height: 42px; padding: 0 12px; font-size: 14px; border-radius: 5px; }
+.auth-submit { width: 100%; height: 44px; margin-top: 6px; font-size: 15px; font-weight: 600; border-radius: 5px; }
+
+.auth-foot { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e2e8ed; font-size: 12px; color: #7b8b99; line-height: 1.8; }
+.auth-foot p { margin: 0 0 8px; }
+
+/* 窄屏：左栏收成顶部横条，只留标识和标题 */
+@media (max-width: 880px) {
+  .auth-split { flex-direction: column; }
+  .auth-brand { flex: none; padding: 26px; }
+  .auth-title { margin: 18px 0 0; }
+  .auth-title h1 { font-size: 21px; }
+  .auth-title h1::after { margin-top: 14px; }
+  .auth-brand-foot { display: none; }
+  .auth-panel { flex: 1; padding: 30px 22px; }
 }

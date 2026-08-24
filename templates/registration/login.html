@@ -1,12 +1,33 @@
-{% extends "base.html" %}
+{% extends "base_auth.html" %}
+{% block title %}登录 - FINOSSReportSystem{% endblock %}
 {% block content %}
-<div class="login-head">
-  <h1>FINOSSReportSystem 登录</h1>
+<div class="auth-head">
+  <h2>登录</h2>
+  <p>先选择要进入的公司，再输入账号密码。各公司的业务数据相互隔离，账号和角色在公司之间共用。</p>
+</div>
+
+<form method="post" class="auth-form">{% csrf_token %}
+  {# 非字段错误（账号密码不对、无该公司权限）要显示在表单最上方，
+     否则用户看不到失败原因，只觉得点了没反应。 #}
+  {% if form.non_field_errors %}<ul class="errorlist">{% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+
+  {% for field in form %}
+  <div class="field">
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="req" title="必填">*</span>{% endif %}</label>
+    {{ field }}
+    {% if field.errors %}<ul class="errorlist">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+    {# help_text 来自表单定义（密码规则是 Django 生成的 <ul>），不是用户输入，用 safe 输出 #}
+    {% if field.help_text %}<span class="help">{{ field.help_text|safe }}</span>{% endif %}
+  </div>
+  {% endfor %}
+
+  <button type="submit" class="auth-submit">登录</button>
+</form>
+
+<div class="auth-foot">
+  <p>没有可选的公司，或提示无该公司权限？说明管理员还没给你的账号授权这家公司，请联系管理员在「用户公司授权」中添加。</p>
   <a class="help-link" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="打开用户使用指南">
     <span class="help-icon" aria-hidden="true">?</span><span>帮助信息</span>
   </a>
 </div>
-<p class="page-help">先选择要进入的公司，再输入账号密码；各公司的业务数据相互隔离，账号和角色在公司之间共用。</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">登录</button></form>
-<p class="page-help">没有可选的公司，或提示无该公司权限？说明管理员还没给你的账号授权这家公司，请联系管理员在「用户公司授权」中添加。</p>
 {% endblock %}
