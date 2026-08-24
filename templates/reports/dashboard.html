@@ -20,11 +20,22 @@
     <label>结束日期<input type="date" name="end" value="{{ filters.end|default:'' }}"></label>
   </div>
   <div class="line">
-    <label>{{ person_label }}<select name="person_id"><option value="">全部</option>{% for person in people %}<option value="{{ person.id }}" {% if filters.person_id == person.id|stringformat:'s' %}selected{% endif %}>{{ person.label }}</option>{% endfor %}</select></label>
-    <label>{{ counterpart_label }}<select name="counterpart_id"><option value="">全部</option>{% for counterpart in counterparts %}<option value="{{ counterpart.id }}" {% if filters.counterpart_id == counterpart.id|stringformat:'s' %}selected{% endif %}>{{ counterpart.label }}</option>{% endfor %}</select></label>
+    {% comment %} 客户/供应商动辄上百个，原生 select 只能按首字母跳，找一个要翻很久。
+       改成 input + datalist：输入任意片段即过滤，且浏览器原生支持，不引第三方组件。
+       提交的是名称，视图侧再映射回 id。 {% endcomment %}
+    <label>{{ person_label }}
+      <input type="text" name="person" list="person-options" value="{{ filters.person_name|default:'' }}" placeholder="全部" autocomplete="off">
+    </label>
+    <datalist id="person-options">{% for person in people %}<option value="{{ person.label }}"></option>{% endfor %}</datalist>
+    <label>{{ counterpart_label }}
+      <input type="text" name="counterpart" list="counterpart-options" value="{{ filters.counterpart_name|default:'' }}" placeholder="全部" autocomplete="off">
+    </label>
+    <datalist id="counterpart-options">{% for counterpart in counterparts %}<option value="{{ counterpart.label }}"></option>{% endfor %}</datalist>
     <label>业务类型<select name="business_type"><option value="">全部</option>{% for value, label in type_choices %}<option value="{{ value }}" {% if filters.business_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
     <span class="spacer"></span>
-    <button type="submit">筛选</button>
+    {% comment %} 手动改日期后点这个按钮：value 为空的 preset 会覆盖掉 URL 里
+       残留的预设值，否则预设会一直把用户填的日期顶掉。 {% endcomment %}
+    <button type="submit" name="preset" value="">筛选</button>
     <a class="button secondary" href=".">清除</a>
   </div>
   {# 生效的口径显式列出：不写出来的话，用户翻回这页已经不记得自己筛过什么 #}

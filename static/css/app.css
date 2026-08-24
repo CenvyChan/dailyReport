@@ -27,8 +27,11 @@ th, td { padding: 10px 12px; border-bottom: 1px solid #dce3e8; text-align: left;
 /* top 要等于吸顶导航的高度，否则表头会滚到导航底下被遮住 */
 th { position: sticky; top: 52px; z-index: 1; background: #eaf0f4; color: #40515f; font-weight: 600; box-shadow: inset 0 -1px 0 #dce3e8; }
 tr:hover td { background: #f7fafb; }
-/* 列多的时候横向滚动条应该出现在表格上，而不是整个文档 */
-.table-scroll { overflow-x: auto; }
+/* 这里不能写 overflow-x: auto。overflow 只要不是 visible，这个元素就会变成
+   新的滚动容器，里面的 position: sticky 只相对它定位而不再相对视口——表头
+   会随页面一起滚走，还会被裁在容器边缘露出半截，看起来像多了一个表头。
+   九列在 1180px 容器里放得下，横向滚动只有窄屏需要（见底部断点）。 */
+.table-scroll { overflow-x: visible; }
 .empty-hint { color: #7d8b96; }
 form p { max-width: 360px; display: grid; gap: 5px; }
 /* Django 默认 errorlist 是黑色小圆点列表，不红不显眼，用户容易看漏 */
@@ -70,7 +73,7 @@ button:disabled { background: #b9c2c9; border-color: #b9c2c9; cursor: not-allowe
 .help-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none; }
 .help-link:hover { text-decoration: underline; }
 .help-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: #005f9e; color: #fff; font-weight: 700; font-size: 13px; }
-@media (max-width: 720px) { nav { height: auto; min-height: 52px; gap: 10px; padding: 10px 14px; flex-wrap: wrap; align-content: center; } nav > .nav-company { margin-left: auto; } nav form { margin-left: 0; } main { padding: 0 14px; } .charts { grid-template-columns: 1fr; } .table-scroll { overflow-x: auto; } .filters, .import-form { align-items: stretch; flex-direction: column; } .filters label, .import-form label { width: 100%; } }
+@media (max-width: 720px) { nav { height: auto; min-height: 52px; gap: 10px; padding: 10px 14px; flex-wrap: wrap; align-content: center; } nav > .nav-company { margin-left: auto; } nav form { margin-left: 0; } main { padding: 0 14px; } .charts { grid-template-columns: 1fr; } .filters, .import-form { align-items: stretch; flex-direction: column; } .filters label, .import-form label { width: 100%; } }
 
 /* ---- 采购销售对比表：配色对齐业务方现用 Excel ---- */
 .comparison-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -115,7 +118,9 @@ th.num { text-align: right; }
 td.num-key { font-weight: 600; }
 
 /* ---- 表格卡片：原先表格直接贴在灰底上，没有边界 ---- */
-.table-card { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; overflow: hidden; margin-top: 16px; }
+/* 同样不能用 overflow: hidden（原本是为了裁圆角）——它会切断表头的 sticky。
+   改用 clip-path 之外的办法：让首末行的单元格自己带圆角。 */
+.table-card { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; margin-top: 16px; }
 .table-card table { margin-top: 0; }
 .table-card tbody tr:last-child td { border-bottom: none; }
 /* 分页并入卡片底部，和表格连成一体 */
@@ -132,8 +137,8 @@ td.num-key { font-weight: 600; }
         视觉权重和破坏性正好相反，等于在引导用户点删除 ---- */
 .row-actions .edit { padding: 3px 10px; border: 1px solid #c8d1d9; border-radius: 3px; background: #fff; color: #40515f; text-decoration: none; font-size: 13px; }
 .row-actions .edit:hover { background: #f2f6f9; }
-.row-actions .del { border: none; background: none; color: #9d2d2d; padding: 3px 4px; font-size: 13px; cursor: pointer; text-decoration: underline; }
-.row-actions .del:hover { color: #7a2222; background: none; filter: none; }
+.row-actions .del { padding: 3px 10px; border: 1px solid #e0c3c3; border-radius: 3px; background: #fff; color: #9d2d2d; font-size: 13px; cursor: pointer; text-decoration: none; }
+.row-actions .del:hover { border-color: #9d2d2d; background: #fdf5f5; color: #7a2222; filter: none; }
 
 /* ---- 页头：标题与主操作同行两端对齐 ---- */
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -202,7 +207,10 @@ td.num-key { font-weight: 600; }
   /* 窄屏导航会换行，高度不再是 52px，表头吸顶的 top 值就对不上了。
      窄屏本来就靠横向滚动看表，取消吸顶反而清楚。 */
   nav { position: static; }
+  /* 窄屏放弃吸顶、换回横向滚动：九列在小屏放不下，滚动比吸顶更要紧。
+     两者不能共存——overflow 会切断 sticky。 */
   th { position: static; }
+  .table-scroll { overflow-x: auto; }
   /* .list-filter 此前不在窄屏断点内，8 个控件横向挤成一团 */
   .list-filter, .filter-card { flex-direction: column; align-items: stretch; }
   .list-filter input, .list-filter select, .filter-card label { width: 100%; }

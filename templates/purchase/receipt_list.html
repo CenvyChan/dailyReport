@@ -23,6 +23,7 @@
   {% if search or start or end %}<a class="button secondary" href="?">清除</a>{% endif %}
 </form>
 <div class="table-card">
+  <div class="table-head">{% include "includes/pagination.html" %}</div>
   <div class="table-scroll">
     <table>
       <thead>
@@ -56,6 +57,5 @@
       </tbody>
     </table>
   </div>
-  <div class="table-foot">{% include "includes/pagination.html" %}</div>
 </div>
 {% endblock %}

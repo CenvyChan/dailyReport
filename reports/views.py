@@ -58,11 +58,78 @@ def _filters(request):
         "counterpart_id": _numeric(request.GET.get("counterpart_id")),
         "business_type": request.GET.get("business_type"),
     }
-    if filters["preset"] and not (filters["start"] or filters["end"]):
+    if filters["preset"]:
+        # 点「本月/本周/本年」时 preset 必须覆盖日期框里的旧值。
+        # 原先的条件是 not (start or end)，即只在两个日期框都空时才生效——可按钮
+        # 是 submit，提交时会把日期框的当前值一起带上，于是用户筛过一次日期之后
+        # 再点预设就完全没反应，图表也跟着不动。
         start, end = preset_bounds(filters["preset"], timezone.localdate())
-        filters["start"] = start.isoformat() if start else None
-        filters["end"] = end.isoformat() if end else None
+        if start or end:
+            filters["start"] = start.isoformat() if start else None
+            filters["end"] = end.isoformat() if end else None
+        else:
+            # preset 值非法（手改 URL 传进来的），当没点过，别把 preset 回显成高亮
+            filters["preset"] = None
+    # 输入框提交的是名称（datalist 的值），回显也要用名称
+    filters["person_name"] = (request.GET.get("person") or "").strip()
+    filters["counterpart_name"] = (request.GET.get("counterpart") or "").strip()
     return filters
+
+
+def _sales_options(user, company):
+    queryset = sales_queryset_for(user, company)
+    people = [
+        {"id": row["owner_id"], "label": row["label"]}
+        for row in queryset.annotate(label=person_label("owner")).values("owner_id", "label").order_by("label").distinct()
+    ]
+    counterparts = [
+        {"id": row["customer_id"], "label": row["customer__name"]}
+        for row in queryset.values("customer_id", "customer__name").order_by("customer__name").distinct()
+    ]
+    return people, counterparts
+
+
+def _purchase_options(user, company):
+    queryset = purchase_queryset_for(user, company)
+    people = [
+        {"id": row["buyer_id"], "label": row["label"]}
+        for row in queryset.annotate(label=person_label("buyer")).values("buyer_id", "label").order_by("label").distinct()
+    ]
+    counterparts = [
+        {"id": row["supplier_id"], "label": row["supplier__name"]}
+        for row in queryset.values("supplier_id", "supplier__name").order_by("supplier__name").distinct()
+    ]
+    return people, counterparts
+
+
+def _resolve_names(filters, people, counterparts):
+    """把输入框里的名称映射回主键。
+
+    筛选走的是 id，但界面上用 input + datalist 让用户能输片段搜索（上百个
+    客户用原生 select 找一个要翻很久）。名称对不上时当没筛选处理，不报错。
+    """
+    for key, name_key, options in (
+        ("person_id", "person_name", people),
+        ("counterpart_id", "counterpart_name", counterparts),
+    ):
+        name = filters.get(name_key)
+        if not name:
+            continue
+        match = next((option for option in options if option["label"] == name), None)
+        if match:
+            filters[key] = str(match["id"])
+    return filters
+
+
+def _sales_filters(request):
+    """JSON 接口和导出也要解析名称，否则用户按客户筛完再导出会拿到全部数据。"""
+    people, counterparts = _sales_options(request.user, request.company)
+    return _resolve_names(_filters(request), people, counterparts)
+
+
+def _purchase_filters(request):
+    people, counterparts = _purchase_options(request.user, request.company)
+    return _resolve_names(_filters(request), people, counterparts)
 
 
 def _denied(request, can_view, label, *, as_page=True):
@@ -80,23 +147,19 @@ def sales_dashboard_view(request):
     denied = _denied(request, can_view_sales_reports, "销售")
     if denied:
         return denied
-    dashboard = sales_dashboard(request.user, request.company, _filters(request))
-    queryset = sales_queryset_for(request.user, request.company)
+    people, counterparts = _sales_options(request.user, request.company)
+    # 只算一次：原先 _filters(request) 调了两次，等于把预设换算和参数解析做两遍
+    filters = _resolve_names(_filters(request), people, counterparts)
+    dashboard = sales_dashboard(request.user, request.company, filters)
     return render(
         request,
         "reports/dashboard.html",
         {
             "title": "销售报表",
             "dashboard": dashboard,
-            "filters": _filters(request),
-            "people": [
-                {"id": row["owner_id"], "label": row["label"]}
-                for row in queryset.annotate(label=person_label("owner")).values("owner_id", "label").order_by("label").distinct()
-            ],
-            "counterparts": [
-                {"id": row["customer_id"], "label": row["customer__name"]}
-                for row in queryset.values("customer_id", "customer__name").order_by("customer__name").distinct()
-            ],
+            "filters": filters,
+            "people": people,
+            "counterparts": counterparts,
             "type_choices": SalesShipment.SaleType.choices,
             "export_url_name": "reports:sales_export",
             "person_label": "负责人",
@@ -110,23 +173,18 @@ def purchase_dashboard_view(request):
     denied = _denied(request, can_view_purchase_reports, "采购")
     if denied:
         return denied
-    dashboard = purchase_dashboard(request.user, request.company, _filters(request))
-    queryset = purchase_queryset_for(request.user, request.company)
+    people, counterparts = _purchase_options(request.user, request.company)
+    filters = _resolve_names(_filters(request), people, counterparts)
+    dashboard = purchase_dashboard(request.user, request.company, filters)
     return render(
         request,
         "reports/dashboard.html",
         {
             "title": "采购报表",
             "dashboard": dashboard,
-            "filters": _filters(request),
-            "people": [
-                {"id": row["buyer_id"], "label": row["label"]}
-                for row in queryset.annotate(label=person_label("buyer")).values("buyer_id", "label").order_by("label").distinct()
-            ],
-            "counterparts": [
-                {"id": row["supplier_id"], "label": row["supplier__name"]}
-                for row in queryset.values("supplier_id", "supplier__name").order_by("supplier__name").distinct()
-            ],
+            "filters": filters,
+            "people": people,
+            "counterparts": counterparts,
             "type_choices": PurchaseReceipt.PurchaseType.choices,
             "export_url_name": "reports:purchase_export",
             "person_label": "采购员",
@@ -141,7 +199,7 @@ def sales_dashboard_api(request):
     if denied:
         return denied
     return JsonResponse(
-        sales_dashboard(request.user, request.company, _filters(request)),
+        sales_dashboard(request.user, request.company, _sales_filters(request)),
         safe=True,
         json_dumps_params={"ensure_ascii": False},
     )
@@ -153,7 +211,7 @@ def purchase_dashboard_api(request):
     if denied:
         return denied
     return JsonResponse(
-        purchase_dashboard(request.user, request.company, _filters(request)),
+        purchase_dashboard(request.user, request.company, _purchase_filters(request)),
         safe=True,
         json_dumps_params={"ensure_ascii": False},
     )
@@ -195,7 +253,7 @@ def sales_export(request):
     denied = _denied(request, can_view_sales_reports, "销售")
     if denied:
         return denied
-    queryset = sales_filtered_queryset(request.user, request.company, _filters(request))
+    queryset = sales_filtered_queryset(request.user, request.company, _sales_filters(request))
     return _export_response(
         request,
         f"sales-report-{request.company.code}.xlsx",
@@ -208,7 +266,7 @@ def purchase_export(request):
     denied = _denied(request, can_view_purchase_reports, "采购")
     if denied:
         return denied
-    queryset = purchase_filtered_queryset(request.user, request.company, _filters(request))
+    queryset = purchase_filtered_queryset(request.user, request.company, _purchase_filters(request))
     return _export_response(
         request,
         f"purchase-report-{request.company.code}.xlsx",
