@@ -7,8 +7,8 @@
 </div>
 
 <form method="post" class="auth-form">{% csrf_token %}
-  {# 非字段错误（账号密码不对、无该公司权限）要显示在表单最上方，
-     否则用户看不到失败原因，只觉得点了没反应。 #}
+  {% comment %} 非字段错误（账号密码不对、无该公司权限）要显示在表单最上方，
+     否则用户看不到失败原因，只觉得点了没反应。 {% endcomment %}
   {% if form.non_field_errors %}<ul class="errorlist">{% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
 
   {% for field in form %}

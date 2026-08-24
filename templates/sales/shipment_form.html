@@ -8,8 +8,8 @@
     {{ form.non_field_errors }}
     {% include "includes/field.html" with field=form.customer %}
     {% include "includes/field.html" with field=form.sale_type %}
-    {# 内外销决定币种和汇率。这个联动此前埋在 sale_type 的 help_text 里，
-       和其他四段说明混在一起，而它是新人最容易搞错的地方 #}
+    {% comment %} 内外销决定币种和汇率。这个联动此前埋在 sale_type 的 help_text 里，
+       和其他四段说明混在一起，而它是新人最容易搞错的地方 {% endcomment %}
     <p class="inline-note"><i>i</i><span>内销按人民币记账；外销填美元金额，系统按出货日期所在月份自动匹配汇率折算人民币。当月汇率没维护时无法保存。</span></p>
     <div class="field-row">
       {% include "includes/field.html" with field=form.shipment_date %}

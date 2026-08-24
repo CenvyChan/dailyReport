@@ -8,8 +8,8 @@
   </div>
 </div>
 <form class="filter-card" method="get">
-  {# 筛选分两行：上行是时间口径，下行是维度。此前 8 个控件挤在一行里换行，
-     日期和维度混在一起，看不出哪些是一组的 #}
+  {% comment %} 筛选分两行：上行是时间口径，下行是维度。此前 8 个控件挤在一行里换行，
+     日期和维度混在一起，看不出哪些是一组的 {% endcomment %}
   <div class="line">
     <span class="presets">
       <button type="submit" name="preset" value="month"{% if filters.preset == 'month' %} class="on"{% endif %}>本月</button>

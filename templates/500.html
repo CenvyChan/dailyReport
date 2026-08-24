@@ -1,5 +1,5 @@
-{# 不继承 base.html：500 说明请求已经出错，context processor 可能也失败了，
-   继承会在渲染错误页时再抛一次异常，用户就只剩浏览器的默认白屏。 #}
+{% comment %} 不继承 base.html：500 说明请求已经出错，context processor 可能也失败了，
+   继承会在渲染错误页时再抛一次异常，用户就只剩浏览器的默认白屏。 {% endcomment %}
 <!doctype html>
 <html lang="zh-CN">
 <head>
