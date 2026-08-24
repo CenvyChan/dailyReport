@@ -154,6 +154,10 @@ class PurchaseVisibilityTests(TestCase):
     def test_a_buyer_sees_the_whole_company(self):
         self.assertEqual(purchase_queryset_for(self.mine, self.company).count(), 2)
 
+    def test_editing_is_limited_to_bound_suppliers(self):
+        self.assertTrue(can_edit_supplier(self.mine, self.my_supplier))
+        self.assertFalse(can_edit_supplier(self.mine, self.their_supplier))
+
     def test_editing_someone_elses_receipt_is_forbidden(self):
         response = self.client.get(reverse("purchase:receipt_edit", args=[self.their_receipt.pk]))
 

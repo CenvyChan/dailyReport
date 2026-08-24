@@ -7,8 +7,17 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
-from core.models import Company, Customer, ExchangeRate, Supplier
+from core.models import (
+    Company,
+    Customer,
+    ExchangeRate,
+    PurchaseAssignment,
+    SalesAssignment,
+    Supplier,
+)
 from core.services.companies import can_access_company
+from core.services.naming import display_name
+from core.services.permissions import is_administrator
 from core.services.users import ROLE_CHOICES
 
 
@@ -172,11 +181,47 @@ class EmailChangeForm(forms.ModelForm):
 
 
 class _NamedForm(forms.ModelForm):
-    """客户/供应商共用：名称在同一公司内查重。"""
+    """客户/供应商共用：名称在同一公司内查重，并维护业务员绑定关系。
 
-    def __init__(self, *args, company, **kwargs):
+    绑定关系决定谁能看到、谁能维护这条资料，此前只能在 Django admin 里加，
+    前台新建的客户永远是「未分配」——建完自己都选不到它去录日报。
+    """
+
+    owners = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="负责业务员",
+    )
+
+    #  子类覆写：('sales', '销售') / ('purchase', '采购')
+    owner_group = None
+    owner_help = ""
+
+    def __init__(self, *args, company, actor=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.company = company
+        self.actor = actor
+        # 候选只给对应业务组的成员和管理员，避免把全公司账号都列出来
+        self.fields["owners"].queryset = (
+            User.objects.filter(
+                is_active=True,
+                groups__name__in=[self.owner_group, "administrator"],
+                companymembership__company=company,
+            )
+            .distinct()
+            .order_by("first_name", "username")
+        )
+        self.fields["owners"].help_text = self.owner_help
+        self.fields["owners"].label_from_instance = display_name
+        if self.instance.pk:
+            self.initial["owners"] = list(self._current_owner_ids())
+        elif actor is not None and not is_administrator(actor):
+            # 业务员自己新建：默认把自己勾上，否则建完就看不见
+            self.initial["owners"] = [actor.pk]
+
+    def _current_owner_ids(self):
+        raise NotImplementedError
 
     def clean_name(self):
         name = self.cleaned_data["name"].strip()
@@ -187,8 +232,21 @@ class _NamedForm(forms.ModelForm):
             raise forms.ValidationError("该名称在本公司已存在")
         return name
 
+    def clean_owners(self):
+        owners = self.cleaned_data["owners"]
+        # 非管理员不能把自己摘掉：转走之后自己就看不见也改不了了
+        if self.actor is not None and not is_administrator(self.actor):
+            if owners and self.actor not in owners:
+                raise forms.ValidationError(
+                    "不能把自己从负责人里去掉，否则你将无法再看到这条资料。如需转交请联系管理员"
+                )
+        return owners
+
 
 class CustomerForm(_NamedForm):
+    owner_group = "sales"
+    owner_help = "只有勾选的业务员能维护这个客户、并用它录销售日报。"
+
     class Meta:
         model = Customer
         fields = ["name", "is_active"]
@@ -198,8 +256,16 @@ class CustomerForm(_NamedForm):
             "is_active": "停用后保留历史数据，但不再出现在新增销售日报的候选里。",
         }
 
+    def _current_owner_ids(self):
+        return SalesAssignment.objects.filter(customer=self.instance).values_list(
+            "user_id", flat=True
+        )
+
 
 class SupplierForm(_NamedForm):
+    owner_group = "purchase"
+    owner_help = "只有勾选的采购员能维护这个供应商、并用它录采购日报。"
+
     class Meta:
         model = Supplier
         fields = ["name", "is_active"]
@@ -208,3 +274,8 @@ class SupplierForm(_NamedForm):
             "name": "请使用公司统一的供应商全称；同一公司内不能重复。",
             "is_active": "停用后保留历史数据，但不再出现在新增采购日报的候选里。",
         }
+
+    def _current_owner_ids(self):
+        return PurchaseAssignment.objects.filter(supplier=self.instance).values_list(
+            "user_id", flat=True
+        )

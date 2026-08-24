@@ -26,7 +26,15 @@ from core.models import Customer, ExchangeRate, Supplier
 from core.responses import forbidden_page
 from core.services.listing import paginate, search_queryset
 from core.services.master_data import save_customer, save_exchange_rate, save_supplier
-from core.services.permissions import can_access_purchase, can_access_sales, is_administrator
+from core.services.permissions import (
+    can_access_purchase,
+    can_access_sales,
+    can_edit_customer,
+    can_edit_supplier,
+    editable_customer_ids,
+    editable_supplier_ids,
+    is_administrator,
+)
 from core.services.users import (
     can_toggle_active,
     create_user_account,
@@ -357,10 +365,19 @@ def _master_denied(request, allowed, denial):
     return None
 
 
-def _master_list(request, *, model, title, search_fields, create_url, edit_url, import_url, unit):
-    queryset = search_queryset(
-        model.objects.filter(company=request.company), request.GET.get("q"), search_fields
-    )
+def _master_list(
+    request, *, model, title, search_fields, create_url, edit_url, import_url, unit, editable_ids
+):
+    """主数据列表。业务员只看到自己负责的那些——绑定关系决定谁维护这条资料。
+
+    此前起点是 model.objects.filter(company=...)，任何 sales 组成员能看到并
+    编辑本公司全部客户，和「新增日报时只能选到自己绑定的客户」自相矛盾。
+    """
+    queryset = model.objects.filter(company=request.company)
+    editable = editable_ids(request.user, request.company)
+    if editable is not None:
+        queryset = queryset.filter(pk__in=editable)
+    queryset = search_queryset(queryset, request.GET.get("q"), search_fields)
     if request.GET.get("status") == "active":
         queryset = queryset.filter(is_active=True)
     elif request.GET.get("status") == "inactive":
@@ -394,6 +411,7 @@ def customer_list(request):
         request, model=Customer, title="客户维护", search_fields=("name",),
         create_url="core:customer_create", edit_url="core:customer_edit",
         import_url="core:customer_import_page", unit="客户",
+        editable_ids=editable_customer_ids,
     )
 
 
@@ -402,7 +420,8 @@ def customer_create(request):
     denied = _master_denied(request, can_access_sales, "只有销售或管理员可以维护客户")
     if denied:
         return denied
-    form = CustomerForm(request.POST or None, company=request.company)
+    # actor 传给表单：业务员自己新建时默认把自己勾为负责人，否则建完就看不见
+    form = CustomerForm(request.POST or None, company=request.company, actor=request.user)
     if request.method == "POST" and form.is_valid():
         save_customer(actor=request.user, company=request.company, data=form.cleaned_data)
         return redirect("core:customer_list")
@@ -415,7 +434,10 @@ def customer_edit(request, pk):
     if denied:
         return denied
     customer = get_object_or_404(Customer, pk=pk, company=request.company)
-    form = CustomerForm(request.POST or None, instance=customer, company=request.company)
+    # 列表已按绑定过滤，但直接输 URL 仍进得来，所以这里独立判断
+    if not can_edit_customer(request.user, customer):
+        return forbidden_page(request, "这个客户不在你的负责范围内，只有负责它的业务员或管理员可以维护")
+    form = CustomerForm(request.POST or None, instance=customer, company=request.company, actor=request.user)
     if request.method == "POST" and form.is_valid():
         save_customer(actor=request.user, company=request.company, data=form.cleaned_data, instance=customer)
         return redirect("core:customer_list")
@@ -431,6 +453,7 @@ def supplier_list(request):
         request, model=Supplier, title="供应商维护", search_fields=("name",),
         create_url="core:supplier_create", edit_url="core:supplier_edit",
         import_url="core:supplier_import_page", unit="供应商",
+        editable_ids=editable_supplier_ids,
     )
 
 
@@ -439,7 +462,7 @@ def supplier_create(request):
     denied = _master_denied(request, can_access_purchase, "只有采购或管理员可以维护供应商")
     if denied:
         return denied
-    form = SupplierForm(request.POST or None, company=request.company)
+    form = SupplierForm(request.POST or None, company=request.company, actor=request.user)
     if request.method == "POST" and form.is_valid():
         save_supplier(actor=request.user, company=request.company, data=form.cleaned_data)
         return redirect("core:supplier_list")
@@ -452,7 +475,9 @@ def supplier_edit(request, pk):
     if denied:
         return denied
     supplier = get_object_or_404(Supplier, pk=pk, company=request.company)
-    form = SupplierForm(request.POST or None, instance=supplier, company=request.company)
+    if not can_edit_supplier(request.user, supplier):
+        return forbidden_page(request, "这个供应商不在你的负责范围内，只有负责它的采购员或管理员可以维护")
+    form = SupplierForm(request.POST or None, instance=supplier, company=request.company, actor=request.user)
     if request.method == "POST" and form.is_valid():
         save_supplier(actor=request.user, company=request.company, data=form.cleaned_data, instance=supplier)
         return redirect("core:supplier_list")
