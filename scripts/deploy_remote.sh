@@ -15,6 +15,7 @@ APP_NAME="daily-report"
 IMAGE="${APP_NAME}:latest"
 WEB="${APP_NAME}-web"
 MAILER="${APP_NAME}-mailer"
+BACKUP="${APP_NAME}-backup"
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -41,6 +42,8 @@ else
     echo "DJANGO_ALLOWED_HOSTS=${IP},localhost,127.0.0.1"
     echo "DJANGO_CSRF_TRUSTED_ORIGINS=http://${IP}:${HOST_PORT}"
     echo "BACKUP_DIRECTORY=/app/backups"
+    # 日志放在 data 卷下：单独挂 logs 会因宿主机属主与容器 uid 10001 不同而不可写
+    echo "LOG_DIRECTORY=/app/data/logs"
     echo "EMAIL_HOST=smtp.qiye.aliyun.com"
     echo "EMAIL_PORT=465"
     echo "EMAIL_USE_SSL=True"
@@ -58,12 +61,12 @@ echo "==> 构建镜像"
 ssh "$SSH_HOST" 'cd ~/deploy/'"${APP_NAME}"' && docker build -t '"${IMAGE}"' .'
 
 echo "==> 重建容器"
-ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
+ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
 set -euo pipefail
 cd ~/deploy/"$APP_NAME"
 
 # 只删本应用的容器，不影响主机上其它容器。
-docker rm -f "$WEB" "$MAILER" >/dev/null 2>&1 || true
+docker rm -f "$WEB" "$MAILER" "$BACKUP" >/dev/null 2>&1 || true
 
 # 容器内以 uid 10001 运行，挂载目录必须可写，否则 SQLite 报 readonly database。
 # 上一次部署后这些文件已归 10001，普通用户再 chmod 会 Permission denied，
@@ -82,6 +85,16 @@ docker run -d --name "$MAILER" --restart unless-stopped \
   --env-file .env -v "$PWD/data:/app/data" \
   "$IMAGE" \
   sh -c 'while true; do sleep 600; python manage.py send_daily_report || true; done' >/dev/null
+
+# 备份 sidecar。此前只加在 docker-compose.yml 里，而这台机器没有 compose
+# 插件、走的是 plain docker run，等于自动备份根本没生效——上线后大概率没人
+# 手工配 cron，data 卷一旦损坏就全丢。
+# 先等 60 秒让 web 跑完 migrate，然后立刻备一次，之后每 24 小时一次，保留 30 份。
+docker run -d --name "$BACKUP" --restart unless-stopped \
+  --env-file .env \
+  -v "$PWD/data:/app/data" -v "$PWD/backups:/app/backups" \
+  "$IMAGE" \
+  sh -c 'sleep 60; while true; do python scripts/backup_sqlite.py --keep 30 >> /app/data/logs/backup.log 2>&1 || true; sleep 86400; done' >/dev/null
 
 ready=""
 for _ in $(seq 1 20); do
