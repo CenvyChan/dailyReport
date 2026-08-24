@@ -1,2 +1,21 @@
 {% extends "base.html" %}
-{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{% url 'core:rate_list' %}">汇率维护</a><span>/</span>{{ title }}</p>
+<h1>{{ title }}</h1>
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="field-row">
+      {% include "includes/field.html" with field=form.month %}
+      {% include "includes/field.html" with field=form.usd_to_cny numeric=1 %}
+    </div>
+    <p class="inline-note"><i>i</i><span>录入日报时会取当月汇率生成快照，之后再改这里的汇率不会影响已保存的日报。</span></p>
+    <div class="form-actions">
+      <button type="submit">保存</button>
+      <a class="button secondary" href="{% url 'core:rate_list' %}">取消</a>
+      <span class="spacer">带 * 的为必填项</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% load display %}{% comment %}
+逐字段渲染的通用片段，替代 form.as_p。
+
+as_p 的问题是：标签、输入框、help_text 三者同字号同颜色堆在一起，配上
+app.css 里 form p { max-width: 360px } 全挤在一条窄列，看不出哪些必填。
+
+用法：{% include "includes/field.html" with field=form.quantity numeric=1 %}
+  numeric=1  金额/数量类字段，输入框右对齐并用等宽数字
+{% endcomment %}
+<div class="field">
+  <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="req" title="必填">*</span>{% endif %}</label>
+  {{ field.errors }}
+  {% if numeric %}{{ field|add_class:"num" }}{% else %}{{ field }}{% endif %}
+  {% if field.help_text %}<span class="helptext">{{ field.help_text }}</span>{% endif %}
+</div>

@@ -13,6 +13,19 @@ def person(user):
     return display_name(user)
 
 
+@register.filter(name="add_class")
+def add_class(field, css):
+    """给表单字段的 widget 追加 class：{{ form.quantity|add_class:"num" }}。
+
+    Django 没有内置这个。写在 widget attrs 里也行，但那样每个 Form 都要
+    重复一遍，而「金额右对齐」是显示层的事，不该混进表单定义。
+    保留已有的 class，不覆盖。
+    """
+    existing = field.field.widget.attrs.get("class", "")
+    merged = f"{existing} {css}".strip()
+    return field.as_widget(attrs={**field.field.widget.attrs, "class": merged})
+
+
 @register.filter(name="money")
 def money(value):
     """金额显示成 534,464.00：两位小数 + 千分位。

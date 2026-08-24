@@ -1,7 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
+{# 视图只传了 back_url，没传列表页名称，所以措辞用「返回列表」而不编造父级名 #}
+<p class="crumb"><a href="{% url back_url %}">返回列表</a><span>/</span>{{ title }}</p>
 <h1>{{ title }} - {{ nav_company.name }}</h1>
 <p class="page-help">资料保存到当前公司「{{ nav_company.name }}」，另一家公司看不到。</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>
-<p class="page-actions"><a href="{% url back_url %}">返回列表</a></p>
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}{% include "includes/field.html" with field=field %}{% endfor %}
+    <div class="form-actions">
+      <button type="submit">保存</button>
+      <a class="button secondary" href="{% url back_url %}">取消</a>
+      <span class="spacer">带 * 的为必填项</span>
+    </div>
+  </form>
+</div>
 {% endblock %}

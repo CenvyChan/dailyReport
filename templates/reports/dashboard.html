@@ -1,19 +1,54 @@
 {% extends "base.html" %}
+{% load display %}
 {% block content %}
-<h1>{{ title }}</h1>
-<form class="filters" method="get">
-  <label>开始日期<input type="date" name="start" value="{{ filters.start|default:'' }}"></label>
-  <label>结束日期<input type="date" name="end" value="{{ filters.end|default:'' }}"></label>
-  <label>{{ person_label }}<select name="person_id"><option value="">全部</option>{% for person in people %}<option value="{{ person.id }}" {% if filters.person_id == person.id|stringformat:'s' %}selected{% endif %}>{{ person.label }}</option>{% endfor %}</select></label>
-  <label>{{ counterpart_label }}<select name="counterpart_id"><option value="">全部</option>{% for counterpart in counterparts %}<option value="{{ counterpart.id }}" {% if filters.counterpart_id == counterpart.id|stringformat:'s' %}selected{% endif %}>{{ counterpart.label }}</option>{% endfor %}</select></label>
-  <label>业务类型<select name="business_type"><option value="">全部</option>{% for value, label in type_choices %}<option value="{{ value }}" {% if filters.business_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-  <span class="preset-actions"><button type="submit" name="preset" value="month">本月</button><button type="submit" name="preset" value="week">本周</button><button type="submit" name="preset" value="year">本年</button></span>
-  <button type="submit">筛选</button>
-  <a class="button secondary" href=".">清除</a>
-  <a class="button" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+<div class="page-head">
+  <h1>{{ title }}</h1>
+  <div class="page-actions">
+    <a class="button" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+  </div>
+</div>
+<form class="filter-card" method="get">
+  {# 筛选分两行：上行是时间口径，下行是维度。此前 8 个控件挤在一行里换行，
+     日期和维度混在一起，看不出哪些是一组的 #}
+  <div class="line">
+    <span class="presets">
+      <button type="submit" name="preset" value="month"{% if filters.preset == 'month' %} class="on"{% endif %}>本月</button>
+      <button type="submit" name="preset" value="week"{% if filters.preset == 'week' %} class="on"{% endif %}>本周</button>
+      <button type="submit" name="preset" value="year"{% if filters.preset == 'year' %} class="on"{% endif %}>本年</button>
+    </span>
+    <label>开始日期<input type="date" name="start" value="{{ filters.start|default:'' }}"></label>
+    <label>结束日期<input type="date" name="end" value="{{ filters.end|default:'' }}"></label>
+  </div>
+  <div class="line">
+    <label>{{ person_label }}<select name="person_id"><option value="">全部</option>{% for person in people %}<option value="{{ person.id }}" {% if filters.person_id == person.id|stringformat:'s' %}selected{% endif %}>{{ person.label }}</option>{% endfor %}</select></label>
+    <label>{{ counterpart_label }}<select name="counterpart_id"><option value="">全部</option>{% for counterpart in counterparts %}<option value="{{ counterpart.id }}" {% if filters.counterpart_id == counterpart.id|stringformat:'s' %}selected{% endif %}>{{ counterpart.label }}</option>{% endfor %}</select></label>
+    <label>业务类型<select name="business_type"><option value="">全部</option>{% for value, label in type_choices %}<option value="{{ value }}" {% if filters.business_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <span class="spacer"></span>
+    <button type="submit">筛选</button>
+    <a class="button secondary" href=".">清除</a>
+  </div>
+  {# 生效的口径显式列出：不写出来的话，用户翻回这页已经不记得自己筛过什么 #}
+  <div class="active-chips">
+    <span class="chip">日期：<b>{% if filters.start or filters.end %}{{ filters.start|default:"最早" }} ~ {{ filters.end|default:"至今" }}{% else %}全部{% endif %}</b></span>
+    {% if filters.person_id %}{% for person in people %}{% if filters.person_id == person.id|stringformat:'s' %}<span class="chip">{{ person_label }}：<b>{{ person.label }}</b></span>{% endif %}{% endfor %}{% endif %}
+    {% if filters.counterpart_id %}{% for counterpart in counterparts %}{% if filters.counterpart_id == counterpart.id|stringformat:'s' %}<span class="chip">{{ counterpart_label }}：<b>{{ counterpart.label }}</b></span>{% endif %}{% endfor %}{% endif %}
+    {% if filters.business_type %}{% for value, label in type_choices %}{% if filters.business_type == value %}<span class="chip">业务类型：<b>{{ label }}</b></span>{% endif %}{% endfor %}{% endif %}
+  </div>
 </form>
-<section class="summary"><span><strong>数量</strong>{{ dashboard.summary.quantity }}</span><span><strong>人民币</strong>{{ dashboard.summary.cny_amount }}</span><span><strong>美元</strong>{{ dashboard.summary.usd_amount }}</span><span><strong>折算人民币</strong>{{ dashboard.summary.amount_cny }}</span></section>
+{# 汇总此前是一行灰文本，strong 反而是小灰字标签，数字没有分量 #}
+<dl class="stat-row">
+  <div class="stat"><dt>数量合计</dt><dd>{{ dashboard.summary.quantity|qty }}</dd></div>
+  <div class="stat"><dt>人民币金额</dt><dd>{{ dashboard.summary.cny_amount|money }}</dd></div>
+  <div class="stat"><dt>美元金额</dt><dd>{{ dashboard.summary.usd_amount|money }}</dd></div>
+  <div class="stat stat-key"><dt>折算人民币合计</dt><dd>{{ dashboard.summary.amount_cny|money }}</dd></div>
+</dl>
 {{ dashboard|json_script:"dashboard-data" }}
-<section class="charts"><div id="daily-trend" class="chart" data-chart="daily"></div><div id="monthly-trend" class="chart" data-chart="monthly"></div><div id="type-share" class="chart" data-chart="share"></div><div id="counterpart-rank" class="chart" data-chart="rank"></div></section>
+{# 图表容器加标题栏，此前是四个无标题的裸白框，得看图形自己猜是什么 #}
+<section class="charts">
+  <div class="chart-card"><h3>每日趋势</h3><div id="daily-trend" class="chart" data-chart="daily"></div></div>
+  <div class="chart-card"><h3>月度趋势</h3><div id="monthly-trend" class="chart" data-chart="monthly"></div></div>
+  <div class="chart-card"><h3>业务类型占比</h3><div id="type-share" class="chart" data-chart="share"></div></div>
+  <div class="chart-card"><h3>{{ counterpart_label }}排名</h3><div id="counterpart-rank" class="chart" data-chart="rank"></div></div>
+</section>
 <script src="/static/js/echarts.min.js"></script><script src="/static/js/dashboard.js"></script>
 {% endblock %}
