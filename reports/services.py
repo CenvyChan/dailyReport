@@ -34,7 +34,9 @@ def _filters(queryset, filters, *, date_field, person_field, counterpart_field, 
     return queryset
 
 
-def _summary(queryset):
+def summary_of(queryset):
+    """按币种拆分的合计。日报列表页也用这个，两处口径必须一致，
+    否则同一批数据在两个页面显示不同合计，用户会怀疑哪个是对的。"""
     return queryset.aggregate(
         quantity=Coalesce(Sum("quantity"), QUANTITY_ZERO),
         cny_amount=Coalesce(Sum("original_amount", filter=Q(currency="CNY")), DECIMAL_ZERO),
@@ -94,7 +96,7 @@ def sales_filtered_queryset(user, company, filters):
 def sales_dashboard(user, company, filters):
     queryset = sales_filtered_queryset(user, company, filters)
     return {
-        "summary": _summary(queryset),
+        "summary": summary_of(queryset),
         "daily_trend": _trend(queryset, "shipment_date", TruncDay),
         "monthly_trend": _trend(queryset, "shipment_date", TruncMonth),
         "type_share": _share(queryset, "sale_type"),
@@ -117,7 +119,7 @@ def purchase_filtered_queryset(user, company, filters):
 def purchase_dashboard(user, company, filters):
     queryset = purchase_filtered_queryset(user, company, filters)
     return {
-        "summary": _summary(queryset),
+        "summary": summary_of(queryset),
         "daily_trend": _trend(queryset, "purchase_date", TruncDay),
         "monthly_trend": _trend(queryset, "purchase_date", TruncMonth),
         "type_share": _share(queryset, "purchase_type"),

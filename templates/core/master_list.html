@@ -1,35 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ title }} - {{ nav_company.name }}</h1>
-<div class="page-actions">
-  <a href="{% url create_url %}">新增{{ unit }}</a>
-  {% if can_import %}<a href="{% url import_url %}">批量导入</a>{% endif %}
+<div class="page-head">
+  <h1>{{ title }} - {{ nav_company.name }}</h1>
+  <div class="page-actions">
+    <a class="button" href="{% url create_url %}">新增{{ unit }}</a>
+    {% if can_import %}<a class="button secondary" href="{% url import_url %}">批量导入</a>{% endif %}
+  </div>
 </div>
 <p class="page-help">{{ unit }}资料按公司隔离，这里只显示当前公司「{{ nav_company.name }}」的{{ unit }}。停用后保留历史数据，但不再出现在新增日报的候选里。</p>
 
-<form class="list-filter" method="get">
-  <input type="search" name="q" value="{{ search }}" placeholder="搜索{{ unit }}名称">
-  <select name="status">
-    <option value="" {% if not status %}selected{% endif %}>全部状态</option>
-    <option value="active" {% if status == "active" %}selected{% endif %}>仅启用</option>
-    <option value="inactive" {% if status == "inactive" %}selected{% endif %}>仅停用</option>
-  </select>
+<form class="filter-card" method="get">
+  <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="{{ unit }}名称"></label>
+  <label>状态
+    <select name="status">
+      <option value="" {% if not status %}selected{% endif %}>全部状态</option>
+      <option value="active" {% if status == "active" %}selected{% endif %}>仅启用</option>
+      <option value="inactive" {% if status == "inactive" %}selected{% endif %}>仅停用</option>
+    </select>
+  </label>
   <button type="submit">查询</button>
-  {% if search or status %}<a class="btn-link" href="?">清除</a>{% endif %}
+  {% if search or status %}<a class="button secondary" href="?">清除</a>{% endif %}
 </form>
 
-<table>
-  <tr><th>{{ unit }}名称</th><th>状态</th><th>操作</th></tr>
-  {% for row in rows %}
-  <tr>
-    <td>{{ row.name }}</td>
-    <td>{% if row.is_active %}启用{% else %}停用{% endif %}</td>
-    <td><a href="{% url edit_url row.pk %}">编辑</a></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="3">{% if search or status %}没有符合条件的{{ unit }}{% else %}暂无{{ unit }}{% endif %}</td></tr>
-  {% endfor %}
-</table>
-
-{% include "includes/pagination.html" %}
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th scope="col">{{ unit }}名称</th><th scope="col">状态</th><th scope="col">操作</th></tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr{% if not row.is_active %} class="row-inactive"{% endif %}>
+          <td>{{ row.name }}</td>
+          <td>{% if row.is_active %}<span class="tag">启用</span>{% else %}<span class="tag tag-alt">停用</span>{% endif %}</td>
+          <td class="row-actions"><a class="edit" href="{% url edit_url row.pk %}">编辑</a></td>
+        </tr>
+      {% empty %}
+        {# 空状态此前只有「暂无X」，没告诉用户下一步该做什么 #}
+        <tr><td colspan="3" class="empty-hint">{% if search or status %}没有符合当前筛选条件的{{ unit }}，可以点「清除」看全部。{% else %}还没有{{ unit }}资料，点上方「新增{{ unit }}」添加，或用「批量导入」从 Excel 导入。{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot">{% include "includes/pagination.html" %}</div>
+</div>
 {% endblock %}

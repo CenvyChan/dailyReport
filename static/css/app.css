@@ -1,7 +1,10 @@
 :root { font-family: "Microsoft YaHei", Arial, sans-serif; color: #17212b; background: #f5f7f9; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-nav { height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 28px; background: #17324d; color: #fff; }
+/* 导航吸顶：长表格滚到中段时，用户仍然要能看到「当前公司」。
+   A/B 两家数据隔离，看错公司就会把日报录到错的账套里。
+   z-index 高于表头的 1，否则吸顶的 th 会盖住导航。 */
+nav { position: sticky; top: 0; z-index: 10; height: 52px; display: flex; align-items: center; gap: 20px; padding: 0 28px; background: #17324d; color: #fff; }
 nav a { color: #fff; text-decoration: none; font-size: 14px; }
 nav span { color: #cfdae4; font-size: 13px; }
 /* 当前公司标签起分隔作用：它之前是菜单，它和之后是账号相关的操作。 */
@@ -21,7 +24,8 @@ table { width: 100%; margin-top: 16px; border-collapse: collapse; background: #f
 th, td { padding: 10px 12px; border-bottom: 1px solid #dce3e8; text-align: left; white-space: nowrap; }
 /* 默认每页 50 条、9 列的表滚到中段就看不到列名了，表头吸顶。
    position: sticky 要配 border-collapse 下的背景色，否则内容会透上来。 */
-th { position: sticky; top: 0; z-index: 1; background: #eaf0f4; color: #40515f; font-weight: 600; box-shadow: inset 0 -1px 0 #dce3e8; }
+/* top 要等于吸顶导航的高度，否则表头会滚到导航底下被遮住 */
+th { position: sticky; top: 52px; z-index: 1; background: #eaf0f4; color: #40515f; font-weight: 600; box-shadow: inset 0 -1px 0 #dce3e8; }
 tr:hover td { background: #f7fafb; }
 /* 列多的时候横向滚动条应该出现在表格上，而不是整个文档 */
 .table-scroll { overflow-x: auto; }
@@ -100,3 +104,111 @@ table.comparison tfoot th.total-share { background: #ff0000; color: #fff; }
 .pagination a { padding: 4px 10px; border: 1px solid #c8d1d9; border-radius: 4px; text-decoration: none; }
 .pagination .disabled { padding: 4px 10px; color: #a0a8b0; }
 .pagination .page-info, .page-info { color: #656d76; font-size: 14px; }
+/* 每页条数选择器此前无任何样式，只靠父级 gap 兜位置 */
+.page-size { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: #656d76; }
+.page-size select { height: 28px; padding: 2px 6px; font-size: 13px; }
+
+/* ---- 数字列：金额和数量必须右对齐且位数对齐 ---- */
+/* 全局 th,td 是 text-align:left，财务扫一列金额时小数点对不上。
+   tabular-nums 让每个数字等宽，否则 1 和 8 宽度不同，纵向仍然错位。 */
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.num { text-align: right; }
+/* 折算人民币是最终口径，在两个金额列里要能立刻分辨 */
+td.num-key { font-weight: 600; }
+
+/* ---- 表格卡片：原先表格直接贴在灰底上，没有边界 ---- */
+.table-card { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; overflow: hidden; margin-top: 16px; }
+.table-card table { margin-top: 0; }
+.table-card tbody tr:last-child td { border-bottom: none; }
+/* 分页并入卡片底部，和表格连成一体 */
+.table-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 11px 14px; border-top: 1px solid #dce3e8; background: #fbfcfd; }
+.table-foot .pagination { margin: 0; }
+
+/* ---- 币种与业务类型：纯文本混在表格里难分辨 ---- */
+.cur { display: inline-block; min-width: 40px; padding: 1px 6px; border-radius: 3px; font-size: 12px; text-align: center; background: #eef2f5; color: #5d6f7f; }
+.cur-usd { background: #e8f1f8; color: #1f5b86; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 12px; background: #eef2f5; color: #5d6f7f; }
+.tag-alt { background: #fdf3e3; color: #8a5a10; }
+
+/* ---- 操作列：编辑天天用却是裸链接，删除不可恢复却是红色实心块，
+        视觉权重和破坏性正好相反，等于在引导用户点删除 ---- */
+.row-actions .edit { padding: 3px 10px; border: 1px solid #c8d1d9; border-radius: 3px; background: #fff; color: #40515f; text-decoration: none; font-size: 13px; }
+.row-actions .edit:hover { background: #f2f6f9; }
+.row-actions .del { border: none; background: none; color: #9d2d2d; padding: 3px 4px; font-size: 13px; cursor: pointer; text-decoration: underline; }
+.row-actions .del:hover { color: #7a2222; background: none; filter: none; }
+
+/* ---- 页头：标题与主操作同行两端对齐 ---- */
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.page-head h1 { margin: 0; }
+.page-head .page-actions { margin: 0; }
+
+/* ---- 汇总卡片：原先 .summary 是一行灰文本，strong 反而是小灰字标签，
+        数字没有分量。业务人员最想先看到这几个合计 ---- */
+.stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; padding: 13px 15px; }
+.stat dt { margin: 0 0 5px; font-size: 12px; color: #7b8b99; }
+.stat dd { margin: 0; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat dd small { font-size: 12px; font-weight: 400; color: #7b8b99; margin-left: 3px; }
+.stat-key { border-color: #c3d7e6; background: #f7fbfd; }
+.stat-key dd { color: #17324d; }
+
+/* ---- 筛选栏收进白条，与下方表格明确分区 ---- */
+.filter-card { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px; background: #fff; border: 1px solid #dce3e8; border-radius: 6px; }
+.filter-card label { display: grid; gap: 5px; color: #40515f; font-size: 12px; }
+.filter-card input, .filter-card select { padding: 6px 10px; }
+.filter-card input[type="search"] { min-width: 200px; }
+.filter-card .spacer { margin-left: auto; }
+.filter-card .line { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; width: 100%; }
+.filter-card .line + .line { margin-top: 11px; padding-top: 11px; border-top: 1px solid #f0f4f7; }
+/* 预设区间做成一组联动按钮，当前生效的高亮 */
+.presets { display: inline-flex; border: 1px solid #c8d1d9; border-radius: 4px; overflow: hidden; }
+.presets button { border: none; border-radius: 0; background: #fff; color: #40515f; padding: 7px 14px; font-size: 13px; }
+.presets button + button { border-left: 1px solid #dce3e8; }
+.presets button.on { background: #005f9e; color: #fff; }
+/* 生效条件显式列出，避免用户忘了自己筛过什么 */
+.active-chips { display: flex; flex-wrap: wrap; gap: 7px; width: 100%; margin-top: 11px; padding-top: 11px; border-top: 1px solid #f0f4f7; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; background: #eef4f8; border: 1px solid #d5e3ee; border-radius: 12px; font-size: 12px; color: #1f5b86; }
+
+/* ---- 图表容器加标题栏，原先是四个无标题的裸白框 ---- */
+.chart-card { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; overflow: hidden; }
+.chart-card h3 { margin: 0; padding: 11px 14px; font-size: 13px; font-weight: 600; color: #40515f; border-bottom: 1px solid #eef2f5; }
+.chart-card .chart { min-height: 300px; border: none; }
+
+/* ---- 表单页：原先 form.as_p 配 form p{max-width:360px}，
+        字段全挤在一条窄列里，help_text 与标签同字号无层次 ---- */
+.form-card { background: #fff; border: 1px solid #dce3e8; border-radius: 6px; padding: 24px 26px; max-width: 620px; }
+.form-card .field { display: grid; gap: 6px; margin-bottom: 18px; max-width: none; }
+.form-card .field > label { font-size: 13px; font-weight: 600; color: #40515f; }
+.form-card .field .req { color: #c0392b; margin-left: 3px; }
+.form-card .field .helptext { font-size: 12px; color: #7b8b99; line-height: 1.6; }
+.form-card .field input, .form-card .field select, .form-card .field textarea { width: 100%; }
+/* 复选框组不该被拉到 100% 宽 */
+.form-card .field ul { margin: 0; padding-left: 18px; list-style: none; }
+.form-card .field ul input { width: auto; }
+/* 短字段两列并排，缩短纵向长度 */
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.field-row .field { margin-bottom: 18px; }
+.form-card input.num { text-align: right; font-variant-numeric: tabular-nums; }
+.form-card .form-actions { align-items: center; gap: 10px; margin-top: 4px; padding-top: 18px; border-top: 1px solid #eef2f5; }
+.form-card .form-actions .spacer { margin-left: auto; font-size: 12px; color: #9aa5ad; }
+/* 字段间的联动说明（如外销自动匹配汇率），原先埋在 help_text 里 */
+.inline-note { display: flex; align-items: center; gap: 7px; padding: 9px 12px; margin-bottom: 18px; background: #f4f8fb; border: 1px solid #dbe6ef; border-radius: 5px; font-size: 12px; color: #40515f; line-height: 1.6; }
+.inline-note i { font-style: normal; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #005f9e; color: #fff; font-weight: 700; font-size: 11px; flex: none; }
+
+/* 面包屑：录入页是从列表点进来的，要有明确的返回路径 */
+.crumb { margin: 0 0 12px; font-size: 13px; color: #7b8b99; }
+.crumb span { margin: 0 6px; color: #b3bfc9; }
+
+@media (max-width: 860px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  /* 窄屏导航会换行，高度不再是 52px，表头吸顶的 top 值就对不上了。
+     窄屏本来就靠横向滚动看表，取消吸顶反而清楚。 */
+  nav { position: static; }
+  th { position: static; }
+  /* .list-filter 此前不在窄屏断点内，8 个控件横向挤成一团 */
+  .list-filter, .filter-card { flex-direction: column; align-items: stretch; }
+  .list-filter input, .list-filter select, .filter-card label { width: 100%; }
+  .field-row { grid-template-columns: 1fr; gap: 0; }
+  .table-foot { flex-direction: column; align-items: stretch; }
+  .page-head { align-items: stretch; }
+}

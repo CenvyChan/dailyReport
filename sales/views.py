@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from core.errors import MissingExchangeRate
 from core.services.listing import paginate, search_queryset
+from reports.services import summary_of
 from core.services.permissions import can_access_sales, customer_queryset_for, is_administrator
 from core.responses import forbidden_page
 from core.excel import read_rows
@@ -42,6 +43,9 @@ def shipment_list(request):
         queryset = queryset.filter(shipment_date__gte=request.GET["start"])
     if request.GET.get("end"):
         queryset = queryset.filter(shipment_date__lte=request.GET["end"])
+    # 合计基于筛选后的全量而不是当前页，否则翻页时数字会跳。
+    # 复用分析页的 summary_of，两处口径必须一致，否则用户会怀疑哪个是对的。
+    totals = summary_of(queryset)
     page, querystring = paginate(request, queryset)
     return render(
         request,
@@ -49,6 +53,7 @@ def shipment_list(request):
         {
             "page": page,
             "shipments": page.object_list,
+            "totals": totals,
             "querystring": querystring,
             "search": request.GET.get("q", ""),
             "start": request.GET.get("start", ""),

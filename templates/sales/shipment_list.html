@@ -1,17 +1,61 @@
 {% extends "base.html" %}
 {% load display %}
 {% block content %}
-<h1>销售日报</h1>
-<div class="page-actions"><a href="{% url 'sales:shipment_create' %}">新增出货</a>{% if can_import %}<a href="{% url 'sales:import_page' %}">导入历史数据</a>{% endif %}</div>
-<form class="list-filter" method="get">
-  <input type="search" name="q" value="{{ search }}" placeholder="搜索客户或负责人">
-  <input type="date" name="start" value="{{ start }}" aria-label="开始日期">
-  <input type="date" name="end" value="{{ end }}" aria-label="结束日期">
+<div class="page-head">
+  <h1>销售日报</h1>
+  <div class="page-actions">
+    <a class="button" href="{% url 'sales:shipment_create' %}">新增出货</a>
+    {% if can_import %}<a class="button secondary" href="{% url 'sales:import_page' %}">导入历史数据</a>{% endif %}
+  </div>
+</div>
+{# 当前筛选口径下的合计。此前要跳到分析页才看得到，而这里是日常核对的入口 #}
+<dl class="stat-row">
+  <div class="stat"><dt>记录数</dt><dd>{{ page.paginator.count }} <small>条</small></dd></div>
+  <div class="stat"><dt>数量合计</dt><dd>{{ totals.quantity|qty }}</dd></div>
+  <div class="stat"><dt>美元金额</dt><dd>{{ totals.usd_amount|money }}</dd></div>
+  <div class="stat stat-key"><dt>折算人民币合计</dt><dd>{{ totals.amount_cny|money }}</dd></div>
+</dl>
+<form class="filter-card" method="get">
+  <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="客户或负责人"></label>
+  <label>开始日期<input type="date" name="start" value="{{ start }}"></label>
+  <label>结束日期<input type="date" name="end" value="{{ end }}"></label>
   <button type="submit">查询</button>
-  {% if search or start or end %}<a class="btn-link" href="?">清除</a>{% endif %}
+  {% if search or start or end %}<a class="button secondary" href="?">清除</a>{% endif %}
 </form>
-<div class="table-scroll"><table><tr><th>日期</th><th>客户</th><th>负责人</th><th>类型</th><th>数量</th><th>币种</th><th>金额</th><th>人民币</th><th>操作</th></tr>
-{% for item in shipments %}<tr><td>{{ item.shipment_date }}</td><td>{{ item.customer.name }}</td><td>{{ item.owner|person }}</td><td>{{ item.get_sale_type_display }}</td><td>{{ item.quantity }}</td><td>{{ item.currency }}</td><td>{{ item.original_amount }}</td><td>{{ item.amount_cny }}</td><td class="row-actions"><a href="{% url 'sales:shipment_edit' item.pk %}">编辑</a><form method="post" action="{% url 'sales:shipment_delete' item.pk %}" onsubmit="return confirm('确认删除 {{ item.shipment_date }} 客户「{{ item.customer.name|escapejs }}」金额 {{ item.original_amount }} 的这笔记录？删除后无法恢复。')">{% csrf_token %}<button class="danger" type="submit">删除</button></form></td></tr>{% empty %}<tr><td colspan="9" class="empty-hint">{% if search or start or end %}没有符合当前筛选条件的记录，可以点「清除」看全部。{% else %}还没有出货记录，点上方「新增出货」开始录入。{% endif %}</td></tr>{% endfor %}
-</table></div>
-{% include "includes/pagination.html" %}
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">日期</th><th scope="col">客户</th><th scope="col">负责人</th><th scope="col">类型</th>
+          <th scope="col" class="num">数量</th><th scope="col">币种</th>
+          <th scope="col" class="num">原币金额</th><th scope="col" class="num">折算人民币</th><th scope="col">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in shipments %}
+        <tr>
+          <td>{{ item.shipment_date|date:"Y-m-d" }}</td>
+          <td>{{ item.customer.name }}</td>
+          <td>{{ item.owner|person }}</td>
+          <td><span class="tag{% if item.sale_type == 'EXPORT' %} tag-alt{% endif %}">{{ item.get_sale_type_display }}</span></td>
+          <td class="num">{{ item.quantity|qty }}</td>
+          <td><span class="cur{% if item.currency != 'CNY' %} cur-usd{% endif %}">{{ item.currency }}</span></td>
+          <td class="num">{{ item.original_amount|money }}</td>
+          <td class="num num-key">{{ item.amount_cny|money }}</td>
+          <td class="row-actions">
+            <a class="edit" href="{% url 'sales:shipment_edit' item.pk %}">编辑</a>
+            <form method="post" action="{% url 'sales:shipment_delete' item.pk %}" onsubmit="return confirm('确认删除 {{ item.shipment_date|date:"Y-m-d" }} 客户「{{ item.customer.name|escapejs }}」金额 {{ item.original_amount|money }} 的这笔记录？删除后无法恢复。')">
+              {% csrf_token %}<button class="del" type="submit">删除</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="9" class="empty-hint">{% if search or start or end %}没有符合当前筛选条件的记录，可以点「清除」看全部。{% else %}还没有出货记录，点上方「新增出货」开始录入。{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="table-foot">{% include "includes/pagination.html" %}</div>
+</div>
 {% endblock %}
