@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from core.errors import MissingExchangeRate
 from core.services import date_filter
-from core.services.listing import filter_by, paginate, search_queryset
+from core.services.listing import filter_by, filter_by_name, paginate, search_queryset
 from reports.services import person_label, summary_of
 from core.services.permissions import (
     can_access_sales,
@@ -62,11 +62,9 @@ def shipment_list(request):
             scoped.values_list("currency", flat=True).order_by("currency").distinct()
         ),
     }
-    queryset = filter_by(
-        scoped,
-        request,
-        {"owner": "owner_id", "customer": "customer_id", "currency": "currency"},
-    )
+    queryset = filter_by(scoped, request, {"owner": "owner_id", "currency": "currency"})
+    # 客户走名称匹配：下拉换成 input + datalist 后提交的是名称而不是 id
+    queryset = filter_by_name(queryset, request, "counterpart", options["counterparts"], "customer_id")
     queryset = search_queryset(
         queryset,
         request.GET.get("q"),
@@ -101,7 +99,7 @@ def shipment_list(request):
             "options": options,
             "selected": {
                 "owner": request.GET.get("owner", ""),
-                "customer": request.GET.get("customer", ""),
+                "counterpart": request.GET.get("counterpart", ""),
                 "currency": request.GET.get("currency", ""),
             },
             "person_label": "负责人",

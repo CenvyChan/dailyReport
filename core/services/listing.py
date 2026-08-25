@@ -19,6 +19,27 @@ def search_queryset(queryset, term, fields):
     return queryset.filter(condition)
 
 
+def filter_by_name(queryset, request, param, options, field):
+    """按名称筛选，名称来自 input + datalist 的输入值。
+
+    客户/供应商上百个，原生 select 只能按首字母跳，找一个要翻很久；datalist 能
+    输片段即过滤，但提交的是名称，所以要在这里映射回主键。
+
+    options 是 [{"id":.., "label":..}]。名称精确对不上时退化成包含匹配——用户
+    可能只输了一半就回车。都匹配不到就当没筛选，不报错。
+    """
+    name = (request.GET.get(param) or "").strip()
+    if not name:
+        return queryset
+    exact = next((item for item in options if item["label"] == name), None)
+    if exact:
+        return queryset.filter(**{field: exact["id"]})
+    partial = [item["id"] for item in options if name.lower() in (item["label"] or "").lower()]
+    if partial:
+        return queryset.filter(**{f"{field}__in": partial})
+    return queryset
+
+
 def filter_by(queryset, request, mapping):
     """按下拉选择精确筛选。mapping 是 {查询参数名: 模型字段名}。
 

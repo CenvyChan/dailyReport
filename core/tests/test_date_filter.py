@@ -481,12 +481,19 @@ class SplitFilterTests(TestCase):
             amount_cny=Decimal("100"),
         )
 
-    def test_three_separate_dropdowns_are_offered(self):
+    def test_three_separate_filters_are_offered(self):
         response = self.client.get(reverse("sales:shipment_list"))
 
         self.assertContains(response, 'name="owner"')
-        self.assertContains(response, 'name="customer"')
+        self.assertContains(response, 'name="counterpart"')
         self.assertContains(response, 'name="currency"')
+
+    def test_the_counterpart_filter_supports_typing(self):
+        """客户上百个，原生 select 只能按首字母跳。datalist 能输片段即过滤。"""
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertContains(response, 'list="df-counterpart-options"')
+        self.assertContains(response, "<datalist")
 
     def test_filtering_by_owner(self):
         table = self._table(
@@ -496,15 +503,29 @@ class SplitFilterTests(TestCase):
         self.assertIn("外销客户", table)
         self.assertNotIn("内销客户", table)
 
-    def test_filtering_by_customer(self):
+    def test_filtering_by_an_exact_counterpart_name(self):
         table = self._table(
-            self.client.get(
-                reverse("sales:shipment_list"), {"customer": self.domestic.customer_id}
-            )
+            self.client.get(reverse("sales:shipment_list"), {"counterpart": "内销客户"})
         )
 
         self.assertIn("内销客户", table)
         self.assertNotIn("外销客户", table)
+
+    def test_a_partial_counterpart_name_still_narrows(self):
+        """用户可能只输了一半就回车，退化成包含匹配而不是当没筛选。"""
+        table = self._table(
+            self.client.get(reverse("sales:shipment_list"), {"counterpart": "外销"})
+        )
+
+        self.assertIn("外销客户", table)
+        self.assertNotIn("内销客户", table)
+
+    def test_a_counterpart_name_matching_nothing_is_ignored(self):
+        response = self.client.get(
+            reverse("sales:shipment_list"), {"counterpart": "根本没有这个客户"}
+        )
+
+        self.assertEqual(response.status_code, 200)
 
     def test_filtering_by_currency(self):
         """此前完全没法只看美元单。"""
@@ -545,6 +566,11 @@ class SplitFilterTests(TestCase):
 
         self.assertEqual(response.context["selected"]["currency"], "USD")
 
+    def test_the_typed_counterpart_name_is_echoed_back(self):
+        response = self.client.get(reverse("sales:shipment_list"), {"counterpart": "内销客户"})
+
+        self.assertEqual(response.context["selected"]["counterpart"], "内销客户")
+
     def test_the_currency_choices_come_from_actual_data(self):
         response = self.client.get(reverse("sales:shipment_list"))
 
@@ -555,7 +581,7 @@ class SplitFilterTests(TestCase):
 
         self.assertEqual(response.context["totals"]["amount_cny"], Decimal("100"))
 
-    def test_the_purchase_list_has_the_same_three_dropdowns(self):
+    def test_the_purchase_list_has_the_same_three_filters(self):
         buyer = User.objects.create_user("purchase-a")
         buyer.groups.add(Group.objects.get(name="purchase"))
         login_with_company(self.client, buyer, self.company)
@@ -563,5 +589,5 @@ class SplitFilterTests(TestCase):
         response = self.client.get(reverse("purchase:receipt_list"))
 
         self.assertContains(response, 'name="owner"')
-        self.assertContains(response, 'name="customer"')
+        self.assertContains(response, 'name="counterpart"')
         self.assertContains(response, 'name="currency"')

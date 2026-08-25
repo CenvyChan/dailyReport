@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from purchase.forms import PurchaseReceiptForm
 from core.errors import MissingExchangeRate
 from core.services import date_filter
-from core.services.listing import filter_by, paginate, search_queryset
+from core.services.listing import filter_by, filter_by_name, paginate, search_queryset
 from reports.services import person_label, summary_of
 from core.services.permissions import (
     can_access_purchase,
@@ -60,11 +60,9 @@ def receipt_list(request):
             scoped.values_list("currency", flat=True).order_by("currency").distinct()
         ),
     }
-    queryset = filter_by(
-        scoped,
-        request,
-        {"owner": "buyer_id", "customer": "supplier_id", "currency": "currency"},
-    )
+    queryset = filter_by(scoped, request, {"owner": "buyer_id", "currency": "currency"})
+    # 供应商走名称匹配：下拉换成 input + datalist 后提交的是名称而不是 id
+    queryset = filter_by_name(queryset, request, "counterpart", options["counterparts"], "supplier_id")
     queryset = search_queryset(
         queryset,
         request.GET.get("q"),
@@ -99,7 +97,7 @@ def receipt_list(request):
             "options": options,
             "selected": {
                 "owner": request.GET.get("owner", ""),
-                "customer": request.GET.get("customer", ""),
+                "counterpart": request.GET.get("counterpart", ""),
                 "currency": request.GET.get("currency", ""),
             },
             "person_label": "采购员",
