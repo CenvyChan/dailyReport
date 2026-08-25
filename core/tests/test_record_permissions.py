@@ -107,7 +107,7 @@ class SalesVisibilityTests(TestCase):
     def test_the_list_only_offers_buttons_for_editable_rows(self):
         login_with_company(self.client, self.mine, self.company)
 
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         # 两条都看得见
         self.assertContains(response, "我的客户")
@@ -210,11 +210,11 @@ class ReadOnlyRoleTests(TestCase):
         self.assertTrue(is_read_only(self.viewer))
 
     def test_it_can_read_both_lists(self):
-        self.assertEqual(self.client.get(reverse("sales:shipment_list")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("purchase:receipt_list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("sales:shipment_list"), {"preset": "all"}).status_code, 200)
+        self.assertEqual(self.client.get(reverse("purchase:receipt_list"), {"preset": "all"}).status_code, 200)
 
     def test_the_data_is_actually_there_not_an_empty_page(self):
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertContains(response, "某客户")
 
@@ -230,7 +230,7 @@ class ReadOnlyRoleTests(TestCase):
 
     def test_no_action_buttons_are_rendered_for_it(self):
         """只读用户看到点了才报错的按钮是最糟的体验。"""
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertNotContains(response, 'class="edit"')
         self.assertNotContains(response, 'class="del"')

@@ -97,7 +97,7 @@ class PurchaseRouteTests(TestCase):
         make_receipt(company_b(), other_supplier, self.user)
         make_receipt(self.company, self.supplier, self.user)
 
-        response = self.client.get(reverse("purchase:receipt_list"))
+        response = self.client.get(reverse("purchase:receipt_list"), {"preset": "all"})
 
         self.assertContains(response, "供应商 A")
         self.assertNotContains(response, "供应商 B 家")

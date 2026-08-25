@@ -15,13 +15,7 @@
   <div class="stat"><dt>美元金额</dt><dd>{{ totals.usd_amount|money }}</dd></div>
   <div class="stat stat-key"><dt>折算人民币合计</dt><dd>{{ totals.amount_cny|money }}</dd></div>
 </dl>
-<form class="filter-card" method="get">
-  <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="客户或负责人"></label>
-  <label>开始日期<input type="date" name="start" value="{{ start }}"></label>
-  <label>结束日期<input type="date" name="end" value="{{ end }}"></label>
-  <button type="submit">查询</button>
-  {% if search or start or end %}<a class="button secondary" href="?">清除</a>{% endif %}
-</form>
+{% include "includes/date_filter.html" with search_placeholder="客户或负责人" %}
 <div class="table-card">
   <div class="table-head">{% include "includes/pagination.html" %}</div>
   <div class="table-scroll">

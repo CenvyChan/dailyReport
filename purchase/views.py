@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from purchase.forms import PurchaseReceiptForm
 from core.errors import MissingExchangeRate
+from core.services import date_filter
 from core.services.listing import paginate, search_queryset
 from reports.services import summary_of
 from core.services.permissions import (
@@ -44,10 +45,9 @@ def receipt_list(request):
         request.GET.get("q"),
         ("supplier__name", "buyer__first_name", "buyer__username"),
     )
-    if request.GET.get("start"):
-        queryset = queryset.filter(purchase_date__gte=request.GET["start"])
-    if request.GET.get("end"):
-        queryset = queryset.filter(purchase_date__lte=request.GET["end"])
+    # 默认只显示当天，口径与销售侧一致。
+    dates = date_filter.resolve(request)
+    queryset = date_filter.apply(queryset, dates, field="purchase_date")
     # 合计基于筛选后的全量而不是当前页，否则翻页时数字会跳。
     # 复用分析页的 summary_of，两处口径必须一致。
     totals = summary_of(queryset)
@@ -68,8 +68,9 @@ def receipt_list(request):
             "receipts": page.object_list,
             "querystring": querystring,
             "search": request.GET.get("q", ""),
-            "start": request.GET.get("start", ""),
-            "end": request.GET.get("end", ""),
+            "dates": dates,
+            "start": dates["start"].isoformat() if dates["start"] else "",
+            "end": dates["end"].isoformat() if dates["end"] else "",
             "can_import": is_administrator(request.user),
         },
     )

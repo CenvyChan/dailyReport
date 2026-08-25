@@ -99,7 +99,7 @@ class SalesViewTests(TestCase):
         SalesAssignment.objects.create(user=other_user, customer=other_customer)
         shipment = make_shipment(self.company, other_customer, other_user)
 
-        listed = self.client.get(reverse("sales:shipment_list"))
+        listed = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
         self.assertContains(listed, "客户 B")
 
         self.assertEqual(
@@ -115,7 +115,7 @@ class SalesViewTests(TestCase):
         make_shipment(company_b(), other_customer, self.user, original_amount="999.00", amount_cny="999.00")
         make_shipment(self.company, self.customer, self.user)
 
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertContains(response, "客户 A")
         self.assertNotContains(response, "客户 B 家")
@@ -138,7 +138,7 @@ class SalesViewTests(TestCase):
         make_shipment(self.company, self.customer, self.user)
 
         self.client.post(reverse("core:switch_company"), {"company": other.pk})
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertContains(response, "客户 B 家")
         self.assertNotContains(response, "客户 A")

@@ -134,7 +134,7 @@ class SalesOwnerResolutionTests(TestCase):
         )
         login_with_company(self.client, self.admin, self.company)
 
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertContains(response, "张三")
 

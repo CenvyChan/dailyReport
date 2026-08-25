@@ -6,7 +6,16 @@
   {% else %}
     <span class="disabled">首页</span><span class="disabled">上一页</span>
   {% endif %}
-  <span class="page-info">第 {{ page.number }} / {{ page.paginator.num_pages }} 页，共 {{ page.paginator.count }} 条</span>
+  {% comment %} 页码直达。只有首页/上一页/下一页/末页时，要跳到第 7 页得连点六次。
+     页数多时 elided_page_range 会用省略号折叠中间部分。 {% endcomment %}
+  <span class="page-numbers">
+    {% for number in page.page_numbers %}
+      {% if number == page.elision %}<span class="gap">…</span>
+      {% elif number == page.number %}<span class="current" aria-current="page">{{ number }}</span>
+      {% else %}<a href="?{{ querystring }}&page={{ number }}">{{ number }}</a>{% endif %}
+    {% endfor %}
+  </span>
+  <span class="page-info">共 {{ page.paginator.count }} 条</span>
   {% if page.has_next %}
     <a href="?{{ querystring }}&page={{ page.next_page_number }}">下一页</a>
     <a href="?{{ querystring }}&page={{ page.paginator.num_pages }}">末页</a>
@@ -22,6 +31,17 @@
     </select>
     <noscript><button type="submit">应用</button></noscript>
   </form>
+  {% comment %} 页数多时给个直接输页码的入口：折叠后的页码条最多跳 5 页，
+     几十页的表还是得手输。 {% endcomment %}
+  {% if page.paginator.num_pages > 7 %}
+  <form class="page-jump" method="get">
+    {% for key, value in request.GET.items %}{% if key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+    <label for="page-jump">跳至</label>
+    <input id="page-jump" type="number" name="page" min="1" max="{{ page.paginator.num_pages }}" value="{{ page.number }}" aria-label="跳至第几页">
+    <span>/ {{ page.paginator.num_pages }}</span>
+    <button type="submit">跳转</button>
+  </form>
+  {% endif %}
 </nav>
 {% else %}
 <p class="page-info">共 {{ page.paginator.count }} 条</p>

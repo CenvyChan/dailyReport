@@ -330,3 +330,35 @@ td.num-key { font-weight: 600; }
 /* 无写权限的行：可见范围是全公司，但改删只限自己负责的客户/供应商。
    留一个占位符而不是空白，否则那一列看起来像渲染坏了。 */
 .row-readonly { color: #b3bfc9; }
+
+/* ---- 日报列表的日期筛选栏 ---- */
+.date-filter { align-items: end; }
+/* 当天前后翻页：日报是每天录的，按天翻比每次手填两个日期快得多 */
+.date-nav { display: inline-flex; align-items: center; gap: 2px; }
+.date-nav .step {
+  display: inline-grid; place-items: center; width: 28px; height: 30px;
+  border: 1px solid #c8d1d9; border-radius: 4px; background: #fff;
+  color: #40515f; text-decoration: none; font-size: 17px; line-height: 1;
+}
+.date-nav .step:hover { border-color: #005f9e; color: #005f9e; background: #f7fbfd; }
+.date-nav .step.disabled { color: #cbd3da; background: #f7f9fa; cursor: not-allowed; }
+/* 当前口径写成人话（今天/昨天/区间），不然用户看两个日期框要自己换算 */
+.date-nav .date-label {
+  min-width: 168px; padding: 0 10px; height: 30px; display: inline-flex; align-items: center;
+  justify-content: center; border: 1px solid #dce3e8; border-radius: 4px;
+  background: #f4f8fb; color: #17324d; font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+
+/* ---- 分页：页码直达与跳页 ---- */
+.page-numbers { display: inline-flex; align-items: center; gap: 4px; }
+.page-numbers a, .page-numbers .current, .page-numbers .gap {
+  min-width: 28px; height: 28px; display: inline-grid; place-items: center;
+  border-radius: 4px; font-size: 13px; text-decoration: none;
+}
+.page-numbers a { border: 1px solid #c8d1d9; background: #fff; color: #40515f; }
+.page-numbers a:hover { border-color: #005f9e; color: #005f9e; }
+.page-numbers .current { border: 1px solid #005f9e; background: #005f9e; color: #fff; font-weight: 600; }
+.page-numbers .gap { color: #a0a8b0; }
+.page-jump { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: #656d76; }
+.page-jump input { width: 60px; height: 28px; padding: 2px 6px; font-size: 13px; text-align: center; }
+.page-jump button { padding: 4px 10px; font-size: 13px; }

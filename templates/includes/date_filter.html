@@ -1,0 +1,40 @@
+{% comment %}
+日报列表的日期筛选栏。销售/采购共用。
+
+日报是每天录的，所以默认只看当天，并给前后一天的翻页箭头——这比每次手填
+两个日期快得多。预设按钮和分析页同一套口径（今天/本周/本月/本年/全部）。
+
+用法：{% include "includes/date_filter.html" with dates=dates search=search %}
+{% endcomment %}
+<form class="filter-card date-filter" method="get">
+  <div class="date-nav">
+    {% if dates.prev_url %}
+    <a class="step" href="{{ dates.prev_url }}" title="前一天" aria-label="前一天">‹</a>
+    {% else %}
+    <span class="step disabled" title="选中某一天后才能按天翻页" aria-hidden="true">‹</span>
+    {% endif %}
+
+    <span class="date-label">{{ dates.label }}</span>
+
+    {% if dates.next_url %}
+    <a class="step" href="{{ dates.next_url }}" title="后一天" aria-label="后一天">›</a>
+    {% else %}
+    <span class="step disabled" aria-hidden="true">›</span>
+    {% endif %}
+  </div>
+
+  <span class="presets">
+    <button type="submit" name="preset" value="day"{% if dates.preset == 'day' %} class="on"{% endif %}>今天</button>
+    <button type="submit" name="preset" value="week"{% if dates.preset == 'week' %} class="on"{% endif %}>本周</button>
+    <button type="submit" name="preset" value="month"{% if dates.preset == 'month' %} class="on"{% endif %}>本月</button>
+    <button type="submit" name="preset" value="year"{% if dates.preset == 'year' %} class="on"{% endif %}>本年</button>
+    <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
+  </span>
+
+  <label>开始<input type="date" name="start" value="{{ start }}"></label>
+  <label>结束<input type="date" name="end" value="{{ end }}"></label>
+  <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="{{ search_placeholder }}"></label>
+  {% comment %} 手填日期后点这个：preset 为空，让具体日期生效而不被预设顶掉 {% endcomment %}
+  <button type="submit" name="preset" value="">查询</button>
+  <a class="button secondary" href="?">重置</a>
+</form>

@@ -33,6 +33,12 @@ def paginate(request, queryset, *, default_size=PAGE_SIZE):
     page = paginator.get_page(request.GET.get("page"))
     page.current_size = size
     page.size_choices = PAGE_SIZE_CHOICES
+    # 页码窗口：只有首页/上一页/下一页/末页时，要跳到第 7 页得连点六次。
+    # elided_page_range 会在页数多时用省略号折叠中间部分。
+    page.page_numbers = list(
+        paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)
+    )
+    page.elision = paginator.ELLIPSIS
 
     params = request.GET.copy()
     params.pop("page", None)

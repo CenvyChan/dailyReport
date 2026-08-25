@@ -60,29 +60,29 @@ class ShipmentListPaginationTests(TestCase):
         login_with_company(self.client, self.user, self.company)
 
     def test_first_page_shows_the_default_page_size(self):
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertEqual(len(response.context["page"].object_list), 50)
         self.assertEqual(response.context["page"].paginator.count, 120)
 
     def test_pagination_links_are_rendered(self):
-        response = self.client.get(reverse("sales:shipment_list"))
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all"})
 
         self.assertContains(response, "下一页")
         self.assertContains(response, "共 120 条")
 
     def test_second_page_continues_the_list(self):
-        response = self.client.get(reverse("sales:shipment_list"), {"page": 2})
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all", "page": 2})
 
         self.assertEqual(response.context["page"].number, 2)
 
     def test_out_of_range_page_falls_back_to_the_last_page(self):
-        response = self.client.get(reverse("sales:shipment_list"), {"page": 999})
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all", "page": 999})
 
         self.assertEqual(response.context["page"].number, response.context["page"].paginator.num_pages)
 
     def test_garbage_page_value_does_not_crash(self):
-        self.assertEqual(self.client.get(reverse("sales:shipment_list"), {"page": "abc"}).status_code, 200)
+        self.assertEqual(self.client.get(reverse("sales:shipment_list"), {"preset": "all", "page": "abc"}).status_code, 200)
 
     def test_date_range_filter_narrows_the_result(self):
         response = self.client.get(
@@ -93,7 +93,7 @@ class ShipmentListPaginationTests(TestCase):
         self.assertTrue(dates <= {date(2026, 8, 1), date(2026, 8, 2)})
 
     def test_querystring_keeps_filters_when_turning_pages(self):
-        response = self.client.get(reverse("sales:shipment_list"), {"q": "客户甲", "page": 2})
+        response = self.client.get(reverse("sales:shipment_list"), {"preset": "all", "q": "客户甲", "page": 2})
 
         self.assertIn("q=", response.context["querystring"])
         self.assertNotIn("page=", response.context["querystring"])

@@ -3,6 +3,7 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from core.errors import MissingExchangeRate
+from core.services import date_filter
 from core.services.listing import paginate, search_queryset
 from reports.services import summary_of
 from core.services.permissions import (
@@ -45,10 +46,9 @@ def shipment_list(request):
         request.GET.get("q"),
         ("customer__name", "owner__first_name", "owner__username"),
     )
-    if request.GET.get("start"):
-        queryset = queryset.filter(shipment_date__gte=request.GET["start"])
-    if request.GET.get("end"):
-        queryset = queryset.filter(shipment_date__lte=request.GET["end"])
+    # 日报是每天录的，打开列表最常见的意图是「看今天录了什么」，所以默认只显示当天。
+    dates = date_filter.resolve(request)
+    queryset = date_filter.apply(queryset, dates, field="shipment_date")
     # 合计基于筛选后的全量而不是当前页，否则翻页时数字会跳。
     # 复用分析页的 summary_of，两处口径必须一致，否则用户会怀疑哪个是对的。
     totals = summary_of(queryset)
@@ -70,8 +70,9 @@ def shipment_list(request):
             "totals": totals,
             "querystring": querystring,
             "search": request.GET.get("q", ""),
-            "start": request.GET.get("start", ""),
-            "end": request.GET.get("end", ""),
+            "dates": dates,
+            "start": dates["start"].isoformat() if dates["start"] else "",
+            "end": dates["end"].isoformat() if dates["end"] else "",
             "can_import": is_administrator(request.user),
         },
     )
