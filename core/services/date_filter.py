@@ -60,6 +60,13 @@ def resolve(request, *, today=None):
     end = parse_date(request.GET.get("end"))
     preset = request.GET.get("preset")
 
+    # scope=all 来自搜索框旁的「搜索全部时间」按钮，优先级高于日期框里的值。
+    # 搜索是跨时间的意图（「这个人所有的单」），而日期框是预填的（默认本月），
+    # 不给它更高优先级的话搜索会被悄悄限制在本月内——搜不全，用户还以为
+    # 是搜索把日期改了。
+    if request.GET.get("scope") == "all":
+        return _resolved(None, None, "all", request, today)
+
     if start or end:
         # 手填或翻页得到的具体区间，preset 不参与。
         # 只填了一头时补齐成单日，否则「前一天」会退化成开区间。
@@ -85,12 +92,17 @@ def resolve(request, *, today=None):
         preset = DEFAULT_PRESET
         start, end = preset_bounds(preset, today)
 
-    # 翻页步长跟随当前区间长度：看单日就翻一天，看一段就整段前后移。
-    # 直接给出目标日期让按钮写进日期框，不再拼 URL——模板里 Django 会把 & 转义成
-    # &amp;，参数名会变成 amp;end，等于 end 根本没传出去（真出过这个 bug）。
-    span = None
-    if start and end:
-        span = (end - start).days + 1
+    return _resolved(start, end, preset, request, today)
+
+
+def _resolved(start, end, preset, request, today):
+    """组装返回值。
+
+    翻页步长跟随当前区间长度：看单日就翻一天，看一段就整段前后移。
+    直接给出目标日期让按钮写进日期框，不再拼 URL——模板里 Django 会把 & 转义成
+    &amp;，参数名会变成 amp;end，等于 end 根本没传出去（真出过这个 bug）。
+    """
+    span = (end - start).days + 1 if (start and end) else None
     return {
         "start": start,
         "end": end,

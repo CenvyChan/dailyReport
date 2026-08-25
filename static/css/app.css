@@ -369,3 +369,10 @@ td.num-key { font-weight: 600; }
 .page-jump { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: #656d76; }
 .page-jump input { width: 60px; height: 28px; padding: 2px 6px; font-size: 13px; text-align: center; }
 .page-jump button { padding: 4px 10px; font-size: 13px; }
+
+/* 搜索独立一行：它是跨时间的意图，和上面按日期筛选不是一回事。
+   混在同一行联动时，预填的日期会把搜索悄悄限制在本月内。 */
+.df-search-line { align-items: center; }
+.df-search-line .df-search input { min-width: 210px; }
+.df-search-note { font-size: 12px; color: #7b8b99; }
+.df-search-note a { margin-left: 6px; }

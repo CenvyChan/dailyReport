@@ -42,13 +42,32 @@
       <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
     </span>
 
-    <label class="df-search">搜索
-      <input type="search" name="q" value="{{ search }}" placeholder="{{ search_placeholder }}">
-    </label>
-
-    {% comment %} 点预设时要清掉日期框里的旧值，否则「显式日期优先」会让预设失效 {% endcomment %}
-    <button type="submit" name="preset" value="">查询</button>
+    {% comment %} 按当前日期区间查询：把日期框里的值应用上去 {% endcomment %}
+    <button type="submit" name="preset" value="">按日期查询</button>
     <a class="button secondary" href="?">重置</a>
+  </div>
+
+  {% comment %}
+  搜索单独一行、自带提交按钮，且提交时清空日期。
+
+  搜索是跨时间的意图（「高席这个人所有的单」），日期是限定范围的意图，两者混在
+  一起联动会出问题：日期框是预填的（默认本月），用户在搜索框打「高」点查询，
+  表单会把预填的日期一起交上去，于是变成「本月内含高的记录」——搜不全，而且
+  「本月」的高亮消失，看起来像搜索改动了日期。
+  {% endcomment %}
+  <div class="df-line df-search-line">
+    <label class="df-search">搜索
+      <input type="search" name="q" id="df-q" value="{{ search }}" placeholder="{{ search_placeholder }}">
+    </label>
+    <button type="submit" name="scope" value="all" class="df-search-go">搜索全部时间</button>
+    {% if search %}
+    <span class="df-search-note">
+      正在搜索「{{ search }}」，范围：{{ dates.label }}
+      {% if dates.start %}<a href="?q={{ search }}&amp;preset=all">改为搜索全部时间</a>{% endif %}
+    </span>
+    {% else %}
+    <span class="df-search-note">搜索会忽略上面的日期范围，在全部记录里找</span>
+    {% endif %}
   </div>
 </form>
 <script>
@@ -66,12 +85,25 @@
     });
   });
 
-  // 预设：清空日期框，否则 resolve() 里「显式日期优先」会让按钮点了没反应。
-  form.querySelectorAll(".presets button").forEach((button) => {
+  // 预设和「搜索全部时间」都要清空日期框，否则 resolve() 里的「显式日期优先」
+  // 会让预填的日期把它们顶掉——按钮看起来点了没反应。
+  form.querySelectorAll(".presets button, .df-search-go").forEach((button) => {
     button.addEventListener("click", () => {
       start.value = "";
       end.value = "";
     });
   });
+
+  // 搜索框里按回车走「搜索全部时间」，而不是默认提交（默认会带上日期）。
+  const search = document.getElementById("df-q");
+  const searchGo = form.querySelector(".df-search-go");
+  if (search && searchGo) {
+    search.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        searchGo.click();
+      }
+    });
+  }
 })();
 </script>

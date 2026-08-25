@@ -338,3 +338,100 @@ class PageNumberTests(TestCase):
         response = self.client.get(reverse("sales:shipment_list"))
 
         self.assertNotContains(response, "page-jump")
+
+
+class SearchScopeTests(TestCase):
+    """搜索和日期筛选是两种意图，不能混在一起联动。
+
+    真实问题：日期框是预填的（默认本月），用户在搜索框打「高」点查询，表单会把
+    预填的日期一起交上去，于是变成「本月内含高的记录」——搜不全，而且「本月」的
+    高亮消失，看起来像搜索改动了日期。
+    """
+
+    def setUp(self):
+        self.company = company_a()
+        self.admin = User.objects.create_superuser("admin", password="pw")
+        self.today = date.today()
+        self._shipment("高席的本月单", self.today)
+        self._shipment("高席的旧单", self.today.replace(day=1) - timedelta(days=40))
+        login_with_company(self.client, self.admin, self.company)
+
+    def _shipment(self, name, day):
+        customer = Customer.objects.create(company=self.company, name=name)
+        SalesShipment.objects.create(
+            company=self.company,
+            customer=customer,
+            owner=self.admin,
+            sale_type="DOMESTIC",
+            shipment_date=day,
+            quantity=1,
+            currency="CNY",
+            original_amount=Decimal("1"),
+            exchange_rate=Decimal("1"),
+            amount_cny=Decimal("1"),
+        )
+
+    def test_search_all_time_ignores_the_prefilled_dates(self):
+        """核心回归：scope=all 必须压过日期框里的值。"""
+        response = self.client.get(
+            reverse("sales:shipment_list"),
+            {
+                "q": "高席",
+                "scope": "all",
+                "start": self.today.replace(day=1).isoformat(),
+                "end": self.today.isoformat(),
+            },
+        )
+
+        self.assertContains(response, "高席的本月单")
+        self.assertContains(response, "高席的旧单")
+        self.assertIsNone(response.context["dates"]["start"])
+
+    def test_searching_within_a_date_range_is_still_possible(self):
+        """两种意图都要能表达：按日期查询时搜索仍受区间限制。"""
+        response = self.client.get(
+            reverse("sales:shipment_list"),
+            {
+                "q": "高席",
+                "preset": "",
+                "start": self.today.replace(day=1).isoformat(),
+                "end": self.today.isoformat(),
+            },
+        )
+
+        self.assertContains(response, "高席的本月单")
+        self.assertNotContains(response, "高席的旧单")
+
+    def test_the_search_box_has_its_own_submit_button(self):
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertContains(response, 'name="scope" value="all"')
+
+    def test_the_bar_explains_what_the_search_covers(self):
+        """不写出来的话，用户看不出搜索是全时间还是当前区间。"""
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertContains(response, "搜索会忽略上面的日期范围")
+
+    def test_a_narrowed_search_offers_a_way_out(self):
+        """按日期搜完发现漏了，要能一键改成全时间。"""
+        response = self.client.get(
+            reverse("sales:shipment_list"),
+            {"q": "高席", "preset": "", "start": "2026-08-01", "end": "2026-08-25"},
+        )
+
+        self.assertContains(response, "改为搜索全部时间")
+
+    def test_scope_all_wins_even_with_a_preset(self):
+        response = self.client.get(
+            reverse("sales:shipment_list"), {"q": "高席", "scope": "all", "preset": "day"}
+        )
+
+        self.assertEqual(response.context["dates"]["preset"], "all")
+
+    def test_the_search_term_is_echoed_back(self):
+        response = self.client.get(
+            reverse("sales:shipment_list"), {"q": "高席", "scope": "all"}
+        )
+
+        self.assertEqual(response.context["search"], "高席")
