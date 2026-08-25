@@ -184,10 +184,49 @@ td.num-key { font-weight: 600; }
 .form-card .field > label { font-size: 13px; font-weight: 600; color: #40515f; }
 .form-card .field .req { color: #c0392b; margin-left: 3px; }
 .form-card .field .helptext { font-size: 12px; color: #7b8b99; line-height: 1.6; }
-.form-card .field input, .form-card .field select, .form-card .field textarea { width: 100%; }
-/* 复选框组不该被拉到 100% 宽 */
-.form-card .field ul { margin: 0; padding-left: 18px; list-style: none; }
-.form-card .field ul input { width: auto; }
+/* :not() 排除勾选框：它们被拉到 100% 宽会把方块推到整行右端，和左边的
+   姓名文字错开老远，看起来像布局坏了 */
+.form-card .field input:not([type="checkbox"]):not([type="radio"]),
+.form-card .field select,
+.form-card .field textarea { width: 100%; }
+
+/* 单个开关型勾选框（如「启用」）：方块和标签同行 */
+.form-card .field-toggle { grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.form-card .field-toggle > label { order: 2; font-weight: 400; }
+.form-card .field-toggle input[type="checkbox"] { order: 1; width: 16px; height: 16px; margin: 0; }
+.form-card .field-toggle .helptext { order: 3; grid-column: 1 / -1; }
+
+/* 多选组（负责业务员）：横向流式排布的可点标签。
+   竖排一长列时十几个人要滚很久，也看不出哪些已选中。
+   Django 5 的 CheckboxSelectMultiple 渲染成 <div> 嵌 <div><label><input>，
+   label 本身已包住勾选框，所以整块都可点。 */
+.form-card .field-choices > div {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  max-height: 210px; overflow-y: auto; padding: 2px;
+}
+.form-card .field-choices > div > div { margin: 0; }
+.form-card .field-choices > div label {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border: 1px solid #c6d0d9; border-radius: 15px;
+  background: #fff; font-size: 13px; font-weight: 400; color: #40515f;
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.form-card .field-choices > div label:hover { border-color: #005f9e; background: #f7fbfd; }
+.form-card .field-choices > div input[type="checkbox"] { width: 14px; height: 14px; margin: 0; flex: none; }
+/* 选中的整块高亮，一眼看出当前绑了谁 */
+.form-card .field-choices > div > div:has(input:checked) label {
+  border-color: #005f9e; background: #eaf4fb; color: #17324d; font-weight: 600;
+}
+/* 人多时（这家公司有 11 个业务员）加一行筛选和计数，由 owner-picker.js 注入 */
+.choices-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.choices-search { width: auto !important; min-width: 150px; height: 30px; padding: 4px 9px; font-size: 13px; }
+.choices-count { font-size: 12px; color: #005f9e; font-weight: 600; }
+.choices-count[data-empty="yes"] { color: #9aa5ad; font-weight: 400; }
+.choices-toggle {
+  padding: 4px 10px; font-size: 12px; border: 1px solid #c6d0d9; border-radius: 4px;
+  background: #fff; color: #40515f; cursor: pointer;
+}
+.choices-toggle.on { border-color: #005f9e; background: #eaf4fb; color: #17324d; }
 /* 短字段两列并排，缩短纵向长度 */
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .field-row .field { margin-bottom: 18px; }

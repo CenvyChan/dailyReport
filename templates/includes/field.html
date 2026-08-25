@@ -7,7 +7,7 @@ app.css 里 form p { max-width: 360px } 全挤在一条窄列，看不出哪些�
 用法：{% include "includes/field.html" with field=form.quantity numeric=1 %}
   numeric=1  金额/数量类字段，输入框右对齐并用等宽数字
 {% endcomment %}
-<div class="field">
+<div class="field{% if field.field.widget.allow_multiple_selected %} field-choices{% endif %}{% if field.field.widget.input_type == 'checkbox' %} field-toggle{% endif %}">
   <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="req" title="必填">*</span>{% endif %}</label>
   {{ field.errors }}
   {% if numeric %}{{ field|add_class:"num" }}{% else %}{{ field }}{% endif %}

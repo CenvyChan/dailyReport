@@ -244,6 +244,9 @@ class _NamedForm(forms.ModelForm):
 
 
 class CustomerForm(_NamedForm):
+    # owners 是声明式字段，默认会排到 Meta.fields 之后（「启用」下面），
+    # 但负责人比启用状态重要，提到名称后面
+    field_order = ["name", "owners", "is_active"]
     owner_group = "sales"
     owner_help = "只有勾选的业务员能维护这个客户、并用它录销售日报。"
 
@@ -263,6 +266,7 @@ class CustomerForm(_NamedForm):
 
 
 class SupplierForm(_NamedForm):
+    field_order = ["name", "owners", "is_active"]
     owner_group = "purchase"
     owner_help = "只有勾选的采购员能维护这个供应商、并用它录采购日报。"
 

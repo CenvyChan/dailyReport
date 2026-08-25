@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 {# 视图只传了 back_url，没传列表页名称，所以措辞用「返回列表」而不编造父级名 #}
 <p class="crumb"><a href="{% url back_url %}">返回列表</a><span>/</span>{{ title }}</p>
@@ -16,4 +17,6 @@
     </div>
   </form>
 </div>
+{# 给负责业务员的多选组加筛选和计数。无 JS 时勾选框本身照常可用。 #}
+<script src="{% static 'js/owner-picker.js' %}"></script>
 {% endblock %}

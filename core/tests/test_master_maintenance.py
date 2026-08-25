@@ -283,3 +283,73 @@ class OwnerBindingTests(TestCase):
                 data={"name": "改名", "is_active": True},
                 instance=other,
             )
+
+
+class OwnerPickerUiTests(TestCase):
+    """负责业务员选择器的呈现。
+
+    字段必须保持多选：线上有 33 个客户绑定了 2 个业务员（历史导入带来的），
+    改成单选会在保存时静默删掉一个绑定，那个业务员从此看不到自己的客户。
+    做法是保留多选能力，但让常见情况（只有一个负责人）看起来和单选一样清爽。
+    """
+
+    def setUp(self):
+        from core.models import CompanyMembership
+
+        self.company = company_a()
+        self.seller = User.objects.create_user("seller", first_name="销售甲")
+        self.seller.groups.add(Group.objects.get(name="sales"))
+        for index in range(9):
+            mate = User.objects.create_user(f"mate{index}", first_name=f"销售{index}")
+            mate.groups.add(Group.objects.get(name="sales"))
+            CompanyMembership.objects.create(user=mate, company=self.company)
+        login_with_company(self.client, self.seller, self.company)
+
+    def test_the_owner_field_comes_before_the_active_toggle(self):
+        """负责人比启用状态重要。owners 是声明式字段，默认会排到 Meta.fields
+        之后，靠 field_order 提上来。"""
+        body = self.client.get(reverse("core:customer_create")).content.decode()
+
+        self.assertLess(body.index('for="id_owners'), body.index('for="id_is_active"'))
+
+    def test_the_choice_group_gets_its_own_class(self):
+        """.form-card .field input{width:100%} 会把勾选框撑成整行宽，方块被推到
+        右端和姓名错开老远——看起来像布局坏了。多选组要走单独的样式。"""
+        response = self.client.get(reverse("core:customer_create"))
+
+        self.assertContains(response, "field-choices")
+
+    def test_a_single_checkbox_gets_the_toggle_class(self):
+        response = self.client.get(reverse("core:customer_create"))
+
+        self.assertContains(response, "field-toggle")
+
+    def test_the_picker_script_is_loaded(self):
+        response = self.client.get(reverse("core:customer_create"))
+
+        self.assertContains(response, "owner-picker.js")
+
+    def test_all_company_salespeople_are_offered(self):
+        body = self.client.get(reverse("core:customer_create")).content.decode()
+
+        self.assertEqual(body.count('name="owners"'), 10)
+
+    def test_the_field_stays_multi_select(self):
+        """回归保护：线上已有客户绑定两个业务员，改成单选会丢绑定。"""
+        from core.forms import CustomerForm
+
+        form = CustomerForm(company=self.company, actor=self.seller)
+
+        self.assertTrue(form.fields["owners"].widget.allow_multiple_selected)
+
+    def test_two_owners_can_be_saved_and_read_back(self):
+        customer = Customer.objects.create(company=self.company, name="共管")
+        SalesAssignment.objects.create(user=self.seller, customer=customer)
+        mate = User.objects.get(username="mate0")
+
+        self.client.post(
+            reverse("core:customer_edit", args=[customer.pk]),
+            {"name": "共管", "is_active": "on", "owners": [self.seller.pk, mate.pk]},
+        )
+
+        self.assertEqual(SalesAssignment.objects.filter(customer=customer).count(), 2)
