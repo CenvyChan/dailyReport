@@ -1,40 +1,77 @@
 {% comment %}
 日报列表的日期筛选栏。销售/采购共用。
 
-日报是每天录的，所以默认只看当天，并给前后一天的翻页箭头——这比每次手填
-两个日期快得多。预设按钮和分析页同一套口径（今天/本周/本月/本年/全部）。
+翻页按钮直接改写开始/结束日期框再提交——按钮和日期框是同一套值，用户看得见
+自己在哪个区间，也能接着手改。此前是拼 URL 跳转，Django 把 & 转义成 &amp;
+导致参数名变成 amp;end，结束日期根本没传出去。
 
-用法：{% include "includes/date_filter.html" with dates=dates search=search %}
+用法：{% include "includes/date_filter.html" with search_placeholder="客户或负责人" %}
 {% endcomment %}
-<form class="filter-card date-filter" method="get">
-  <div class="date-nav">
-    {% if dates.prev_url %}
-    <a class="step" href="{{ dates.prev_url }}" title="前一天" aria-label="前一天">‹</a>
-    {% else %}
-    <span class="step disabled" title="选中某一天后才能按天翻页" aria-hidden="true">‹</span>
+<form class="filter-card date-filter" method="get" id="date-filter">
+  <div class="df-line">
+    <label class="df-date">开始日期
+      <input type="date" name="start" id="df-start" value="{{ start }}">
+    </label>
+    <label class="df-date">结束日期
+      <input type="date" name="end" id="df-end" value="{{ end }}">
+    </label>
+
+    {% if dates.can_step %}
+    {% comment %} 用 button 的 name/value 把目标区间直接提交上去（step 参数），
+       服务端据此改写日期。这样禁用 JS 也能翻页；JS 只是顺手把日期框也刷新，
+       让用户看到自己落在哪个区间。 {% endcomment %}
+    <span class="df-step" role="group" aria-label="按当前区间前后翻页">
+      <button type="submit" class="step" name="step" value="prev"
+              data-start="{{ dates.prev_start|date:'Y-m-d' }}" data-end="{{ dates.prev_end|date:'Y-m-d' }}"
+              title="往前{{ dates.step_label }}">‹</button>
+      <button type="submit" class="step" name="step" value="next"
+              data-start="{{ dates.next_start|date:'Y-m-d' }}" data-end="{{ dates.next_end|date:'Y-m-d' }}"
+              title="往后{{ dates.step_label }}">›</button>
+    </span>
     {% endif %}
 
-    <span class="date-label">{{ dates.label }}</span>
-
-    {% if dates.next_url %}
-    <a class="step" href="{{ dates.next_url }}" title="后一天" aria-label="后一天">›</a>
-    {% else %}
-    <span class="step disabled" aria-hidden="true">›</span>
-    {% endif %}
+    <span class="df-current">{{ dates.label }}</span>
   </div>
 
-  <span class="presets">
-    <button type="submit" name="preset" value="day"{% if dates.preset == 'day' %} class="on"{% endif %}>今天</button>
-    <button type="submit" name="preset" value="week"{% if dates.preset == 'week' %} class="on"{% endif %}>本周</button>
-    <button type="submit" name="preset" value="month"{% if dates.preset == 'month' %} class="on"{% endif %}>本月</button>
-    <button type="submit" name="preset" value="year"{% if dates.preset == 'year' %} class="on"{% endif %}>本年</button>
-    <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
-  </span>
+  <div class="df-line">
+    <span class="presets">
+      <button type="submit" name="preset" value="day"{% if dates.preset == 'day' %} class="on"{% endif %}>今天</button>
+      <button type="submit" name="preset" value="week"{% if dates.preset == 'week' %} class="on"{% endif %}>本周</button>
+      <button type="submit" name="preset" value="month"{% if dates.preset == 'month' %} class="on"{% endif %}>本月</button>
+      <button type="submit" name="preset" value="year"{% if dates.preset == 'year' %} class="on"{% endif %}>本年</button>
+      <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
+    </span>
 
-  <label>开始<input type="date" name="start" value="{{ start }}"></label>
-  <label>结束<input type="date" name="end" value="{{ end }}"></label>
-  <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="{{ search_placeholder }}"></label>
-  {% comment %} 手填日期后点这个：preset 为空，让具体日期生效而不被预设顶掉 {% endcomment %}
-  <button type="submit" name="preset" value="">查询</button>
-  <a class="button secondary" href="?">重置</a>
+    <label class="df-search">搜索
+      <input type="search" name="q" value="{{ search }}" placeholder="{{ search_placeholder }}">
+    </label>
+
+    {% comment %} 点预设时要清掉日期框里的旧值，否则「显式日期优先」会让预设失效 {% endcomment %}
+    <button type="submit" name="preset" value="">查询</button>
+    <a class="button secondary" href="?">重置</a>
+  </div>
 </form>
+<script>
+(function () {
+  const form = document.getElementById("date-filter");
+  if (!form) return;
+  const start = document.getElementById("df-start");
+  const end = document.getElementById("df-end");
+
+  // 翻页：把目标区间写进日期框再提交。这样地址栏、日期框、列表三者始终一致。
+  form.querySelectorAll(".df-step .step").forEach((button) => {
+    button.addEventListener("click", () => {
+      start.value = button.dataset.start;
+      end.value = button.dataset.end;
+    });
+  });
+
+  // 预设：清空日期框，否则 resolve() 里「显式日期优先」会让按钮点了没反应。
+  form.querySelectorAll(".presets button").forEach((button) => {
+    button.addEventListener("click", () => {
+      start.value = "";
+      end.value = "";
+    });
+  });
+})();
+</script>

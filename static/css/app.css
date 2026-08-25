@@ -332,21 +332,28 @@ td.num-key { font-weight: 600; }
 .row-readonly { color: #b3bfc9; }
 
 /* ---- 日报列表的日期筛选栏 ---- */
-.date-filter { align-items: end; }
-/* 当天前后翻页：日报是每天录的，按天翻比每次手填两个日期快得多 */
-.date-nav { display: inline-flex; align-items: center; gap: 2px; }
-.date-nav .step {
-  display: inline-grid; place-items: center; width: 28px; height: 30px;
+/* 分两行：上行是日期区间和翻页，下行是预设、搜索和操作。
+   挤在一行时「查询」「重置」会被挤到换行，看起来像掉出了卡片。 */
+.date-filter { display: block; }
+.date-filter .df-line { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.date-filter .df-line + .df-line { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f4f7; }
+.date-filter label { display: grid; gap: 5px; color: #40515f; font-size: 12px; }
+.date-filter .df-date input { width: 152px; }
+.date-filter .df-search input { min-width: 190px; }
+
+/* 翻页按钮紧贴日期框：点一下就把区间整段前后移，步长跟随当前区间长度 */
+.df-step { display: inline-flex; gap: 2px; }
+.df-step .step {
+  width: 30px; height: 34px; padding: 0; display: inline-grid; place-items: center;
   border: 1px solid #c8d1d9; border-radius: 4px; background: #fff;
-  color: #40515f; text-decoration: none; font-size: 17px; line-height: 1;
+  color: #40515f; font-size: 17px; line-height: 1;
 }
-.date-nav .step:hover { border-color: #005f9e; color: #005f9e; background: #f7fbfd; }
-.date-nav .step.disabled { color: #cbd3da; background: #f7f9fa; cursor: not-allowed; }
-/* 当前口径写成人话（今天/昨天/区间），不然用户看两个日期框要自己换算 */
-.date-nav .date-label {
-  min-width: 168px; padding: 0 10px; height: 30px; display: inline-flex; align-items: center;
-  justify-content: center; border: 1px solid #dce3e8; border-radius: 4px;
-  background: #f4f8fb; color: #17324d; font-size: 13px; font-weight: 600; white-space: nowrap;
+.df-step .step:hover { border-color: #005f9e; color: #005f9e; background: #f7fbfd; filter: none; }
+/* 当前口径写成人话（今天/昨天/区间），省得用户看两个日期框自己换算 */
+.df-current {
+  padding: 0 11px; height: 34px; display: inline-flex; align-items: center;
+  border: 1px solid #dce3e8; border-radius: 4px; background: #f4f8fb;
+  color: #17324d; font-size: 13px; font-weight: 600; white-space: nowrap;
 }
 
 /* ---- 分页：页码直达与跳页 ---- */

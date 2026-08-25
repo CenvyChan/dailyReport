@@ -11,7 +11,11 @@ from datetime import date, datetime, timedelta
 from django.utils import timezone
 
 PRESETS = ("day", "week", "month", "year", "all")
-DEFAULT_PRESET = "day"
+
+# 默认本月而不是当天：日报不是每天都录（周末、假期、补录），线上数据就出现过
+# 最近一条停在四天前的情况。默认当天时打开列表是一片空白，看起来像权限出了问题。
+# 本月既能覆盖「今天录了什么」，又不会在没录的日子里给出空白页。
+DEFAULT_PRESET = "month"
 
 
 def parse_date(value):
@@ -42,14 +46,13 @@ def preset_bounds(preset, today):
 def resolve(request, *, today=None):
     """算出本次列表要用的日期区间。
 
-    优先级：显式的 start/end > preset > 默认当天。
+    优先级：显式的 start/end > preset > 默认区间。
     这个顺序很要紧：用户点了「前一天」传的是具体日期，此时不能再被 preset 顶掉。
 
     返回 dict，键：
       start / end   date 或 None，供 queryset 过滤
       preset        当前生效的预设名，供按钮高亮；手填日期时为 None
-      prev_day / next_day   单日模式下的前后一天，供翻页链接
-      is_single_day 是否单日模式（决定要不要显示翻页箭头）
+      prev_* / next_*  前后一天/一段的日期，供翻页按钮直接写进日期框
       label         人话描述当前口径，显示在筛选栏上
     """
     today = today or timezone.localdate()
@@ -58,8 +61,20 @@ def resolve(request, *, today=None):
     preset = request.GET.get("preset")
 
     if start or end:
-        # 手填或翻页得到的具体区间，preset 不参与
+        # 手填或翻页得到的具体区间，preset 不参与。
+        # 只填了一头时补齐成单日，否则「前一天」会退化成开区间。
         preset = None
+        if start and not end:
+            end = start
+        elif end and not start:
+            start = end
+        # 翻页：按当前区间长度整段前后移。放在服务端算而不是只靠 JS 改日期框，
+        # 这样禁用脚本也能翻页。
+        step = request.GET.get("step")
+        if step in ("prev", "next"):
+            span = (end - start).days + 1
+            shift = timedelta(days=span if step == "next" else -span)
+            start, end = start + shift, end + shift
     elif preset in PRESETS:
         start, end = preset_bounds(preset, today)
     elif preset is not None:
@@ -67,39 +82,38 @@ def resolve(request, *, today=None):
         preset = DEFAULT_PRESET
         start, end = preset_bounds(preset, today)
     else:
-        # 首次进入：默认当天
         preset = DEFAULT_PRESET
         start, end = preset_bounds(preset, today)
 
-    is_single_day = bool(start and end and start == end)
-    prev_day = (start - timedelta(days=1)) if is_single_day else None
-    next_day = (start + timedelta(days=1)) if is_single_day else None
+    # 翻页步长跟随当前区间长度：看单日就翻一天，看一段就整段前后移。
+    # 直接给出目标日期让按钮写进日期框，不再拼 URL——模板里 Django 会把 & 转义成
+    # &amp;，参数名会变成 amp;end，等于 end 根本没传出去（真出过这个 bug）。
+    span = None
+    if start and end:
+        span = (end - start).days + 1
     return {
         "start": start,
         "end": end,
         "preset": preset,
-        "is_single_day": is_single_day,
-        "prev_day": prev_day,
-        "next_day": next_day,
-        # 翻页链接在这里拼好：模板里手拼会漏掉 size 之类的参数，
-        # 而直接用 paginate 的 querystring 又会让 start/end 重复出现。
-        "prev_url": _day_url(request, prev_day),
-        "next_url": _day_url(request, next_day),
+        "is_single_day": bool(span == 1),
+        "span": span,
+        "can_step": bool(span),
+        "prev_start": (start - timedelta(days=span)) if span else None,
+        "prev_end": (end - timedelta(days=span)) if span else None,
+        "next_start": (start + timedelta(days=span)) if span else None,
+        "next_end": (end + timedelta(days=span)) if span else None,
+        "step_label": _step_label(span),
         "label": _label(start, end, today),
     }
 
 
-def _day_url(request, day):
-    """保留其他查询参数，只改写 start/end/preset 到指定单日。"""
-    if day is None:
-        return None
-    params = request.GET.copy()
-    params.pop("page", None)
-    stamp = day.isoformat()
-    params["start"] = stamp
-    params["end"] = stamp
-    params["preset"] = ""
-    return f"?{params.urlencode()}"
+def _step_label(span):
+    """按钮上的提示文字，让用户知道点一下会移动多少。"""
+    if not span:
+        return ""
+    if span == 1:
+        return "一天"
+    return f"{span} 天"
 
 
 def _label(start, end, today):
