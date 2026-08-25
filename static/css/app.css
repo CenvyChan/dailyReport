@@ -332,29 +332,32 @@ td.num-key { font-weight: 600; }
 .row-readonly { color: #b3bfc9; }
 
 /* ---- 日报列表的日期筛选栏 ---- */
-/* 分两行：上行是日期区间和翻页，下行是预设、搜索和操作。
-   挤在一行时「查询」「重置」会被挤到换行，看起来像掉出了卡片。 */
+/* 两行：上行是时间范围（日期框、翻页、快捷按钮），下行是模糊搜索。
+   全挤一行时「查询」「重置」会被挤到换行，看起来像掉出了卡片。 */
 .date-filter { display: block; }
-.date-filter .df-line { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
-.date-filter .df-line + .df-line { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f4f7; }
-.date-filter label { display: grid; gap: 5px; color: #40515f; font-size: 12px; }
-.date-filter .df-date input { width: 152px; }
-.date-filter .df-search input { min-width: 190px; }
+.date-filter .df-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.date-filter .df-line + .df-line { margin-top: 9px; padding-top: 9px; border-top: 1px solid #f0f4f7; }
+.date-filter input[type="date"] { width: 148px; }
+.df-sep { color: #7b8b99; font-size: 13px; }
 
-/* 翻页按钮紧贴日期框：点一下就把区间整段前后移，步长跟随当前区间长度 */
-.df-step { display: inline-flex; gap: 2px; }
-.df-step .step {
-  width: 30px; height: 34px; padding: 0; display: inline-grid; place-items: center;
+/* 翻页箭头夹住日期框：点一下把区间整段前后移，步长跟随当前区间长度 */
+.date-filter .step {
+  width: 30px; padding: 0; display: inline-grid; place-items: center;
   border: 1px solid #c8d1d9; border-radius: 4px; background: #fff;
   color: #40515f; font-size: 17px; line-height: 1;
 }
-.df-step .step:hover { border-color: #005f9e; color: #005f9e; background: #f7fbfd; filter: none; }
-/* 当前口径写成人话（今天/昨天/区间），省得用户看两个日期框自己换算 */
-.df-current {
-  padding: 0 11px; height: 34px; display: inline-flex; align-items: center;
-  border: 1px solid #dce3e8; border-radius: 4px; background: #f4f8fb;
-  color: #17324d; font-size: 13px; font-weight: 600; white-space: nowrap;
-}
+.date-filter .step:hover { border-color: #005f9e; color: #005f9e; background: #f7fbfd; filter: none; }
+
+/* 快捷区间按钮连成一组，当前生效的高亮 */
+.date-filter .presets { display: inline-flex; border: 1px solid #c8d1d9; border-radius: 4px; overflow: hidden; margin-left: 4px; }
+.date-filter .presets button { border: none; border-radius: 0; background: #fff; color: #40515f; padding: 6px 12px; font-size: 13px; }
+.date-filter .presets button + button { border-left: 1px solid #dce3e8; }
+.date-filter .presets button:hover { background: #f7fbfd; color: #005f9e; filter: none; }
+.date-filter .presets button.on { background: #005f9e; color: #fff; }
+
+/* 搜索行：跨时间的意图，和上面按日期筛选不是一回事 */
+.df-search-line input[type="search"] { min-width: 260px; }
+.df-search-widen { font-size: 12px; }
 
 /* ---- 分页：页码直达与跳页 ---- */
 .page-numbers { display: inline-flex; align-items: center; gap: 4px; }
@@ -370,9 +373,3 @@ td.num-key { font-weight: 600; }
 .page-jump input { width: 60px; height: 28px; padding: 2px 6px; font-size: 13px; text-align: center; }
 .page-jump button { padding: 4px 10px; font-size: 13px; }
 
-/* 搜索独立一行：它是跨时间的意图，和上面按日期筛选不是一回事。
-   混在同一行联动时，预填的日期会把搜索悄悄限制在本月内。 */
-.df-search-line { align-items: center; }
-.df-search-line .df-search input { min-width: 210px; }
-.df-search-note { font-size: 12px; color: #7b8b99; }
-.df-search-note a { margin-left: 6px; }

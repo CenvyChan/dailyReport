@@ -407,11 +407,11 @@ class SearchScopeTests(TestCase):
 
         self.assertContains(response, 'name="scope" value="all"')
 
-    def test_the_bar_explains_what_the_search_covers(self):
-        """不写出来的话，用户看不出搜索是全时间还是当前区间。"""
+    def test_the_search_sits_on_its_own_row(self):
+        """搜索和日期分行，各自带提交按钮，两种意图不互相干扰。"""
         response = self.client.get(reverse("sales:shipment_list"))
 
-        self.assertContains(response, "搜索会忽略上面的日期范围")
+        self.assertContains(response, "df-search-line")
 
     def test_a_narrowed_search_offers_a_way_out(self):
         """按日期搜完发现漏了，要能一键改成全时间。"""
@@ -420,7 +420,7 @@ class SearchScopeTests(TestCase):
             {"q": "高席", "preset": "", "start": "2026-08-01", "end": "2026-08-25"},
         )
 
-        self.assertContains(response, "改为搜索全部时间")
+        self.assertContains(response, "在全部时间里搜")
 
     def test_scope_all_wins_even_with_a_preset(self):
         response = self.client.get(

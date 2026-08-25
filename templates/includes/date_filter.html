@@ -8,32 +8,28 @@
 用法：{% include "includes/date_filter.html" with search_placeholder="客户或负责人" %}
 {% endcomment %}
 <form class="filter-card date-filter" method="get" id="date-filter">
+  {% comment %} 日期区间、翻页和快捷按钮同一行：它们都是「限定时间范围」这一件事 {% endcomment %}
   <div class="df-line">
-    <label class="df-date">开始日期
-      <input type="date" name="start" id="df-start" value="{{ start }}">
-    </label>
-    <label class="df-date">结束日期
-      <input type="date" name="end" id="df-end" value="{{ end }}">
-    </label>
-
     {% if dates.can_step %}
-    {% comment %} 用 button 的 name/value 把目标区间直接提交上去（step 参数），
-       服务端据此改写日期。这样禁用 JS 也能翻页；JS 只是顺手把日期框也刷新，
-       让用户看到自己落在哪个区间。 {% endcomment %}
-    <span class="df-step" role="group" aria-label="按当前区间前后翻页">
-      <button type="submit" class="step" name="step" value="prev"
-              data-start="{{ dates.prev_start|date:'Y-m-d' }}" data-end="{{ dates.prev_end|date:'Y-m-d' }}"
-              title="往前{{ dates.step_label }}">‹</button>
-      <button type="submit" class="step" name="step" value="next"
-              data-start="{{ dates.next_start|date:'Y-m-d' }}" data-end="{{ dates.next_end|date:'Y-m-d' }}"
-              title="往后{{ dates.step_label }}">›</button>
-    </span>
+    {% comment %} 用 button 的 name/value 把目标区间提交上去（step 参数），服务端
+       据此改写日期，所以禁用 JS 也能翻页；JS 只是顺手刷新日期框。 {% endcomment %}
+    <button type="submit" class="step" name="step" value="prev"
+            data-start="{{ dates.prev_start|date:'Y-m-d' }}" data-end="{{ dates.prev_end|date:'Y-m-d' }}"
+            title="往前{{ dates.step_label }}" aria-label="往前{{ dates.step_label }}">‹</button>
     {% endif %}
 
-    <span class="df-current">{{ dates.label }}</span>
-  </div>
+    <input type="date" name="start" id="df-start" value="{{ start }}" aria-label="开始日期">
+    <span class="df-sep">至</span>
+    <input type="date" name="end" id="df-end" value="{{ end }}" aria-label="结束日期">
 
-  <div class="df-line">
+    {% if dates.can_step %}
+    <button type="submit" class="step" name="step" value="next"
+            data-start="{{ dates.next_start|date:'Y-m-d' }}" data-end="{{ dates.next_end|date:'Y-m-d' }}"
+            title="往后{{ dates.step_label }}" aria-label="往后{{ dates.step_label }}">›</button>
+    {% endif %}
+
+    <button type="submit" name="preset" value="">查询</button>
+
     <span class="presets">
       <button type="submit" name="preset" value="day"{% if dates.preset == 'day' %} class="on"{% endif %}>今天</button>
       <button type="submit" name="preset" value="week"{% if dates.preset == 'week' %} class="on"{% endif %}>本周</button>
@@ -42,31 +38,21 @@
       <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
     </span>
 
-    {% comment %} 按当前日期区间查询：把日期框里的值应用上去 {% endcomment %}
-    <button type="submit" name="preset" value="">按日期查询</button>
     <a class="button secondary" href="?">重置</a>
   </div>
 
   {% comment %}
-  搜索单独一行、自带提交按钮，且提交时清空日期。
+  搜索自成一行，自带提交按钮并在提交时清空日期。
 
-  搜索是跨时间的意图（「高席这个人所有的单」），日期是限定范围的意图，两者混在
-  一起联动会出问题：日期框是预填的（默认本月），用户在搜索框打「高」点查询，
-  表单会把预填的日期一起交上去，于是变成「本月内含高的记录」——搜不全，而且
-  「本月」的高亮消失，看起来像搜索改动了日期。
+  搜索是跨时间的意图（「这个人所有的单」），日期是限定范围的意图。混在一起联动
+  会出问题：日期框是预填的，用户打个关键词点查询，预填的日期会一起交上去，于是
+  变成「本月内含该词的记录」——搜不全，还看起来像搜索改动了日期。
   {% endcomment %}
   <div class="df-line df-search-line">
-    <label class="df-search">搜索
-      <input type="search" name="q" id="df-q" value="{{ search }}" placeholder="{{ search_placeholder }}">
-    </label>
-    <button type="submit" name="scope" value="all" class="df-search-go">搜索全部时间</button>
-    {% if search %}
-    <span class="df-search-note">
-      正在搜索「{{ search }}」，范围：{{ dates.label }}
-      {% if dates.start %}<a href="?q={{ search }}&amp;preset=all">改为搜索全部时间</a>{% endif %}
-    </span>
-    {% else %}
-    <span class="df-search-note">搜索会忽略上面的日期范围，在全部记录里找</span>
+    <input type="search" name="q" id="df-q" value="{{ search }}" placeholder="{{ search_placeholder }}">
+    <button type="submit" name="scope" value="all" class="df-search-go">搜索</button>
+    {% if search and dates.start %}
+    <a class="df-search-widen" href="?q={{ search }}&amp;scope=all">在全部时间里搜</a>
     {% endif %}
   </div>
 </form>
@@ -78,7 +64,7 @@
   const end = document.getElementById("df-end");
 
   // 翻页：把目标区间写进日期框再提交。这样地址栏、日期框、列表三者始终一致。
-  form.querySelectorAll(".df-step .step").forEach((button) => {
+  form.querySelectorAll("button.step").forEach((button) => {
     button.addEventListener("click", () => {
       start.value = button.dataset.start;
       end.value = button.dataset.end;
