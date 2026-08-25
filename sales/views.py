@@ -4,8 +4,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from core.errors import MissingExchangeRate
 from core.services import date_filter
-from core.services.listing import paginate, search_queryset
-from reports.services import summary_of
+from core.services.listing import filter_by, paginate, search_queryset
+from reports.services import person_label, summary_of
 from core.services.permissions import (
     can_access_sales,
     can_edit_shipment,
@@ -41,12 +41,37 @@ def shipment_list(request):
     denied = _denied(request)
     if denied:
         return denied
+    scoped = sales_queryset_for(request.user, request.company)
+    # 负责人/客户/币种改成各自的下拉：一个大文本框搜「高」会同时命中「高席」和
+    # 「高新科技」，用户分不清筛到了什么。候选取自本公司实际出现过的值。
+    options = {
+        "people": [
+            {"id": row["owner_id"], "label": row["label"]}
+            for row in scoped.annotate(label=person_label("owner"))
+            .values("owner_id", "label")
+            .order_by("label")
+            .distinct()
+        ],
+        "counterparts": [
+            {"id": row["customer_id"], "label": row["customer__name"]}
+            for row in scoped.values("customer_id", "customer__name")
+            .order_by("customer__name")
+            .distinct()
+        ],
+        "currencies": list(
+            scoped.values_list("currency", flat=True).order_by("currency").distinct()
+        ),
+    }
+    queryset = filter_by(
+        scoped,
+        request,
+        {"owner": "owner_id", "customer": "customer_id", "currency": "currency"},
+    )
     queryset = search_queryset(
-        sales_queryset_for(request.user, request.company),
+        queryset,
         request.GET.get("q"),
         ("customer__name", "owner__first_name", "owner__username"),
     )
-    # 日报是每天录的，打开列表最常见的意图是「看今天录了什么」，所以默认只显示当天。
     dates = date_filter.resolve(request)
     queryset = date_filter.apply(queryset, dates, field="shipment_date")
     # 合计基于筛选后的全量而不是当前页，否则翻页时数字会跳。
@@ -73,6 +98,14 @@ def shipment_list(request):
             "dates": dates,
             "start": dates["start"].isoformat() if dates["start"] else "",
             "end": dates["end"].isoformat() if dates["end"] else "",
+            "options": options,
+            "selected": {
+                "owner": request.GET.get("owner", ""),
+                "customer": request.GET.get("customer", ""),
+                "currency": request.GET.get("currency", ""),
+            },
+            "person_label": "负责人",
+            "counterpart_label": "客户",
             "can_import": is_administrator(request.user),
         },
     )

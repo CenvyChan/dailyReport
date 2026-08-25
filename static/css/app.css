@@ -102,7 +102,8 @@ table.comparison tfoot th.total-share { background: #ff0000; color: #fff; }
 .list-filter input, .list-filter select { padding: 6px 10px; }
 .list-filter input[type="search"] { min-width: 200px; }
 .pagination { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
-.pagination a { padding: 4px 10px; border: 1px solid #c8d1d9; border-radius: 4px; text-decoration: none; }
+.pagination a { padding: 4px 10px; border: 1px solid transparent; border-radius: 4px; text-decoration: none; }
+.pagination a:hover { border-color: #c8d1d9; background: #f7fbfd; }
 .pagination .disabled { padding: 4px 10px; color: #a0a8b0; }
 .pagination .page-info, .page-info { color: #656d76; font-size: 14px; }
 /* 每页条数选择器此前无任何样式，只靠父级 gap 兜位置 */
@@ -124,8 +125,11 @@ td.num-key { font-weight: 600; }
 .table-card table { margin-top: 0; }
 .table-card tbody tr:last-child td { border-bottom: none; }
 /* 分页并入卡片底部，和表格连成一体 */
-.table-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 11px 14px; border-top: 1px solid #dce3e8; background: #fbfcfd; }
-.table-foot .pagination { margin: 0; }
+/* 分页在表格上方。不给底色：卡片本身已经是白底，再加一层浅灰会在表头之上多出
+   一条色带，看起来很突兀。靠下边框和表格分开就够了。 */
+/* 不给底色也不加分隔线：卡片里再切一条色带会显得突兀，靠间距区分就够了 */
+.table-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px 4px; }
+.table-head .pagination { margin: 0; }
 
 /* ---- 币种与业务类型：纯文本混在表格里难分辨 ---- */
 .cur { display: inline-block; min-width: 40px; padding: 1px 6px; border-radius: 3px; font-size: 12px; text-align: center; background: #eef2f5; color: #5d6f7f; }
@@ -254,7 +258,7 @@ td.num-key { font-weight: 600; }
   .list-filter, .filter-card { flex-direction: column; align-items: stretch; }
   .list-filter input, .list-filter select, .filter-card label { width: 100%; }
   .field-row { grid-template-columns: 1fr; gap: 0; }
-  .table-foot { flex-direction: column; align-items: stretch; }
+  .table-head { flex-direction: column; align-items: stretch; }
   .page-head { align-items: stretch; }
 }
 
@@ -355,8 +359,10 @@ td.num-key { font-weight: 600; }
 .date-filter .presets button:hover { background: #f7fbfd; color: #005f9e; filter: none; }
 .date-filter .presets button.on { background: #005f9e; color: #fff; }
 
-/* 搜索行：跨时间的意图，和上面按日期筛选不是一回事 */
-.df-search-line input[type="search"] { min-width: 260px; }
+/* 第二行：负责人/客户/币种各自下拉 + 模糊搜索。
+   分开筛比一个大文本框准——搜「高」会同时命中「高席」和「高新科技」。 */
+.df-search-line select { max-width: 190px; }
+.df-search-line input[type="search"] { min-width: 190px; }
 .df-search-widen { font-size: 12px; }
 
 /* ---- 分页：页码直达与跳页 ---- */
@@ -365,8 +371,8 @@ td.num-key { font-weight: 600; }
   min-width: 28px; height: 28px; display: inline-grid; place-items: center;
   border-radius: 4px; font-size: 13px; text-decoration: none;
 }
-.page-numbers a { border: 1px solid #c8d1d9; background: #fff; color: #40515f; }
-.page-numbers a:hover { border-color: #005f9e; color: #005f9e; }
+.page-numbers a { border: 1px solid transparent; color: #40515f; }
+.page-numbers a:hover { border-color: #c8d1d9; color: #005f9e; background: #f7fbfd; }
 .page-numbers .current { border: 1px solid #005f9e; background: #005f9e; color: #fff; font-weight: 600; }
 .page-numbers .gap { color: #a0a8b0; }
 .page-jump { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: #656d76; }

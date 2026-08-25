@@ -5,8 +5,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from purchase.forms import PurchaseReceiptForm
 from core.errors import MissingExchangeRate
 from core.services import date_filter
-from core.services.listing import paginate, search_queryset
-from reports.services import summary_of
+from core.services.listing import filter_by, paginate, search_queryset
+from reports.services import person_label, summary_of
 from core.services.permissions import (
     can_access_purchase,
     can_edit_receipt,
@@ -40,8 +40,33 @@ def receipt_list(request):
     denied = _denied(request)
     if denied:
         return denied
+    scoped = purchase_queryset_for(request.user, request.company)
+    # 采购员/供应商/币种各自下拉，口径与销售侧一致
+    options = {
+        "people": [
+            {"id": row["buyer_id"], "label": row["label"]}
+            for row in scoped.annotate(label=person_label("buyer"))
+            .values("buyer_id", "label")
+            .order_by("label")
+            .distinct()
+        ],
+        "counterparts": [
+            {"id": row["supplier_id"], "label": row["supplier__name"]}
+            for row in scoped.values("supplier_id", "supplier__name")
+            .order_by("supplier__name")
+            .distinct()
+        ],
+        "currencies": list(
+            scoped.values_list("currency", flat=True).order_by("currency").distinct()
+        ),
+    }
+    queryset = filter_by(
+        scoped,
+        request,
+        {"owner": "buyer_id", "customer": "supplier_id", "currency": "currency"},
+    )
     queryset = search_queryset(
-        purchase_queryset_for(request.user, request.company),
+        queryset,
         request.GET.get("q"),
         ("supplier__name", "buyer__first_name", "buyer__username"),
     )
@@ -71,6 +96,14 @@ def receipt_list(request):
             "dates": dates,
             "start": dates["start"].isoformat() if dates["start"] else "",
             "end": dates["end"].isoformat() if dates["end"] else "",
+            "options": options,
+            "selected": {
+                "owner": request.GET.get("owner", ""),
+                "customer": request.GET.get("customer", ""),
+                "currency": request.GET.get("currency", ""),
+            },
+            "person_label": "采购员",
+            "counterpart_label": "供应商",
             "can_import": is_administrator(request.user),
         },
     )

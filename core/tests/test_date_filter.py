@@ -178,6 +178,11 @@ class ShipmentListDateFilterTests(TestCase):
         self.last_month = self._shipment("上月的", last_month_day)
         login_with_company(self.client, self.user, self.company)
 
+    def _table(self, response):
+        """只看表格区。客户下拉现在也会列出所有客户名，整页搜字符串会误判。"""
+        body = response.content.decode()
+        return body[body.index("<tbody>"):body.index("</tbody>")]
+
     def _shipment(self, name, day):
         customer = Customer.objects.create(company=self.company, name=name)
         SalesAssignment.objects.create(user=self.user, customer=customer)
@@ -196,10 +201,10 @@ class ShipmentListDateFilterTests(TestCase):
 
     def test_the_list_defaults_to_the_current_month(self):
         """默认当天的话，没录入的日子里打开就是一片空白。"""
-        response = self.client.get(reverse("sales:shipment_list"))
+        table = self._table(self.client.get(reverse("sales:shipment_list")))
 
-        self.assertContains(response, "本月的")
-        self.assertNotContains(response, "上月的")
+        self.assertIn("本月的", table)
+        self.assertNotIn("上月的", table)
 
     def test_the_date_inputs_are_prefilled_with_the_current_range(self):
         """翻页按钮作用于这两个框，所以它们必须反映当前口径。"""
@@ -218,13 +223,13 @@ class ShipmentListDateFilterTests(TestCase):
         """核心回归：翻页必须同时改写开始和结束日期。此前 &amp; 转义让 end
         丢失，翻完只剩开始日期，口径变成「某天起」。"""
         first = self.today.replace(day=1)
-        response = self.client.get(
+        table = self._table(self.client.get(
             reverse("sales:shipment_list"),
             {"start": first.isoformat(), "end": self.today.isoformat(), "step": "prev"},
-        )
+        ))
 
-        self.assertContains(response, "上月的")
-        self.assertNotContains(response, "本月的")
+        self.assertIn("上月的", table)
+        self.assertNotIn("本月的", table)
 
     def test_stepping_keeps_both_ends_of_the_range(self):
         response = self.client.get(
@@ -356,6 +361,10 @@ class SearchScopeTests(TestCase):
         self._shipment("高席的旧单", self.today.replace(day=1) - timedelta(days=40))
         login_with_company(self.client, self.admin, self.company)
 
+    def _table(self, response):
+        body = response.content.decode()
+        return body[body.index("<tbody>"):body.index("</tbody>")]
+
     def _shipment(self, name, day):
         customer = Customer.objects.create(company=self.company, name=name)
         SalesShipment.objects.create(
@@ -389,7 +398,7 @@ class SearchScopeTests(TestCase):
 
     def test_searching_within_a_date_range_is_still_possible(self):
         """两种意图都要能表达：按日期查询时搜索仍受区间限制。"""
-        response = self.client.get(
+        table = self._table(self.client.get(
             reverse("sales:shipment_list"),
             {
                 "q": "高席",
@@ -397,10 +406,10 @@ class SearchScopeTests(TestCase):
                 "start": self.today.replace(day=1).isoformat(),
                 "end": self.today.isoformat(),
             },
-        )
+        ))
 
-        self.assertContains(response, "高席的本月单")
-        self.assertNotContains(response, "高席的旧单")
+        self.assertIn("高席的本月单", table)
+        self.assertNotIn("高席的旧单", table)
 
     def test_the_search_box_has_its_own_submit_button(self):
         response = self.client.get(reverse("sales:shipment_list"))
@@ -435,3 +444,124 @@ class SearchScopeTests(TestCase):
         )
 
         self.assertEqual(response.context["search"], "高席")
+
+
+class SplitFilterTests(TestCase):
+    """负责人/客户/币种各自下拉，而不是共用一个大文本框。
+
+    一个文本框的问题：搜「高」会同时命中业务员「高席」和客户「高新科技」，
+    用户分不清自己筛到了什么，也没法只按币种看。
+    """
+
+    def setUp(self):
+        self.company = company_a()
+        self.admin = User.objects.create_superuser("admin", password="pw")
+        self.other = User.objects.create_user("mate", first_name="销售乙")
+        self.today = date.today()
+        self.domestic = self._shipment("内销客户", self.admin, "DOMESTIC", "CNY")
+        self.export = self._shipment("外销客户", self.other, "EXPORT", "USD")
+        login_with_company(self.client, self.admin, self.company)
+
+    def _table(self, response):
+        body = response.content.decode()
+        return body[body.index("<tbody>"):body.index("</tbody>")]
+
+    def _shipment(self, name, owner, sale_type, currency):
+        customer = Customer.objects.create(company=self.company, name=name)
+        return SalesShipment.objects.create(
+            company=self.company,
+            customer=customer,
+            owner=owner,
+            sale_type=sale_type,
+            shipment_date=self.today,
+            quantity=1,
+            currency=currency,
+            original_amount=Decimal("100"),
+            exchange_rate=Decimal("1"),
+            amount_cny=Decimal("100"),
+        )
+
+    def test_three_separate_dropdowns_are_offered(self):
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertContains(response, 'name="owner"')
+        self.assertContains(response, 'name="customer"')
+        self.assertContains(response, 'name="currency"')
+
+    def test_filtering_by_owner(self):
+        table = self._table(
+            self.client.get(reverse("sales:shipment_list"), {"owner": self.other.pk})
+        )
+
+        self.assertIn("外销客户", table)
+        self.assertNotIn("内销客户", table)
+
+    def test_filtering_by_customer(self):
+        table = self._table(
+            self.client.get(
+                reverse("sales:shipment_list"), {"customer": self.domestic.customer_id}
+            )
+        )
+
+        self.assertIn("内销客户", table)
+        self.assertNotIn("外销客户", table)
+
+    def test_filtering_by_currency(self):
+        """此前完全没法只看美元单。"""
+        table = self._table(
+            self.client.get(reverse("sales:shipment_list"), {"currency": "USD"})
+        )
+
+        self.assertIn("外销客户", table)
+        self.assertNotIn("内销客户", table)
+
+    def test_filters_combine(self):
+        table = self._table(
+            self.client.get(
+                reverse("sales:shipment_list"), {"owner": self.other.pk, "currency": "USD"}
+            )
+        )
+
+        self.assertIn("外销客户", table)
+
+    def test_a_contradictory_combination_yields_nothing(self):
+        table = self._table(
+            self.client.get(
+                reverse("sales:shipment_list"), {"owner": self.admin.pk, "currency": "USD"}
+            )
+        )
+
+        self.assertNotIn("外销客户", table)
+        self.assertNotIn("内销客户", table)
+
+    def test_a_bogus_id_is_ignored_rather_than_crashing(self):
+        """手改 URL 传 owner=abc 不该 500。"""
+        response = self.client.get(reverse("sales:shipment_list"), {"owner": "abc"})
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_the_selected_option_is_remembered(self):
+        response = self.client.get(reverse("sales:shipment_list"), {"currency": "USD"})
+
+        self.assertEqual(response.context["selected"]["currency"], "USD")
+
+    def test_the_currency_choices_come_from_actual_data(self):
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertEqual(sorted(response.context["options"]["currencies"]), ["CNY", "USD"])
+
+    def test_the_totals_follow_the_dropdown_filters(self):
+        response = self.client.get(reverse("sales:shipment_list"), {"currency": "USD"})
+
+        self.assertEqual(response.context["totals"]["amount_cny"], Decimal("100"))
+
+    def test_the_purchase_list_has_the_same_three_dropdowns(self):
+        buyer = User.objects.create_user("purchase-a")
+        buyer.groups.add(Group.objects.get(name="purchase"))
+        login_with_company(self.client, buyer, self.company)
+
+        response = self.client.get(reverse("purchase:receipt_list"))
+
+        self.assertContains(response, 'name="owner"')
+        self.assertContains(response, 'name="customer"')
+        self.assertContains(response, 'name="currency"')
