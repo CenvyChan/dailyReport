@@ -8,17 +8,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}FINOSSReportSystem{% endblock %}</title>
-  {% comment %} 主题跟着系统内部的选择走：用户在里面切到亮色后，
-     退出再登录不该被打回暗色。 {% endcomment %}
-  <script>
-    (function () {
-      try {
-        var theme = localStorage.getItem("fns-theme") || "dark";
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.classList.toggle("dark", theme === "dark");
-      } catch (error) { /* 隐私模式下保持默认暗色 */ }
-    })();
-  </script>
+  {% comment %} 主题跟着系统内部的选择走：用户在里面切到亮色后，退出再登录不该被
+     打回暗色。theme.js 是自托管的同步脚本，同时负责初始化和接上下面那个开关，
+     所以登录页不引 Alpine 也能切换。 {% endcomment %}
+  <script src="{% static 'js/theme.js' %}"></script>
   <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
@@ -43,6 +36,11 @@
   </section>
 
   <section class="auth-panel">
+    {% comment %} 登录页没有导航栏，明暗开关就浮在右上角。习惯浅色的人第一眼会
+       在这里找它——藏进登录之后才有的导航栏里等于没有。 {% endcomment %}
+    <button type="button" class="icon-btn auth-theme" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
+      <i data-lucide="sun-moon">☾</i>
+    </button>
     <div class="auth-card">
       {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
       {% block content %}{% endblock %}

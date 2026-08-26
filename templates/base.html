@@ -8,17 +8,9 @@
   <title>{% block title %}{% if nav_company %}{{ nav_company.name }} - {% endif %}FINOSSReportSystem{% endblock %}</title>
 
   {% comment %} 主题必须在样式表生效前就落到 <html> 上，否则暗色用户会先闪一帧亮色。
-     写在 head 最前面、同步执行，是唯一能避开这一帧的位置。 {% endcomment %}
-  <script>
-    (function () {
-      try {
-        var saved = localStorage.getItem("fns-theme");
-        var theme = saved || "dark";
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.classList.toggle("dark", theme === "dark");
-      } catch (error) { /* 隐私模式下 localStorage 会抛错，保持默认暗色即可 */ }
-    })();
-  </script>
+     所以这一句是 head 里最靠前的同步脚本，而且是自托管的——登录页引同一份，
+     两边的切换按钮共用一套实现，不各写一遍。 {% endcomment %}
+  <script src="{% static 'js/theme.js' %}"></script>
 
   {% comment %} Tailwind 走 Play CDN，不引 Node 工具链。
      corePlugins.preflight 必须关掉：它的基础层会把 h1 字号重置成 inherit、
@@ -143,7 +135,7 @@
         </div>
       </div>
 
-      <button type="button" class="icon-btn" @click="$store.theme.toggle()" title="切换明暗主题" aria-label="切换明暗主题">
+      <button type="button" class="icon-btn" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
         <i data-lucide="sun-moon">☾</i>
       </button>
 
@@ -192,19 +184,6 @@
 {% endif %}
 <script>
   document.addEventListener("alpine:init", () => {
-    // 主题存 localStorage：换台机器或换浏览器要各自记住，不入库。
-    Alpine.store("theme", {
-      toggle() {
-        const root = document.documentElement;
-        const next = root.dataset.theme === "dark" ? "light" : "dark";
-        root.dataset.theme = next;
-        root.classList.toggle("dark", next === "dark");
-        try { localStorage.setItem("fns-theme", next); } catch (error) { /* 隐私模式忽略 */ }
-        // ECharts 的文字色是初始化时算好的，主题一换必须让图表自己重画。
-        window.dispatchEvent(new CustomEvent("fns-theme-change", { detail: next }));
-      },
-    });
-
     Alpine.data("cmdk", () => ({
       open: false,
       q: "",
