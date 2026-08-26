@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ title }} - {{ nav_company.name }}</h1>
-<p class="page-help">收件组属于当前公司，只会推送这家公司的销售和采购数据。</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>
+<p class="crumb"><a href="{% url 'notifications:mailing_list_index' %}">邮件推送</a><span>/</span>{{ title }}</p>
+<div class="page-head">
+  <div>
+    <h1>{{ title }} - {{ nav_company.name }}</h1>
+    <p class="sub">收件组属于当前公司，只会推送这家公司的销售和采购数据。</p>
+  </div>
+</div>
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}{% include "includes/field.html" with field=field %}{% endfor %}
+    <div class="form-actions">
+      <button type="submit"><i data-lucide="check"></i>保存</button>
+      <a class="button secondary" href="{% url 'notifications:mailing_list_index' %}">取消</a>
+      <span class="spacer">带 * 的为必填项</span>
+    </div>
+  </form>
+</div>
 {% endblock %}

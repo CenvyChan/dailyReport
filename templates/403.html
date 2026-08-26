@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 {% block title %}没有权限 - FINOSSReportSystem{% endblock %}
 {% block content %}
-<h1>没有权限</h1>
-<section class="page-help">
+<section class="state">
+  <div class="state-icon"><i data-lucide="shield-alert">!</i></div>
+  <h1>没有权限</h1>
   <p>{% if exception %}{{ exception }}{% else %}当前账号没有执行这个操作的权限。{% endif %}</p>
   <p>如果这是日常工作需要的功能，请联系管理员调整你的角色或公司授权。</p>
+  <div class="page-actions">
+    <a class="button secondary" href="/"><i data-lucide="corner-up-left"></i>返回首页</a>
+    <a class="button secondary" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener">查看使用指南</a>
+  </div>
 </section>
 {% endblock %}

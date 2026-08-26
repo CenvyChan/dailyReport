@@ -1,44 +1,249 @@
 {% load static display %}<!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  {# 带上公司名：同时开着 A、B 两家的标签页时要能分辨，否则容易看错数据 #}
+  {% comment %} 带上公司名：同时开着 A、B 两家的标签页时要能分辨，否则容易看错数据。
+     格式固定为「公司名 - FINOSSReportSystem」，标签页窄的时候前缀先可见。 {% endcomment %}
   <title>{% block title %}{% if nav_company %}{{ nav_company.name }} - {% endif %}FINOSSReportSystem{% endblock %}</title>
+
+  {% comment %} 主题必须在样式表生效前就落到 <html> 上，否则暗色用户会先闪一帧亮色。
+     写在 head 最前面、同步执行，是唯一能避开这一帧的位置。 {% endcomment %}
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("fns-theme");
+        var theme = saved || "dark";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      } catch (error) { /* 隐私模式下 localStorage 会抛错，保持默认暗色即可 */ }
+    })();
+  </script>
+
+  {% comment %} Tailwind 走 Play CDN，不引 Node 工具链。
+     corePlugins.preflight 必须关掉：它的基础层会把 h1 字号重置成 inherit、
+     把 * 的 border-width 清零，而 Play CDN 注入的 <style> 可能排在 app.css
+     之后，同特异性下就会赢，整站排版会散掉。
+     关掉之后 Tailwind 只输出用到的工具类，纯粹做加法。 {% endcomment %}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: {
+            ink: { 950: "#080c14", 900: "#0b1220", 800: "#0e1523" },
+            brand: { 400: "#818cf8", 500: "#6366f1", 600: "#4f46e5" },
+            glow: { cyan: "#22d3ee", violet: "#a855f7" },
+          },
+          fontFamily: { mono: ["JetBrains Mono", "ui-monospace", "Consolas", "monospace"] },
+        },
+      },
+    };
+  </script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  {% comment %} app.css 放在 CDN 之后引：它是样式真相，最后加载保证优先级。
+     内网机器打不开 CDN 时，页面靠这一份依然是完整的深色玻璃风。 {% endcomment %}
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
 {% if user.is_authenticated %}
-<nav>
-  {% if nav_can_sales %}<a href="/sales/shipments/">销售</a>{% endif %}
-  {% if nav_can_purchase %}<a href="/purchase/receipts/">采购</a>{% endif %}
-  <a href="/reports/sales/">销售分析</a>
-  <a href="/reports/purchase/">采购分析</a>
-  {% if nav_can_comparison %}<a href="/reports/comparison/">采销对比</a>{% endif %}
-  {% if nav_can_sales %}<a href="/core/customers/">客户</a>{% endif %}
-  {% if nav_can_purchase %}<a href="/core/suppliers/">供应商</a>{% endif %}
-  {% if nav_is_administrator %}<a href="/core/rates/">汇率</a><a href="/core/users/">用户</a><a href="/core/notifications/">邮件推送</a>{% endif %}
-  <span class="nav-company">当前公司：{% if nav_company %}{{ nav_company.name }}{% else %}未授权{% endif %}</span>
-  {% if nav_companies|length > 1 %}
-  <form class="company-switch" method="post" action="{% url 'core:switch_company' %}">
-    {% csrf_token %}
-    <label for="company-switch">切换公司</label>
-    <select id="company-switch" name="company">
-      {% for item in nav_companies %}<option value="{{ item.pk }}" {% if nav_company and item.pk == nav_company.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
-    </select>
-    <input type="hidden" name="next" value="{{ request.get_full_path }}">
-    <button type="submit">切换</button>
-  </form>
-  {% endif %}
-  <a class="help-link" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="打开用户使用指南"><span class="help-icon" aria-hidden="true">?</span>帮助</a>
-  <a href="/core/profile/">{{ user|person }}</a>
-  <form method="post" action="/accounts/logout/">{% csrf_token %}<button type="submit">退出</button></form>
-</nav>
+<header class="topbar" x-data="{ nav: false }" :data-nav="nav ? 'open' : 'closed'">
+  <div class="topbar-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark"><i data-lucide="zap"></i></span>
+      <span class="brand-text">FINOSS<em>Report</em></span>
+    </a>
+
+    {% comment %} 窄屏把一级入口收进抽屉，宽屏这个按钮由 CSS 隐藏。
+       图标里塞了个字符兜底：lucide 会把整个 <i> 换成 svg，脚本没加载时
+       字符还在，至少不是个空按钮。 {% endcomment %}
+    <button type="button" class="icon-btn nav-toggle" @click="nav = !nav" :aria-expanded="nav" aria-label="展开导航">
+      <i data-lucide="menu">≡</i>
+    </button>
+
+    <nav class="nav-links">
+      {% if nav_can_sales %}
+      <a class="nav-link{% if '/sales/' in request.path %} on{% endif %}" href="/sales/shipments/"><i data-lucide="package"></i>销售</a>
+      {% endif %}
+      {% if nav_can_purchase %}
+      <a class="nav-link{% if '/purchase/' in request.path %} on{% endif %}" href="/purchase/receipts/"><i data-lucide="truck"></i>采购</a>
+      {% endif %}
+
+      {% comment %} 十个入口平铺会把导航挤爆，按语义收成「分析 / 资料 / 系统」三组。
+         二级面板用纯 CSS 的 :hover / :focus-within 展开，不挂 Alpine：
+         这些是进入报表和基础资料的唯一入口，内网机器打不开 CDN 时
+         也必须能点开，不能让它依赖一个可能加载失败的脚本。 {% endcomment %}
+      <div class="nav-group">
+        <button type="button" class="nav-link{% if '/reports/' in request.path %} on{% endif %}" aria-haspopup="true">
+          <i data-lucide="bar-chart-3"></i>分析<i data-lucide="chevron-down" class="caret"></i>
+        </button>
+        <div class="nav-menu">
+          <a href="/reports/sales/"><i data-lucide="trending-up"></i>销售分析</a>
+          <a href="/reports/purchase/"><i data-lucide="trending-down"></i>采购分析</a>
+          {% if nav_can_comparison %}<a href="/reports/comparison/"><i data-lucide="git-compare"></i>采销对比</a>{% endif %}
+        </div>
+      </div>
+
+      {% if nav_can_sales or nav_can_purchase or nav_is_administrator %}
+      <div class="nav-group">
+        <button type="button" class="nav-link{% if '/core/customers/' in request.path or '/core/suppliers/' in request.path or '/core/rates/' in request.path %} on{% endif %}" aria-haspopup="true">
+          <i data-lucide="database"></i>资料<i data-lucide="chevron-down" class="caret"></i>
+        </button>
+        <div class="nav-menu">
+          {% if nav_can_sales %}<a href="/core/customers/"><i data-lucide="users"></i>客户</a>{% endif %}
+          {% if nav_can_purchase %}<a href="/core/suppliers/"><i data-lucide="factory"></i>供应商</a>{% endif %}
+          {% if nav_is_administrator %}<a href="/core/rates/"><i data-lucide="banknote"></i>汇率</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if nav_is_administrator %}
+      <div class="nav-group">
+        <button type="button" class="nav-link{% if '/core/users/' in request.path or '/core/notifications/' in request.path %} on{% endif %}" aria-haspopup="true">
+          <i data-lucide="settings-2"></i>系统<i data-lucide="chevron-down" class="caret"></i>
+        </button>
+        <div class="nav-menu">
+          <a href="/core/users/"><i data-lucide="user-cog"></i>用户</a>
+          <a href="/core/notifications/"><i data-lucide="mail"></i>邮件推送</a>
+        </div>
+      </div>
+      {% endif %}
+    </nav>
+    <div class="topbar-right">
+      {% comment %} 快捷指令栏：点开后从当前导航里现搜。条目直接读 DOM 里的
+         .nav-links a，所以权限口径天然和导航一致，不用在这里再判一遍。 {% endcomment %}
+      <button type="button" class="cmdk" @click="$dispatch('cmdk-open')">
+        <i data-lucide="search"></i><span>快捷跳转</span><kbd>Ctrl K</kbd>
+      </button>
+
+      {% comment %} 当前公司是整个导航里最要紧的一条信息：A/B 两家数据隔离，
+         看错公司就会把日报录到错的账套里。所以它是发光胶囊而不是灰字。
+         多公司时点开就是切换面板，同样走纯 CSS 展开，不依赖 CDN。 {% endcomment %}
+      <div class="nav-group">
+        <button type="button" class="nav-company" aria-haspopup="true">
+          <span class="dot pulse"></span>当前公司：{% if nav_company %}{{ nav_company.name }}{% else %}未授权{% endif %}
+        </button>
+        <div class="nav-menu to-right">
+          {% if nav_companies|length > 1 %}
+          <form class="company-switch" method="post" action="{% url 'core:switch_company' %}">
+            {% csrf_token %}
+            <label for="company-switch">切换公司</label>
+            <select id="company-switch" name="company">
+              {% for item in nav_companies %}<option value="{{ item.pk }}" {% if nav_company and item.pk == nav_company.pk %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+            </select>
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit"><i data-lucide="repeat"></i>切换</button>
+          </form>
+          {% else %}
+          <p class="menu-label">你的账号只授权了这一家公司</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <button type="button" class="icon-btn" @click="$store.theme.toggle()" title="切换明暗主题" aria-label="切换明暗主题">
+        <i data-lucide="sun-moon">☾</i>
+      </button>
+
+      <div class="nav-group">
+        <button type="button" class="user-trigger" aria-haspopup="true">
+          <span class="avatar">{{ user|person|slice:":1" }}</span><span class="who">{{ user|person }}</span>
+        </button>
+        <div class="nav-menu to-right">
+          <a href="/core/profile/"><i data-lucide="user"></i>个人设置</a>
+          <a class="help-link" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="打开用户使用指南">
+            <span class="help-icon" aria-hidden="true">?</span>帮助
+          </a>
+          <hr>
+          <form method="post" action="/accounts/logout/">{% csrf_token %}<button type="submit"><i data-lucide="log-out"></i>退出</button></form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
 {% endif %}
 <main>
   {# messages 原先只在 profile 和 mailing_list 两个页面渲染，别处 add_message 会被静默吞掉 #}
   {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
   {% block content %}{% endblock %}
 </main>
+{% if user.is_authenticated %}
+{% comment %} 快捷指令弹层。条目从 .nav-links 里现读，跟着权限走，不用另维护一份清单。
+   Alpine 挂了也只是少一个快捷入口，导航本身照常可用。 {% endcomment %}
+<div x-data="cmdk()" @cmdk-open.window="show()" @keydown.window="hotkey($event)">
+  <div class="cmd-overlay" x-show="open" x-transition.opacity.duration.120ms x-cloak @click.self="open = false">
+    <div class="cmd-panel" @click.stop>
+      <div class="cmd-head">
+        <i data-lucide="search"></i>
+        <input x-ref="box" x-model="q" type="text" placeholder="跳转到…（销售、汇率、采销对比）" aria-label="快捷跳转">
+        <kbd style="font-size:10px;color:var(--text-mute)">Esc</kbd>
+      </div>
+      <div class="cmd-list">
+        <template x-for="(item, index) in hits" :key="item.url + index">
+          <a :href="item.url" :class="index === cursor ? 'sel' : ''" x-text="item.label"></a>
+        </template>
+        <div class="empty" x-show="hits.length === 0">没有匹配的页面</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+<script>
+  document.addEventListener("alpine:init", () => {
+    // 主题存 localStorage：换台机器或换浏览器要各自记住，不入库。
+    Alpine.store("theme", {
+      toggle() {
+        const root = document.documentElement;
+        const next = root.dataset.theme === "dark" ? "light" : "dark";
+        root.dataset.theme = next;
+        root.classList.toggle("dark", next === "dark");
+        try { localStorage.setItem("fns-theme", next); } catch (error) { /* 隐私模式忽略 */ }
+        // ECharts 的文字色是初始化时算好的，主题一换必须让图表自己重画。
+        window.dispatchEvent(new CustomEvent("fns-theme-change", { detail: next }));
+      },
+    });
+
+    Alpine.data("cmdk", () => ({
+      open: false,
+      q: "",
+      cursor: 0,
+      items: [],
+      show() {
+        // 每次打开都重新读一遍：切公司后导航项会变。
+        this.items = [...document.querySelectorAll(".nav-links a[href]")].map((node) => ({
+          label: node.textContent.trim(),
+          url: node.getAttribute("href"),
+        }));
+        this.q = "";
+        this.cursor = 0;
+        this.open = true;
+        this.$nextTick(() => this.$refs.box.focus());
+      },
+      get hits() {
+        const keyword = this.q.trim();
+        if (!keyword) return this.items;
+        return this.items.filter((item) => item.label.includes(keyword));
+      },
+      hotkey(event) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+          event.preventDefault();
+          this.open ? (this.open = false) : this.show();
+          return;
+        }
+        if (!this.open) return;
+        if (event.key === "Escape") { this.open = false; return; }
+        if (event.key === "ArrowDown") { event.preventDefault(); this.cursor = Math.min(this.cursor + 1, this.hits.length - 1); }
+        if (event.key === "ArrowUp") { event.preventDefault(); this.cursor = Math.max(this.cursor - 1, 0); }
+        if (event.key === "Enter" && this.hits[this.cursor]) { window.location.href = this.hits[this.cursor].url; }
+      },
+    }));
+  });
+
+  // lucide 把 <i data-lucide> 替换成内联 svg，必须等 DOM 齐了再跑。
+  if (window.lucide) lucide.createIcons();
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

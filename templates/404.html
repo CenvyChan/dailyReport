@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block title %}页面不存在 - FINOSSReportSystem{% endblock %}
 {% block content %}
-<h1>页面不存在</h1>
-<section class="page-help">
+<section class="state">
+  <div class="state-icon"><i data-lucide="file-question">?</i></div>
+  <h1>页面不存在</h1>
   <p>这个地址没有对应的页面。常见原因：</p>
   <ol>
     <li>收藏的链接过期了，或者手工改过地址栏。</li>
     <li>要看的那条记录已经被删除。</li>
   </ol>
   <p>从上方导航重新进入即可。</p>
+  <div class="page-actions">
+    <a class="button secondary" href="/"><i data-lucide="corner-up-left"></i>返回首页</a>
+  </div>
 </section>
 {% endblock %}

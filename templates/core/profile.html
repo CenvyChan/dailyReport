@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>个人设置</h1>
-<p class="page-help">邮箱用于接收日报推送和系统通知。修改后立即生效。</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">保存</button></form>
+<div class="page-head">
+  <div>
+    <h1>个人设置</h1>
+    <p class="sub">邮箱用于接收日报推送和系统通知。修改后立即生效。</p>
+  </div>
+</div>
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% comment %} 原先是 form.as_p，标签和输入框同字号堆在一条窄列里。
+       换成逐字段渲染，和其他表单页共用一套层次约定。 {% endcomment %}
+    {% for field in form %}{% include "includes/field.html" with field=field %}{% endfor %}
+    <div class="form-actions">
+      <button type="submit"><i data-lucide="check"></i>保存</button>
+      <span class="spacer">带 * 的为必填项</span>
+    </div>
+  </form>
+</div>
 {% endblock %}

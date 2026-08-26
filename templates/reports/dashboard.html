@@ -2,11 +2,15 @@
 {% load display %}
 {% block content %}
 <div class="page-head">
-  <h1>{{ title }}</h1>
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="sub">按当前筛选口径汇总；金额均为折算人民币，外币按录入当月汇率快照换算。</p>
+  </div>
   <div class="page-actions">
-    <a class="button" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">导出 Excel</a>
+    <a class="button secondary" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"><i data-lucide="download"></i>导出 Excel</a>
   </div>
 </div>
+
 <form class="filter-card" method="get">
   {% comment %} 筛选分两行：上行是时间口径，下行是维度。此前 8 个控件挤在一行里换行，
      日期和维度混在一起，看不出哪些是一组的 {% endcomment %}
@@ -35,7 +39,7 @@
     <span class="spacer"></span>
     {% comment %} 手动改日期后点这个按钮：value 为空的 preset 会覆盖掉 URL 里
        残留的预设值，否则预设会一直把用户填的日期顶掉。 {% endcomment %}
-    <button type="submit" name="preset" value="">筛选</button>
+    <button type="submit" name="preset" value=""><i data-lucide="filter"></i>筛选</button>
     <a class="button secondary" href=".">清除</a>
   </div>
   {# 生效的口径显式列出：不写出来的话，用户翻回这页已经不记得自己筛过什么 #}
@@ -46,20 +50,70 @@
     {% if filters.business_type %}{% for value, label in type_choices %}{% if filters.business_type == value %}<span class="chip">业务类型：<b>{{ label }}</b></span>{% endif %}{% endfor %}{% endif %}
   </div>
 </form>
-{# 汇总此前是一行灰文本，strong 反而是小灰字标签，数字没有分量 #}
-<dl class="stat-row">
-  <div class="stat"><dt>数量合计</dt><dd>{{ dashboard.summary.quantity|qty }}</dd></div>
-  <div class="stat"><dt>人民币金额</dt><dd>{{ dashboard.summary.cny_amount|money }}</dd></div>
-  <div class="stat"><dt>美元金额</dt><dd>{{ dashboard.summary.usd_amount|money }}</dd></div>
-  <div class="stat stat-key"><dt>折算人民币合计</dt><dd>{{ dashboard.summary.amount_cny|money }}</dd></div>
-</dl>
-{{ dashboard|json_script:"dashboard-data" }}
-{# 图表容器加标题栏，此前是四个无标题的裸白框，得看图形自己猜是什么 #}
-<section class="charts">
-  <div class="chart-card"><h3>每日趋势</h3><div id="daily-trend" class="chart" data-chart="daily"></div></div>
-  <div class="chart-card"><h3>月度趋势</h3><div id="monthly-trend" class="chart" data-chart="monthly"></div></div>
-  <div class="chart-card"><h3>业务类型占比</h3><div id="type-share" class="chart" data-chart="share"></div></div>
-  <div class="chart-card"><h3>{{ counterpart_label }}排名</h3><div id="counterpart-rank" class="chart" data-chart="rank"></div></div>
+{% comment %} 便当盒网格：12 列基准。四张 KPI 各占 3 列，主图占 8 列，
+   占比图和快捷入口各 4 列，两张排名图对半分。窄屏统一塌成单列。 {% endcomment %}
+<section class="bento">
+  <div class="bento-card kpi span-3">
+    <div class="kpi-label">数量合计<i data-lucide="boxes"></i></div>
+    <div class="kpi-value">{{ dashboard.summary.quantity|qty }}</div>
+    <div class="spark"><i style="width:100%"></i></div>
+  </div>
+  <div class="bento-card kpi span-3">
+    <div class="kpi-label">人民币金额<i data-lucide="circle-dollar-sign"></i></div>
+    <div class="kpi-value">{{ dashboard.summary.cny_amount|money }}</div>
+    <div class="kpi-note">内销 / 国内采购口径</div>
+  </div>
+  <div class="bento-card kpi span-3">
+    <div class="kpi-label">美元金额<i data-lucide="banknote"></i></div>
+    <div class="kpi-value">{{ dashboard.summary.usd_amount|money }}</div>
+    <div class="kpi-note">外销 / 国外采购口径</div>
+  </div>
+  <div class="bento-card kpi kpi-key span-3">
+    <div class="kpi-label">折算人民币合计<i data-lucide="sigma"></i></div>
+    <div class="kpi-value">{{ dashboard.summary.amount_cny|money }}</div>
+    <div class="kpi-note">最终口径，含汇率快照折算</div>
+  </div>
+
+  {% comment %} 图表容器加标题栏，此前是四个无标题的裸白框，得看图形自己猜是什么。
+     容器 id 是 dashboard.js 用 getElementById 取的，不能改。 {% endcomment %}
+  <div class="chart-card span-8">
+    <h3><i data-lucide="line-chart"></i>每日趋势</h3>
+    <div id="daily-trend" class="chart" data-chart="daily"></div>
+  </div>
+  <div class="chart-card span-4">
+    <h3><i data-lucide="pie-chart"></i>业务类型占比</h3>
+    <div id="type-share" class="chart" data-chart="share"></div>
+  </div>
+
+  <div class="chart-card span-8">
+    <h3><i data-lucide="calendar-range"></i>月度趋势</h3>
+    <div id="monthly-trend" class="chart" data-chart="monthly"></div>
+  </div>
+
+  {% comment %} 快捷入口：这一页是日常看数的落点，但看完总要去录一笔或导一份，
+     此前得先跳回导航再找。四个格子覆盖八成的下一步动作。 {% endcomment %}
+  <div class="bento-card span-4">
+    <div class="bento-head"><h3><i data-lucide="zap"></i>快捷操作</h3></div>
+    <div class="quick-grid">
+      {% if nav_can_sales %}<a class="quick" href="{% url 'sales:shipment_create' %}"><i data-lucide="plus-circle"></i><span>录入销售</span></a>{% endif %}
+      {% if nav_can_purchase %}<a class="quick" href="{% url 'purchase:receipt_create' %}"><i data-lucide="plus-circle"></i><span>录入采购</span></a>{% endif %}
+      <a class="quick" href="{% url export_url_name %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"><i data-lucide="file-spreadsheet"></i><span>导出当前口径</span></a>
+      {% if nav_can_comparison %}<a class="quick" href="{% url 'reports:monthly_comparison' %}"><i data-lucide="git-compare"></i><span>采销对比</span></a>{% endif %}
+      {% if nav_can_sales %}<a class="quick" href="{% url 'sales:shipment_list' %}"><i data-lucide="table-2"></i><span>回到明细</span></a>{% endif %}
+    </div>
+  </div>
+
+  <div class="chart-card span-6">
+    <h3><i data-lucide="bar-chart-3"></i>{{ counterpart_label }}排名</h3>
+    <div id="counterpart-rank" class="chart" data-chart="rank"></div>
+  </div>
+  {% comment %} owner_rank 后端一直在算，但界面上从来没渲染过，等于白算。
+     按人看业绩是月度复盘最常用的一刀，补上。 {% endcomment %}
+  <div class="chart-card span-6">
+    <h3><i data-lucide="users"></i>{{ person_label }}排名</h3>
+    <div id="owner-rank" class="chart" data-chart="owner"></div>
+  </div>
 </section>
+{{ dashboard|json_script:"dashboard-data" }}
 <script src="/static/js/echarts.min.js"></script><script src="/static/js/dashboard.js"></script>
 {% endblock %}

@@ -1,17 +1,31 @@
 {% load static %}<!doctype html>
 {% comment %} 登录/改密这类未登录页面的骨架。不继承 base.html：那个模板带导航栏和
-   1180px 的 main 容器，套在登录页上会让表单孤零零挂在左上角。 {% endcomment %}
-<html lang="zh-CN">
+   主容器，套在登录页上会让表单孤零零挂在左上角。
+   这里只引 Lucide（图标）和 app.css，不引 Tailwind：登录页没有需要工具类的
+   零散排版，少一个 CDN 请求就少一个卡在首屏的可能。 {% endcomment %}
+<html lang="zh-CN" data-theme="dark" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}FINOSSReportSystem{% endblock %}</title>
+  {% comment %} 主题跟着系统内部的选择走：用户在里面切到亮色后，
+     退出再登录不该被打回暗色。 {% endcomment %}
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("fns-theme") || "dark";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      } catch (error) { /* 隐私模式下保持默认暗色 */ }
+    })();
+  </script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body class="auth-body">
 <div class="auth-split">
 
-  {# 左侧品牌区：深蓝延续导航栏的 #17324d，让登录页和系统内部是一套视觉 #}
+  {# 左侧品牌区：延续系统内部的发光网格与品牌渐变，让登录页和里面是一套视觉 #}
   <section class="auth-brand">
     <div class="auth-mark">
       <span class="auth-logo" aria-hidden="true">F</span>
@@ -19,6 +33,11 @@
     </div>
     <div class="auth-title">
       <h1>采购销售日报<br>数据管理平台</h1>
+      <div class="auth-feature">
+        <span><i data-lucide="shield-check"></i>多公司数据隔离</span>
+        <span><i data-lucide="line-chart"></i>采销实时对比</span>
+        <span><i data-lucide="mail"></i>日报自动推送</span>
+      </div>
     </div>
     <p class="auth-brand-foot">内部系统 · 请勿对外分享账号</p>
   </section>
@@ -31,5 +50,6 @@
   </section>
 
 </div>
+<script>if (window.lucide) lucide.createIcons();</script>
 </body>
 </html>

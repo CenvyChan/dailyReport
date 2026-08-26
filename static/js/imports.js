@@ -116,6 +116,7 @@
         show(`已成功导入 ${payload.imported} 条记录。`, [], "ok");
         // 导入成功后不允许再点一次，避免重复写入；要再导就重新选文件。
         fileInput.value = "";
+        echoFile();
         return;
       }
       const errors = payload.error_rows || [];
@@ -145,5 +146,60 @@
   fileInput.addEventListener("change", () => {
     commitButton.disabled = true;
     result.replaceChildren();
+    echoFile();
   });
+
+  // ---- 拖拽上传 ----
+  // 放在这里而不是交给 Alpine：拖拽和文件名回显是上传流程的一部分，
+  // 内网机器打不开 CDN 时这套交互仍然要完整可用。
+  const zone = document.getElementById("dropzone");
+  const echo = document.getElementById("dz-file");
+
+  const readableSize = (bytes) =>
+    bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
+
+  // 选完文件不回显的话，用户不知道刚才那一拖到底有没有生效。
+  function echoFile() {
+    if (!echo) return;
+    const file = fileInput.files[0];
+    if (!file) {
+      echo.hidden = true;
+      echo.replaceChildren();
+      return;
+    }
+    echo.hidden = false;
+    echo.replaceChildren();
+    const name = document.createElement("span");
+    name.textContent = file.name;
+    const size = document.createElement("span");
+    size.className = "size";
+    size.textContent = readableSize(file.size);
+    echo.append(name, size);
+  }
+
+  if (zone) {
+    // dragenter/dragover 都要 preventDefault，否则浏览器会把文件当成
+    // 普通链接直接打开，整个页面被替换成一张 Excel。
+    ["dragenter", "dragover"].forEach((type) => {
+      zone.addEventListener(type, (event) => {
+        event.preventDefault();
+        zone.classList.add("over");
+      });
+    });
+    // 只认落在拖拽区自身的 dragleave：鼠标在内部的图标和文字之间移动时
+    // 也会冒泡出 dragleave，不加这层判断高亮会不停闪。
+    zone.addEventListener("dragleave", (event) => {
+      if (event.target === zone) zone.classList.remove("over");
+    });
+    zone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      zone.classList.remove("over");
+      const dropped = event.dataTransfer && event.dataTransfer.files;
+      if (!dropped || !dropped.length) return;
+      // 直接把 FileList 塞回 input：后续的 FormData 仍然从 input 取值，
+      // 拖进来的和点选的走完全同一条路。
+      fileInput.files = dropped;
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
 })();

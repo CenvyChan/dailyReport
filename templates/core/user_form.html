@@ -9,7 +9,7 @@
     {# 字段逐个循环：角色和公司是复选框组，字段数不固定，写死顺序容易漏 #}
     {% for field in form %}{% include "includes/field.html" with field=field %}{% endfor %}
     <div class="form-actions">
-      <button type="submit">保存</button>
+      <button type="submit"><i data-lucide="check"></i>保存</button>
       <a class="button secondary" href="{% url 'core:user_list' %}">取消</a>
       <span class="spacer">带 * 的为必填项</span>
     </div>

@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-head">
-  <h1>用户管理</h1>
+  <div>
+    <h1>用户管理</h1>
+    <p class="sub">管理员设置初始密码后，用户首次登录会被要求自行修改；角色决定用户可以进入的业务模块，公司授权决定登录时可以选择哪几家公司。</p>
+  </div>
   <div class="page-actions">
-    <a class="button" href="{% url 'core:user_create' %}">新增用户</a>
-    <a class="button secondary" href="{% url 'core:user_import_page' %}">导入用户</a>
+    <a class="button" href="{% url 'core:user_create' %}"><i data-lucide="user-plus"></i>新增用户</a>
+    <a class="button secondary" href="{% url 'core:user_import_page' %}"><i data-lucide="upload"></i>导入用户</a>
   </div>
 </div>
-<p class="page-help">管理员设置初始密码后，用户首次登录会被要求自行修改；角色决定用户可以进入的业务模块，公司授权决定登录时可以选择哪几家公司。员工离职请用「停用」而不是删除——历史日报要保留归属人。</p>
+<p class="page-help">员工离职请用「停用」而不是删除——历史日报要保留归属人。停用后账号无法登录，但过往数据的负责人显示不变。</p>
 <div class="table-card">
   <div class="table-scroll">
     <table>

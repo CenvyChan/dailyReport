@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-head">
-  <h1>{{ title }} - {{ nav_company.name }}</h1>
+  <div>
+    <h1>{{ title }} - {{ nav_company.name }}</h1>
+    <p class="sub">{{ unit }}资料按公司隔离，这里只显示当前公司「{{ nav_company.name }}」的{{ unit }}。停用后保留历史数据，但不再出现在新增日报的候选里。</p>
+  </div>
   <div class="page-actions">
-    <a class="button" href="{% url create_url %}">新增{{ unit }}</a>
-    {% if can_import %}<a class="button secondary" href="{% url import_url %}">批量导入</a>{% endif %}
+    <a class="button" href="{% url create_url %}"><i data-lucide="plus"></i>新增{{ unit }}</a>
+    {% if can_import %}<a class="button secondary" href="{% url import_url %}"><i data-lucide="upload"></i>批量导入</a>{% endif %}
   </div>
 </div>
-<p class="page-help">{{ unit }}资料按公司隔离，这里只显示当前公司「{{ nav_company.name }}」的{{ unit }}。停用后保留历史数据，但不再出现在新增日报的候选里。</p>
 
 <form class="filter-card" method="get">
   <label>搜索<input type="search" name="q" value="{{ search }}" placeholder="{{ unit }}名称"></label>
@@ -18,7 +20,7 @@
       <option value="inactive" {% if status == "inactive" %}selected{% endif %}>仅停用</option>
     </select>
   </label>
-  <button type="submit">查询</button>
+  <button type="submit"><i data-lucide="search"></i>查询</button>
   {% if search or status %}<a class="button secondary" href="?">清除</a>{% endif %}
 </form>
 

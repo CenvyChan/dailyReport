@@ -1,8 +1,17 @@
 {% extends "base.html" %}
+{% load display static %}
 {% block content %}
-<h1>采购入库金额与销售金额对比表</h1>
+<div class="page-head">
+  <div>
+    <h1>采购入库金额与销售金额对比表</h1>
+    <p class="sub">{{ report.year }} 年 {{ report.month }} 月 · 全公司口径 · 未税金额</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn-link" href="{% url 'reports:monthly_comparison_export' %}?year={{ report.year }}&month={{ report.month }}"><i data-lucide="download"></i>导出 Excel</a>
+  </div>
+</div>
 
-<form class="comparison-filter" method="get">
+<form class="filter-card comparison-filter" method="get">
   <label for="year">统计年月</label>
   <select id="year" name="year">
     {% for item in years %}<option value="{{ item }}" {% if item == report.year %}selected{% endif %}>{{ item }} 年</option>{% endfor %}
@@ -10,43 +19,82 @@
   <select id="month" name="month" aria-label="月份">
     {% for item in months %}<option value="{{ item }}" {% if item == report.month %}selected{% endif %}>{{ item }} 月</option>{% endfor %}
   </select>
-  <button type="submit">查询</button>
-  <a class="btn-link" href="{% url 'reports:monthly_comparison_export' %}?year={{ report.year }}&month={{ report.month }}">导出 Excel</a>
+  <button type="submit"><i data-lucide="search-check"></i>查询</button>
 </form>
+
+<section class="bento">
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">采购入库合计<i data-lucide="truck"></i></div>
+    <div class="kpi-value">{{ report.purchase_total|money }}</div>
+    <div class="kpi-note">本月有数据的天数：{{ report.days_with_data }} 天</div>
+  </div>
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">销售合计<i data-lucide="package"></i></div>
+    <div class="kpi-value">{{ report.sales_total|money }}</div>
+    <div class="kpi-note">外币按录入当月汇率快照折算</div>
+  </div>
+  <div class="bento-card kpi kpi-key span-4">
+    <div class="kpi-label">合计占比<i data-lucide="percent"></i></div>
+    <div class="kpi-value">{% if report.share_total == None %}-{% else %}{{ report.share_total|floatformat:2 }}%{% endif %}</div>
+    <div class="kpi-note">采购 ÷ 销售，超过 100% 说明进货多于出货</div>
+  </div>
+
+  {% comment %} 表格是逐日核对用的，但「这个月走势如何」得扫三十行数字才看得出来。
+     同一份数据再给一张图：两根柱子比金额，一条线看占比。 {% endcomment %}
+  <div class="chart-card span-12">
+    <h3><i data-lucide="bar-chart-3"></i>每日销售 vs 采购</h3>
+    <div id="comparison-chart" class="chart" style="min-height:320px"></div>
+  </div>
+</section>
 
 <p class="page-help">
   金额均为未税口径，与日报录入金额一致；外币按录入当月的汇率快照折算人民币。
   每天占比 = 当日采购 ÷ 当日销售，超过 100% 说明当天进货多于出货，属正常波动。
   当日销售为 0 时占比显示「-」。
 </p>
+<div class="table-card">
+  <div class="table-scroll">
+    <table class="comparison">
+      <thead>
+        <tr><th>日期</th><th class="num">采购入库金额</th><th class="num">销售金额</th><th class="num">每天占比</th><th>备注</th></tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+        <tr {% if not row.has_data %}class="empty-day"{% endif %}>
+          <td>{{ row.date|date:"Y-m-d" }}</td>
+          <td class="num">{{ row.purchase_amount|floatformat:2 }}</td>
+          <td class="num">{{ row.sales_amount|floatformat:2 }}</td>
+          <td class="num {% if row.over_full %}over{% endif %}">
+            {% if row.share == None %}-{% else %}{{ row.share|floatformat:2 }}%{% endif %}
+          </td>
+          <td></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>月度合计</th>
+          <th class="num">{{ report.purchase_total|floatformat:2 }}</th>
+          <th class="num">{{ report.sales_total|floatformat:2 }}</th>
+          <th class="num total-share">{% if report.share_total == None %}-{% else %}{{ report.share_total|floatformat:2 }}%{% endif %}</th>
+          <th></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
 
-<table class="comparison">
-  <thead>
-    <tr><th>日期</th><th class="num">采购入库金额</th><th class="num">销售金额</th><th class="num">每天占比</th><th>备注</th></tr>
-  </thead>
-  <tbody>
-    {% for row in report.rows %}
-    <tr {% if not row.has_data %}class="empty-day"{% endif %}>
-      <td>{{ row.date|date:"Y-m-d" }}</td>
-      <td class="num">{{ row.purchase_amount|floatformat:2 }}</td>
-      <td class="num">{{ row.sales_amount|floatformat:2 }}</td>
-      <td class="num {% if row.over_full %}over{% endif %}">
-        {% if row.share == None %}-{% else %}{{ row.share|floatformat:2 }}%{% endif %}
-      </td>
-      <td></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-  <tfoot>
-    <tr>
-      <th>月度合计</th>
-      <th class="num">{{ report.purchase_total|floatformat:2 }}</th>
-      <th class="num">{{ report.sales_total|floatformat:2 }}</th>
-      <th class="num total-share">{% if report.share_total == None %}-{% else %}{{ report.share_total|floatformat:2 }}%{% endif %}</th>
-      <th></th>
-    </tr>
-  </tfoot>
-</table>
-
-<p class="page-help">本月有数据的天数：{{ report.days_with_data }} 天。</p>
+{% comment %} 图表数据直接从同一批 rows 铺成 JS 数组：不走 json_script，
+   因为 rows 里有 date 和 Decimal，两者都不能直接 JSON 序列化。
+   floatformat 的 u 后缀关掉本地化，避免某些语言下小数点变成逗号把数组撕开。 {% endcomment %}
+<script id="comparison-data" type="application/json">
+{
+  "labels": [{% for row in report.rows %}"{{ row.date|date:'n/j' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+  "purchase": [{% for row in report.rows %}{{ row.purchase_amount|floatformat:"2u" }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "sales": [{% for row in report.rows %}{{ row.sales_amount|floatformat:"2u" }}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "share": [{% for row in report.rows %}{% if row.share == None %}null{% else %}{{ row.share|floatformat:"2u" }}{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}]
+}
+</script>
+<script src="/static/js/echarts.min.js"></script>
+<script src="{% static 'js/comparison.js' %}"></script>
 {% endblock %}

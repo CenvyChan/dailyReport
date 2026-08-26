@@ -28,7 +28,7 @@
             title="往后{{ dates.step_label }}" aria-label="往后{{ dates.step_label }}">›</button>
     {% endif %}
 
-    <button type="submit" name="preset" value="">查询</button>
+    <button type="submit" name="preset" value=""><i data-lucide="search-check"></i>查询</button>
 
     <span class="presets">
       <button type="submit" name="preset" value="day"{% if dates.preset == 'day' %} class="on"{% endif %}>今天</button>
@@ -38,7 +38,7 @@
       <button type="submit" name="preset" value="all"{% if dates.preset == 'all' %} class="on"{% endif %}>全部</button>
     </span>
 
-    <a class="button secondary" href="?">重置</a>
+    <a class="button secondary" href="?"><i data-lucide="rotate-ccw"></i>重置</a>
   </div>
 
   {% comment %}
@@ -74,7 +74,7 @@
     </select>
 
     <input type="search" name="q" id="df-q" value="{{ search }}" placeholder="{{ search_placeholder }}">
-    <button type="submit" name="scope" value="all" class="df-search-go">搜索</button>
+    <button type="submit" name="scope" value="all" class="df-search-go"><i data-lucide="search"></i>搜索</button>
     {% if search and dates.start %}
     <a class="df-search-widen" href="?q={{ search }}&amp;scope=all">在全部时间里搜</a>
     {% endif %}

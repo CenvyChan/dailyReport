@@ -1,21 +1,46 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<h1>{{ title }}</h1>
-{% if template_kind %}
-<p class="page-actions"><a class="button" href="{% url 'core:import_template' template_kind %}">下载导入模板</a></p>
-{% endif %}
+<div class="page-head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="sub">先预览校验，确认无误再正式导入。导入写的是当前公司「{{ nav_company.name }}」的数据。</p>
+  </div>
+  {% if template_kind %}
+  <div class="page-actions">
+    <a class="button secondary" href="{% url 'core:import_template' template_kind %}"><i data-lucide="download"></i>下载导入模板</a>
+  </div>
+  {% endif %}
+</div>
+
 {% if instructions %}
 <section class="page-help">
   <h2>操作说明</h2>
   <ol>{% if template_kind %}<li>建议先下载导入模板，按模板的列名和格式填写后再上传。</li>{% endif %}{% for instruction in instructions %}<li>{{ instruction }}</li>{% endfor %}</ol>
 </section>
 {% endif %}
-<form id="import-form" class="import-form" data-preview-url="{% url preview_url %}" data-commit-url="{% url commit_url %}"{% if errors_url %} data-errors-url="{% url errors_url %}"{% endif %}>
-  {% csrf_token %}
-  <label>Excel 文件<input id="import-file" name="file" type="file" accept=".xls,.xlsx" required></label>
-  <div class="form-actions"><button type="submit">预览</button><button id="commit-import" type="button" disabled>正式导入</button></div>
-</form>
+
+<div class="import-card">
+  <form id="import-form" class="import-form" data-preview-url="{% url preview_url %}" data-commit-url="{% url commit_url %}"{% if errors_url %} data-errors-url="{% url errors_url %}"{% endif %}>
+    {% csrf_token %}
+    {% comment %} 拖拽区。文件输入框藏在 label 里（视觉隐藏但仍可 Tab 聚焦），
+       点整块或按空格都能唤起选择框。
+       不能给它加 required：控件被隐藏后浏览器的原生校验会报
+       「invalid form control is not focusable」并直接拦掉提交；
+       空文件的提示由 imports.js 负责。 {% endcomment %}
+    <label class="dropzone" id="dropzone">
+      <span class="dz-icon"><i data-lucide="file-spreadsheet"></i></span>
+      <span class="dz-title">把 Excel 拖到这里，或点击选择文件</span>
+      <span class="dz-hint">支持 .xls / .xlsx，一次一个文件</span>
+      <input id="import-file" name="file" type="file" accept=".xls,.xlsx">
+    </label>
+    <p class="dz-file" id="dz-file" hidden></p>
+    <div class="form-actions">
+      <button type="submit"><i data-lucide="scan-line"></i>预览</button>
+      <button id="commit-import" type="button" disabled><i data-lucide="database-backup"></i>正式导入</button>
+    </div>
+  </form>
+</div>
 <section id="import-result" class="import-result" aria-live="polite"></section>
 <script src="{% static 'js/imports.js' %}"></script>
 {% endblock %}

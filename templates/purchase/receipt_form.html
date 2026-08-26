@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <p class="crumb"><a href="{% url 'purchase:receipt_list' %}">采购日报</a><span>/</span>{{ title }}</p>
-<h1>{{ title }}</h1>
+<div class="page-head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="sub">供应商与采购员的对应关系决定这笔单归谁；金额填原币，人民币由系统折算。</p>
+  </div>
+</div>
 <div class="form-card">
   <form method="post">
     {% csrf_token %}
@@ -18,7 +23,7 @@
     {% include "includes/field.html" with field=form.original_amount numeric=1 %}
     <datalist id="purchase-supplier-options">{% for option in form.supplier_options %}<option value="{{ option }}"></option>{% endfor %}</datalist>
     <div class="form-actions">
-      <button type="submit">保存</button>
+      <button type="submit"><i data-lucide="check"></i>保存</button>
       <a class="button secondary" href="{% url 'purchase:receipt_list' %}">取消</a>
       <span class="spacer">带 * 的为必填项</span>
     </div>
