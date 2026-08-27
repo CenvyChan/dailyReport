@@ -57,6 +57,9 @@ data/source/
 .superpowers/
 .agents/
 
+# 界面改版参考稿（CDN 依赖，不参与运行）
+aure/
+
 # Test / coverage
 htmlcov/
 .coverage
