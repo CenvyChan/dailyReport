@@ -26,9 +26,12 @@
     }
   }
 
-  apply(saved() || "dark");
+  // 默认亮色。两个模板的 <html> 也要写成 light，三处必须一致，
+  // 否则本脚本执行前会先闪一帧另一个主题。
+  apply(saved() || "light");
 
   function toggle() {
+    // 读 dataset 而不是记在闭包变量里：apply() 之后 DOM 才是唯一事实来源
     var next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     apply(next);
     try {

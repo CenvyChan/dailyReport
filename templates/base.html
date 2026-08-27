@@ -1,5 +1,7 @@
 {% load static display %}<!doctype html>
-<html lang="zh-CN" data-theme="dark" class="dark">
+{% comment %} 默认亮色，和 theme.js 里的兜底值保持一致；老用户存过的选择由
+   theme.js 在 head 里立即覆盖。两处写的不一样就会闪一帧。 {% endcomment %}
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

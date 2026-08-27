@@ -3,7 +3,8 @@
    主容器，套在登录页上会让表单孤零零挂在左上角。
    这里只引 Lucide（图标）和 app.css，不引 Tailwind：登录页没有需要工具类的
    零散排版，少一个 CDN 请求就少一个卡在首屏的可能。 {% endcomment %}
-<html lang="zh-CN" data-theme="dark" class="dark">
+{# 默认亮色，与 theme.js 的兜底值一致；写得不一样会闪一帧另一个主题 #}
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -36,12 +37,13 @@
   </section>
 
   <section class="auth-panel">
-    {% comment %} 登录页没有导航栏，明暗开关就浮在右上角。习惯浅色的人第一眼会
-       在这里找它——藏进登录之后才有的导航栏里等于没有。 {% endcomment %}
-    <button type="button" class="icon-btn auth-theme" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
-      <i data-lucide="sun-moon">☾</i>
-    </button>
     <div class="auth-card">
+      {% comment %} 明暗开关放在卡片内的右上角，和标题同一条水平线上。
+         放在卡片外面时它离标题太远、又没有任何东西把它和表单联系起来，
+         看着像块孤立的装饰。 {% endcomment %}
+      <button type="button" class="icon-btn auth-theme" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
+        <i data-lucide="sun-moon">☾</i>
+      </button>
       {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
       {% block content %}{% endblock %}
     </div>
