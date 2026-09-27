@@ -9,3 +9,10 @@ pandas==2.2.3
 xlrd==2.0.1
 openpyxl==3.1.5
 whitenoise==6.7.0
+# 对外集成：钉钉用 requests 调 OA 审批接口；金蝶用官方 WebAPI SDK（纯 Python，
+# 无原生扩展，老 CPU 可装）。应用运行时凭证存 DB 配置表，不从环境变量读取。
+requests==2.34.2
+kingdee-cdp-webapi-sdk==8.2.0
+# 集成密钥（金蝶/钉钉 AppSecret）静态加密：Fernet 来自 cryptography。wheel 内是 Rust 预编译，
+# 与 CPU 指令集无关，老 CPU 亦可装。密钥放 .env 的 FIELD_ENCRYPTION_KEY，不入库。
+cryptography==50.0.0

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>金蝶客商映射</h1>
+    <p class="sub">系统客户/供应商多为简称，自动模糊匹配命中多个时在此人工选定 · 共 {{ page.paginator.count }} 条</p>
+  </div>
+</div>
+
+<form class="filter-card" method="get">
+  <label for="status">状态</label>
+  <select id="status" name="status">
+    <option value="PENDING" {% if status == 'PENDING' %}selected{% endif %}>待人工审核</option>
+    <option value="UNMATCHED" {% if status == 'UNMATCHED' %}selected{% endif %}>未匹配</option>
+    <option value="AUTO" {% if status == 'AUTO' %}selected{% endif %}>自动匹配</option>
+    <option value="MANUAL" {% if status == 'MANUAL' %}selected{% endif %}>人工确定</option>
+    <option value="ALL" {% if status == 'ALL' %}selected{% endif %}>全部</option>
+  </select>
+  <button type="submit"><i data-lucide="filter"></i>筛选</button>
+</form>
+
+<div class="table-card" style="padding:8px">
+  {% for m in page %}
+  <form method="post" style="border-bottom:1px solid var(--line,#2223);padding:12px 8px;display:grid;gap:8px">
+    {% csrf_token %}
+    <input type="hidden" name="mapping_id" value="{{ m.pk }}">
+    <input type="hidden" name="return_status" value="{{ status }}">
+    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <strong>[{{ m.get_party_type_display }}] {{ m.k3_name }}</strong>
+      <span class="sub">编码 {{ m.k3_number }} · {{ m.get_match_status_display }} · 当前挂接：{{ m.customer|default:m.supplier|default:"无" }}</span>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      {% for c in m.candidates %}
+      <label style="display:inline-flex;gap:4px;align-items:center">
+        <input type="radio" name="choice" value="{{ c.id }}" {% if m.customer_id == c.id or m.supplier_id == c.id %}checked{% endif %}>
+        {{ c.name }} <span class="sub">({{ c.score }})</span>
+      </label>
+      {% empty %}
+      <span class="sub">无候选（可到「集成配置」后台手工挂接）</span>
+      {% endfor %}
+      <label style="display:inline-flex;gap:4px;align-items:center"><input type="radio" name="choice" value="">清除挂接</label>
+      <button type="submit"><i data-lucide="check"></i>保存</button>
+    </div>
+  </form>
+  {% empty %}
+  <p style="padding:16px">该状态下没有待处理的映射。</p>
+  {% endfor %}
+</div>
+
+{% include "integrations/_pagination.html" %}
+{% endblock %}

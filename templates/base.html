@@ -71,13 +71,16 @@
          这些是进入报表和基础资料的唯一入口，内网机器打不开 CDN 时
          也必须能点开，不能让它依赖一个可能加载失败的脚本。 {% endcomment %}
       <div class="nav-group">
-        <button type="button" class="nav-link{% if '/reports/' in request.path %} on{% endif %}" aria-haspopup="true">
+        <button type="button" class="nav-link{% if '/reports/' in request.path or '/integrations/' in request.path %} on{% endif %}" aria-haspopup="true">
           <i data-lucide="bar-chart-3"></i>分析<i data-lucide="chevron-down" class="caret"></i>
         </button>
         <div class="nav-menu">
           <a href="/reports/sales/"><i data-lucide="trending-up"></i>销售分析</a>
           <a href="/reports/purchase/"><i data-lucide="trending-down"></i>采购分析</a>
           {% if nav_can_comparison %}<a href="/reports/comparison/"><i data-lucide="git-compare"></i>采销对比</a>{% endif %}
+          {% if nav_can_comparison %}<a href="/integrations/reconciliation/"><i data-lucide="scale"></i>数据核对</a>{% endif %}
+          {% if nav_can_comparison %}<a href="/integrations/stock/"><i data-lucide="boxes"></i>金蝶出入库</a>{% endif %}
+          {% if nav_can_comparison %}<a href="/integrations/approvals/"><i data-lucide="receipt"></i>钉钉付款</a>{% endif %}
         </div>
       </div>
 
@@ -102,6 +105,8 @@
         <div class="nav-menu">
           <a href="/core/users/"><i data-lucide="user-cog"></i>用户</a>
           <a href="/core/notifications/"><i data-lucide="mail"></i>邮件推送</a>
+          <a href="/integrations/party-mapping/"><i data-lucide="link"></i>客商映射</a>
+          <a href="/admin/integrations/"><i data-lucide="plug"></i>集成配置</a>
         </div>
       </div>
       {% endif %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>金蝶库存发生</h1>
+    <p class="sub">{{ biz_label }} · 仅显示有效单据 · 共 {{ page.paginator.count }} 张</p>
+  </div>
+</div>
+
+<form class="filter-card" method="get">
+  <label for="biz">业务</label>
+  <select id="biz" name="biz">
+    {% for value, label in biz_choices.items %}<option value="{{ value }}" {% if value == biz %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <input type="text" name="q" value="{{ q }}" placeholder="单号 / 客商 / 内码">
+  <button type="submit"><i data-lucide="search"></i>查询</button>
+</form>
+
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>业务日期</th><th>单据编号</th><th>客商</th><th>状态</th><th class="num">数量</th><th class="num">金额</th><th>组织</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for txn in page %}
+        <tr>
+          <td>{{ txn.biz_date|date:"Y-m-d" }}</td>
+          <td>{{ txn.bill_no|default:txn.fid }}</td>
+          <td>{{ txn.k3_party_name|default:"—" }}</td>
+          <td>{{ txn.doc_status|default:"—" }}</td>
+          <td class="num">{{ txn.total_quantity|floatformat:3 }}</td>
+          <td class="num">{{ txn.total_amount|floatformat:2 }}</td>
+          <td>{{ txn.org_number|default:"—" }}</td>
+          <td><a class="btn-link" href="{% url 'integrations:stock_detail' txn.pk %}"><i data-lucide="list"></i>明细</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8">暂无数据。请在「集成配置」维护账套与组织后运行同步。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "integrations/_pagination.html" %}
+{% endblock %}

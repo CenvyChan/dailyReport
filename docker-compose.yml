@@ -57,3 +57,27 @@ services:
       done"
     depends_on:
       - web
+
+  sync:
+    build: .
+    image: daily-report:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    # 每天 20:00 后拉取金蝶出入库 + 钉钉审批。命令对当天已同步做幂等判断，
+    # 故每 30 分钟检查一次、只在 20 点后真正执行一次，其余轮次自动跳过。
+    # 容器时区已在 Dockerfile 设为 Asia/Shanghai，date +%H 即本地小时。
+    command: >
+      sh -c "while true; do
+        if [ \"$$(date +%H)\" -ge 20 ]; then
+          python manage.py sync_kingdee >> /app/logs/sync.log 2>&1 || true;
+          python manage.py sync_dingtalk >> /app/logs/sync.log 2>&1 || true;
+        fi;
+        sleep 1800;
+      done"
+    depends_on:
+      - web
+

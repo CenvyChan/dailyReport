@@ -20,4 +20,5 @@ urlpatterns = [
     path("reports/", include("reports.urls")),
     path("core/", include("core.urls")),
     path("core/notifications/", include("notifications.urls")),
+    path("integrations/", include("integrations.urls")),
 ]

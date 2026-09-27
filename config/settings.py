@@ -23,6 +23,15 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+# 集成密钥字段（金蝶/钉钉 AppSecret）静态加密所用的 Fernet 密钥。放 .env，勿提交、勿写死。
+# 生成：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# 跑测试时若未配置，用临时密钥保证加解密可用，不弱化生产（生产必须显式配置）。
+FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY", "")
+if not FIELD_ENCRYPTION_KEY and "test" in sys.argv:
+    from cryptography.fernet import Fernet
+
+    FIELD_ENCRYPTION_KEY = Fernet.generate_key().decode()
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -35,6 +44,7 @@ INSTALLED_APPS = [
     "purchase.apps.PurchaseConfig",
     "reports.apps.ReportsConfig",
     "notifications.apps.NotificationsConfig",
+    "integrations.apps.IntegrationsConfig",
 ]
 
 MIDDLEWARE = [

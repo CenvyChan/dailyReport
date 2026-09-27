@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ txn.get_business_type_display }} · {{ txn.bill_no|default:txn.fid }}</h1>
+    <p class="sub">{{ txn.biz_date|date:"Y-m-d" }} · 客商 {{ txn.k3_party_name|default:"—" }} · 状态 {{ txn.doc_status|default:"—" }}{% if not txn.is_active %} · <strong>已失效</strong>{% endif %}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn-link" href="{% url 'integrations:stock_list' %}?biz={{ txn.business_type }}"><i data-lucide="arrow-left"></i>返回列表</a>
+  </div>
+</div>
+
+<section class="bento">
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">数量合计</div>
+    <div class="kpi-value">{{ txn.total_quantity|floatformat:3 }}</div>
+  </div>
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">金额合计</div>
+    <div class="kpi-value">{{ txn.total_amount|floatformat:2 }}</div>
+  </div>
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">内码 / 组织</div>
+    <div class="kpi-value" style="font-size:16px">{{ txn.fid }}</div>
+    <div class="kpi-note">组织 {{ txn.org_number|default:"—" }} · 审核 {{ txn.approve_date|date:"Y-m-d H:i"|default:"—" }}</div>
+  </div>
+</section>
+
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>行号</th><th>物料编码</th><th>物料名称</th><th class="num">数量</th><th>单位</th><th class="num">单价</th><th class="num">金额</th></tr>
+      </thead>
+      <tbody>
+        {% for line in lines %}
+        <tr>
+          <td>{{ line.seq }}</td>
+          <td>{{ line.material_number|default:"—" }}</td>
+          <td>{{ line.material_name|default:"—" }}</td>
+          <td class="num">{{ line.quantity|floatformat:3 }}</td>
+          <td>{{ line.unit|default:"—" }}</td>
+          <td class="num">{{ line.unit_price|floatformat:4 }}</td>
+          <td class="num">{{ line.amount|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">该单据没有明细行。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

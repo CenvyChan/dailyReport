@@ -16,6 +16,7 @@ IMAGE="${APP_NAME}:latest"
 WEB="${APP_NAME}-web"
 MAILER="${APP_NAME}-mailer"
 BACKUP="${APP_NAME}-backup"
+SYNC="${APP_NAME}-sync"
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -25,7 +26,7 @@ ssh "$SSH_HOST" 'mkdir -p ~/deploy/'"${APP_NAME}"'/data ~/deploy/'"${APP_NAME}"'
 echo "==> 传输源码"
 tar -czf - --exclude='__pycache__' --exclude='*.pyc' \
   Dockerfile .dockerignore requirements.txt manage.py \
-  config core sales purchase reports notifications scripts static templates docs \
+  config core sales purchase reports notifications integrations scripts static templates docs \
   | ssh "$SSH_HOST" 'tar -xzf - -C ~/deploy/'"${APP_NAME}"
 
 echo "==> 生成 .env（已存在则保留，不覆盖已配好的邮箱口令）"
@@ -55,18 +56,25 @@ else
   chmod 600 .env
   echo "已生成新的 .env（邮件相关字段待填）"
 fi
+
+# 集成密钥字段静态加密密钥：缺失则补一枚，已存在则原样保留（覆盖会让已存密文失效）。
+# Fernet key = urlsafe-base64(32 随机字节)，用标准库生成，宿主机无需装 cryptography。
+if ! grep -q '^FIELD_ENCRYPTION_KEY=' .env; then
+  python3 -c "import os,base64;print('FIELD_ENCRYPTION_KEY='+base64.urlsafe_b64encode(os.urandom(32)).decode())" >> .env
+  echo "已补充 FIELD_ENCRYPTION_KEY（首次生成，请勿再变更，否则已存密文无法解密）"
+fi
 REMOTE
 
 echo "==> 构建镜像"
 ssh "$SSH_HOST" 'cd ~/deploy/'"${APP_NAME}"' && docker build -t '"${IMAGE}"' .'
 
 echo "==> 重建容器"
-ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
+ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' SYNC='${SYNC}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
 set -euo pipefail
 cd ~/deploy/"$APP_NAME"
 
 # 只删本应用的容器，不影响主机上其它容器。
-docker rm -f "$WEB" "$MAILER" "$BACKUP" >/dev/null 2>&1 || true
+docker rm -f "$WEB" "$MAILER" "$BACKUP" "$SYNC" >/dev/null 2>&1 || true
 
 # 容器内以 uid 10001 运行，挂载目录必须可写，否则 SQLite 报 readonly database。
 # 上一次部署后这些文件已归 10001，普通用户再 chmod 会 Permission denied，
@@ -95,6 +103,14 @@ docker run -d --name "$BACKUP" --restart unless-stopped \
   -v "$PWD/data:/app/data" -v "$PWD/backups:/app/backups" \
   "$IMAGE" \
   sh -c 'sleep 60; while true; do python scripts/backup_sqlite.py --keep 30 >> /app/data/logs/backup.log 2>&1 || true; sleep 86400; done' >/dev/null
+
+# 集成同步 sidecar：每天 20 点后拉金蝶出入库 + 钉钉审批。命令对当天已同步做
+# 幂等判断，故每 30 分钟检查一次、只在 20 点后真正执行一次。容器时区 Asia/Shanghai。
+docker run -d --name "$SYNC" --restart unless-stopped \
+  --env-file .env \
+  -v "$PWD/data:/app/data" \
+  "$IMAGE" \
+  sh -c 'while true; do if [ "$(date +%H)" -ge 20 ]; then python manage.py sync_kingdee >> /app/data/logs/sync.log 2>&1 || true; python manage.py sync_dingtalk >> /app/data/logs/sync.log 2>&1 || true; fi; sleep 1800; done' >/dev/null
 
 ready=""
 for _ in $(seq 1 20); do

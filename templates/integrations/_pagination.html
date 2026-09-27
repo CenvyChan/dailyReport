@@ -1,0 +1,11 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager" style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:16px">
+  {% if page.has_previous %}
+  <a class="btn-link" href="?page={{ page.previous_page_number }}{% for k, v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}"><i data-lucide="chevron-left"></i>上一页</a>
+  {% endif %}
+  <span class="sub">第 {{ page.number }} / {{ page.paginator.num_pages }} 页</span>
+  {% if page.has_next %}
+  <a class="btn-link" href="?page={{ page.next_page_number }}{% for k, v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}">下一页<i data-lucide="chevron-right"></i></a>
+  {% endif %}
+</nav>
+{% endif %}

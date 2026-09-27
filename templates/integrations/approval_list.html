@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>钉钉付款申请</h1>
+    <p class="sub">K3 之外的费用 · 用于应付/已付区分 · 共 {{ page.paginator.count }} 条</p>
+  </div>
+</div>
+
+<form class="filter-card" method="get">
+  <label for="status">状态</label>
+  <select id="status" name="status">
+    <option value="">全部</option>
+    <option value="RUNNING" {% if status == 'RUNNING' %}selected{% endif %}>审批中</option>
+    <option value="COMPLETED" {% if status == 'COMPLETED' %}selected{% endif %}>已完成</option>
+    <option value="TERMINATED" {% if status == 'TERMINATED' %}selected{% endif %}>已终止</option>
+  </select>
+  <input type="text" name="q" value="{{ q }}" placeholder="标题 / 发起人 / 实例ID">
+  <button type="submit"><i data-lucide="search"></i>查询</button>
+</form>
+
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>发起时间</th><th>标题</th><th>发起人</th><th>部门</th><th>模板</th><th>状态</th><th>结果</th><th class="num">金额</th><th>完成时间</th></tr>
+      </thead>
+      <tbody>
+        {% for item in page %}
+        <tr>
+          <td>{{ item.create_time|date:"Y-m-d H:i"|default:"—" }}</td>
+          <td>{{ item.title|default:item.process_instance_id }}</td>
+          <td>{{ item.originator_name|default:item.originator_userid|default:"—" }}</td>
+          <td>{{ item.dept_name|default:"—" }}</td>
+          <td>{{ item.process_name|default:"—" }}</td>
+          <td>{{ item.status|default:"—" }}</td>
+          <td>{{ item.get_result_display|default:item.result|default:"—" }}</td>
+          <td class="num">{% if item.amount != None %}{{ item.amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{{ item.finish_time|date:"Y-m-d H:i"|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9">暂无审批数据。请在「集成配置」维护钉钉应用与审批模板后运行同步。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "integrations/_pagination.html" %}
+{% endblock %}

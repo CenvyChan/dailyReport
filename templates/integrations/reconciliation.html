@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>系统数据 ↔ 金蝶核对</h1>
+    <p class="sub">{{ report.year }} 年 {{ report.month }} 月 · {{ biz_label }} · 仅统计有效单据</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn-link" href="{% url 'integrations:reconciliation_export' %}?year={{ report.year }}&month={{ report.month }}&biz={{ biz }}"><i data-lucide="download"></i>导出 Excel</a>
+  </div>
+</div>
+
+<form class="filter-card" method="get">
+  <label for="biz">业务</label>
+  <select id="biz" name="biz">
+    {% for value, label in biz_choices.items %}<option value="{{ value }}" {% if value == biz %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <label for="year">年月</label>
+  <select id="year" name="year">
+    {% for item in years %}<option value="{{ item }}" {% if item == report.year %}selected{% endif %}>{{ item }} 年</option>{% endfor %}
+  </select>
+  <select id="month" name="month" aria-label="月份">
+    {% for item in months %}<option value="{{ item }}" {% if item == report.month %}selected{% endif %}>{{ item }} 月</option>{% endfor %}
+  </select>
+  <button type="submit"><i data-lucide="search-check"></i>查询</button>
+</form>
+
+<section class="bento">
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">系统金额合计<i data-lucide="database"></i></div>
+    <div class="kpi-value">{{ report.totals.sys_amount|floatformat:2 }}</div>
+    <div class="kpi-note">系统笔数 {{ report.totals.sys_count }} · 数量 {{ report.totals.sys_qty|floatformat:3 }}</div>
+  </div>
+  <div class="bento-card kpi span-4">
+    <div class="kpi-label">金蝶金额合计<i data-lucide="boxes"></i></div>
+    <div class="kpi-value">{{ report.totals.k3_amount|floatformat:2 }}</div>
+    <div class="kpi-note">金蝶单据 {{ report.totals.k3_count }} · 数量 {{ report.totals.k3_qty|floatformat:3 }}</div>
+  </div>
+  <div class="bento-card kpi kpi-key span-4">
+    <div class="kpi-label">金额差（系统−金蝶）<i data-lucide="scale"></i></div>
+    <div class="kpi-value">{{ report.totals.amount_diff|floatformat:2 }}</div>
+    <div class="kpi-note">逐日差异见下表，非零需人工核查</div>
+  </div>
+</section>
+
+<p class="page-help">
+  两侧口径不同：系统侧是日报录入行（未税折人民币），金蝶侧是库存发生单据（金额可能含税），故并列展示并给出差值供人工判断漏录/多录。
+  金蝶侧仅统计有效（未被删除/反审核）的单据。
+</p>
+<div class="table-card">
+  <div class="table-scroll">
+    <table class="comparison">
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th class="num">系统笔数</th><th class="num">系统数量</th><th class="num">系统金额</th>
+          <th class="num">金蝶单据</th><th class="num">金蝶数量</th><th class="num">金蝶金额</th>
+          <th class="num">金额差</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.rows %}
+        <tr {% if not row.has_data %}class="empty-day"{% endif %}>
+          <td>{{ row.date|date:"Y-m-d" }}</td>
+          <td class="num">{{ row.sys_count }}</td>
+          <td class="num">{{ row.sys_qty|floatformat:3 }}</td>
+          <td class="num">{{ row.sys_amount|floatformat:2 }}</td>
+          <td class="num">{{ row.k3_count }}</td>
+          <td class="num">{{ row.k3_qty|floatformat:3 }}</td>
+          <td class="num">{{ row.k3_amount|floatformat:2 }}</td>
+          <td class="num {% if row.amount_diff %}over{% endif %}">{{ row.amount_diff|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>月度合计</th>
+          <th class="num">{{ report.totals.sys_count }}</th>
+          <th class="num">{{ report.totals.sys_qty|floatformat:3 }}</th>
+          <th class="num">{{ report.totals.sys_amount|floatformat:2 }}</th>
+          <th class="num">{{ report.totals.k3_count }}</th>
+          <th class="num">{{ report.totals.k3_qty|floatformat:3 }}</th>
+          <th class="num">{{ report.totals.k3_amount|floatformat:2 }}</th>
+          <th class="num"></th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% endblock %}
