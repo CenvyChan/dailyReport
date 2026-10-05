@@ -141,8 +141,15 @@ def search_kingdee_lines(
             "mapping_status": txn.party.match_status if txn.party else None,
             "material_number": line.material_number,
             "material_name": line.material_name,
+            "specification": line.specification,
             "quantity": float(line.quantity),
             "unit": line.unit,
+            "unit_price": float(line.unit_price),
+            "amount_original": float(line.amount_original),
+            "currency": txn.currency,
+            # 本位币口径：amount 存的就是本位币金额（fld_amount=FAmount_LC），
+            # 本位币单价无独立金蝶字段，按 金额/数量 现算
+            "price_lc": float(line.amount / line.quantity) if line.quantity else None,
             "amount": float(line.amount),
             "allocated_amount": float(allocated),
             "remaining_amount": float(remaining),

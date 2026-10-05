@@ -229,10 +229,12 @@ def _sync_binding_form(binding, form, run, sdk, resolver, as_of, dry_run, window
                         "seq": i,
                         "material_number": str(ln.get("material_number") or ""),
                         "material_name": str(ln.get("material_name") or ""),
+                        "specification": str(ln.get("specification") or ""),
                         "quantity": _dec(ln.get("qty")),
                         "unit": str(ln.get("unit") or ""),
                         "unit_price": _dec(ln.get("price")),
                         "amount": _dec(ln.get("amount")),
+                        "amount_original": _dec(ln.get("amount_original")),
                     }
                 )
             # 金蝶删除明细时，标记失效（本地保留，不物理删除）

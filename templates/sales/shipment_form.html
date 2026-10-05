@@ -7,126 +7,163 @@
     <p class="sub">客户与负责人的对应关系决定这笔单归谁；金额填原币，人民币由系统折算。</p>
   </div>
 </div>
-<div class="form-card">
-  <form method="post" x-data="salesShipmentForm()">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-    {% include "includes/field.html" with field=form.customer %}
-    {% include "includes/field.html" with field=form.sale_type %}
-    {% comment %} 内外销决定币种和汇率。这个联动此前埋在 sale_type 的 help_text 里，
-       和其他四段说明混在一起，而它是新人最容易搞错的地方 {% endcomment %}
-    <p class="inline-note"><i>i</i><span>内销按人民币记账；外销填美元金额，系统按出货日期所在月份自动匹配汇率折算人民币。当月汇率没维护时无法保存。</span></p>
-    <div class="field-row">
-      {% include "includes/field.html" with field=form.shipment_date %}
-      {% include "includes/field.html" with field=form.quantity numeric=1 %}
-    </div>
-    {% include "includes/field.html" with field=form.original_amount numeric=1 %}
-
-    <!-- 金蝶明细关联：点击弹窗选单，选中后以 FEntryID + 拆分金额写入 -->
-    <div class="field-group" x-show="showLinkSection">
-      <div class="field-label-row">
-        <label class="field-label">金蝶明细关联</label>
-        <button type="button" class="btn-link" @click="openPicker()">选单</button>
+<div x-data="salesShipmentForm()">
+<div class="shipment-layout">
+  <div class="form-card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% include "includes/field.html" with field=form.customer %}
+      {% include "includes/field.html" with field=form.sale_type %}
+      {% comment %} 内外销决定币种和汇率。这个联动此前埋在 sale_type 的 help_text 里，
+         和其他四段说明混在一起，而它是新人最容易搞错的地方 {% endcomment %}
+      <p class="inline-note"><i>i</i><span>内销按人民币记账；外销填美元金额，系统按出货日期所在月份自动匹配汇率折算人民币。当月汇率没维护时无法保存。</span></p>
+      <div class="field-row">
+        {% include "includes/field.html" with field=form.shipment_date %}
+        {% include "includes/field.html" with field=form.quantity numeric=1 %}
       </div>
-      <p class="field-help">可选：将此日报与金蝶出库明细关联，用于金额对账</p>
+      {% include "includes/field.html" with field=form.original_amount numeric=1 %}
 
-      <!-- 已选明细（常显，金额可改） -->
-      <template x-if="selectedLinks.length > 0">
-        <div class="selected-links">
+      <!-- 金蝶明细关联：点击弹窗选单，选中后以 FEntryID + 拆分金额写入 -->
+      <div class="field-group" x-show="showLinkSection">
+        <div class="field-label-row">
+          <label class="field-label">金蝶明细关联</label>
+          <button type="button" class="btn-link" @click="openPicker()">选单</button>
+        </div>
+        <p class="field-help">可选：将此日报与金蝶出库明细关联，用于金额对账</p>
+
+        <!-- 隐藏字段：提交关联数据 -->
+        <input type="hidden" name="kingdee_links" :value="JSON.stringify(getLinkData())">
+      </div>
+
+      <datalist id="sales-customer-options">{% for option in form.customer_options %}<option value="{{ option }}"></option>{% endfor %}</datalist>
+      <div class="form-actions">
+        <button type="submit"><i data-lucide="check"></i>保存</button>
+        <a class="button secondary" href="{% url 'sales:shipment_list' %}">取消</a>
+        <span class="spacer">带 * 的为必填项</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- 右栏：已关联明细（常显，金额可改） -->
+  <aside class="links-aside">
+    <template x-if="selectedLinks.length > 0">
+      <div class="selected-links">
+        <div class="aside-head">
           <h4>已关联明细 (<span x-text="selectedLinks.length"></span>)</h4>
-          <template x-for="(link, index) in selectedLinks" :key="link.line_id">
-            <div class="link-item selected">
-              <div class="link-info">
-                <span class="bill-no" x-text="link.bill_no"></span>
-                <span class="party" x-text="link.party_name"></span>
-                <span class="material" x-text="link.material_name"></span>
-              </div>
-              <div class="link-amounts">
-                <span class="original">原始: <strong x-text="formatAmount(link.amount)"></strong></span>
-                <span class="allocated">已分: <strong x-text="formatAmount(link.allocated)"></strong></span>
-                <input type="number"
-                       x-model="link.allocated_amount"
-                       @input="validateAllocation(link)"
-                       step="0.01"
-                       placeholder="本次分摊金额"
-                       class="amount-input">
-                <button type="button" @click="removeLink(index)" class="btn-icon">
-                  <i data-lucide="x"></i>
-                </button>
-              </div>
-              <template x-if="link.over_allocated > 0">
-                <p class="warning"><i data-lucide="alert-triangle"></i>超额分摊 <span x-text="formatAmount(link.over_allocated)"></span></p>
-              </template>
+          <span class="aside-sum">本次合计 <strong x-text="formatAmount(totalAllocated())"></strong></span>
+        </div>
+        <template x-for="(link, index) in selectedLinks" :key="link.line_id">
+          <div class="link-item selected">
+            <div class="link-line1">
+              <span class="bill-no" x-text="link.bill_no"></span>
+              <span class="muted-sep">#</span>
+              <span class="entry-id" x-text="link.entry_id"></span>
+              <span class="date" x-text="link.biz_date"></span>
             </div>
-          </template>
-        </div>
-      </template>
-    </div>
+            <div class="link-line2">
+              <span class="material-no" x-text="link.material_number"></span>
+              <span class="material" x-text="link.material_name"></span>
+            </div>
+            <div class="link-spec" x-show="link.specification" x-text="link.specification"></div>
+            <div class="link-amounts">
+              <span>数量 <strong x-text="formatQty(link.quantity)"></strong> <span class="muted-sep" x-text="link.unit"></span></span>
+              <span>原币单价 <strong x-text="formatAmount(link.unit_price)"></strong></span>
+              <span>原币金额 <strong x-text="formatAmount(link.amount_original)"></strong> <span class="muted-sep" x-text="link.currency"></span></span>
+              <span>本位币单价 <strong x-text="link.price_lc == null ? '—' : formatAmount(link.price_lc)"></strong></span>
+              <span>本位币金额 <strong x-text="formatAmount(link.amount)"></strong></span>
+            </div>
+            <div class="link-alloc">
+              <label>本次分摊</label>
+              <input type="number"
+                     x-model="link.allocated_amount"
+                     @input="validateAllocation(link)"
+                     step="0.01"
+                     class="amount-input">
+              <span class="remaining">剩余 <strong x-text="formatAmount(link.remaining)"></strong></span>
+              <button type="button" @click="removeLink(index)" class="btn-icon" aria-label="移除">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+            <template x-if="link.over_allocated > 0">
+              <p class="warning"><i data-lucide="alert-triangle"></i>超额分摊 <span x-text="formatAmount(link.over_allocated)"></span></p>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+    <template x-if="selectedLinks.length === 0">
+      <div class="links-empty">
+        <p>尚未关联金蝶明细</p>
+        <button type="button" class="btn btn-secondary" @click="openPicker()">选单</button>
+        <p class="field-help">选单后此栏显示已关联的明细行与本次分摊金额</p>
+      </div>
+    </template>
+  </aside>
+</div>
 
-    <!-- 选单弹窗 -->
-    <div class="cmd-overlay" x-show="pickerOpen" x-cloak @click.self="closePicker()" @keydown.escape.window="closePicker()">
-      <div class="link-picker" role="dialog" aria-modal="true" aria-label="选择金蝶明细">
-        <div class="cmd-head">
-          <strong>选择金蝶出库明细</strong>
-          <span class="spacer"></span>
-          <button type="button" class="btn-icon" @click="closePicker()" aria-label="关闭"><i data-lucide="x"></i></button>
-        </div>
-        <div class="picker-toolbar">
-          <input type="text" x-model="searchQuery" @input="debounceSearch" placeholder="单据编号 / 客商 / 物料名称" x-ref="pickerSearch">
-          <div class="field-row">
-            <input type="date" x-model="searchDateFrom" @change="performSearch">
-            <input type="date" x-model="searchDateTo" @change="performSearch">
-            <button type="button" @click="performSearch" class="btn btn-secondary">
-              <i data-lucide="search"></i>搜索
+<!-- 选单弹窗：在 form-card 之外，避免毛玻璃卡片把 fixed 弹窗框在 660px 内 -->
+<div class="cmd-overlay" x-show="pickerOpen" x-cloak @click.self="closePicker()" @keydown.escape.window="closePicker()">
+  <div class="link-picker" role="dialog" aria-modal="true" aria-label="选择金蝶明细">
+    <div class="cmd-head">
+      <strong>选择金蝶出库明细</strong>
+      <span class="spacer"></span>
+      <button type="button" class="btn-icon" @click="closePicker()" aria-label="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div class="picker-toolbar">
+      <input type="text" x-model="searchQuery" @input="debounceSearch" placeholder="单据编号 / 客商 / 物料编码 / 名称 / 规格" x-ref="pickerSearch">
+      <div class="field-row">
+        <input type="date" x-model="searchDateFrom" @change="performSearch">
+        <input type="date" x-model="searchDateTo" @change="performSearch">
+        <button type="button" @click="performSearch" class="btn btn-secondary">
+          <i data-lucide="search"></i>搜索
+        </button>
+      </div>
+    </div>
+    <div class="picker-results">
+      <template x-if="searching">
+        <p class="loading"><i data-lucide="loader"></i>搜索中...</p>
+      </template>
+      <template x-if="!searching && searchResults.length === 0">
+        <p class="loading">无匹配明细，试试调整关键词或日期</p>
+      </template>
+      <template x-for="line in searchResults" :key="line.line_id">
+        <div class="link-item" :class="{'disabled': isSelected(line.line_id)}">
+          <div class="link-line1">
+            <span class="bill-no" x-text="line.bill_no"></span>
+            <span class="muted-sep">#</span>
+            <span class="entry-id" x-text="line.entry_id"></span>
+            <span class="date" x-text="line.biz_date"></span>
+            <span class="party" x-text="line.party_name"></span>
+          </div>
+          <div class="link-line2">
+            <span class="material-no" x-text="line.material_number"></span>
+            <span class="material" x-text="line.material_name"></span>
+            <span class="link-spec" x-show="line.specification" x-text="line.specification"></span>
+          </div>
+          <div class="link-amounts">
+            <span>数量 <strong x-text="formatQty(line.quantity)"></strong> <span class="muted-sep" x-text="line.unit"></span></span>
+            <span>原币单价 <strong x-text="formatAmount(line.unit_price)"></strong></span>
+            <span>原币金额 <strong x-text="formatAmount(line.amount_original)"></strong> <span class="muted-sep" x-text="line.currency"></span></span>
+            <span>本位币单价 <strong x-text="line.price_lc == null ? '—' : formatAmount(line.price_lc)"></strong></span>
+            <span>本位币金额 <strong x-text="formatAmount(line.amount)"></strong></span>
+            <span class="remaining">剩余 <strong x-text="formatAmount(line.remaining)"></strong></span>
+            <button type="button"
+                    @click="addLink(line)"
+                    :disabled="isSelected(line.line_id)"
+                    class="btn btn-sm">
+              <i data-lucide="plus"></i><span x-text="isSelected(line.line_id) ? '已选' : '添加'"></span>
             </button>
           </div>
         </div>
-        <div class="picker-results">
-          <template x-if="searching">
-            <p class="loading"><i data-lucide="loader"></i>搜索中...</p>
-          </template>
-          <template x-if="!searching && searchResults.length === 0">
-            <p class="loading">无匹配明细，试试调整关键词或日期</p>
-          </template>
-          <template x-for="line in searchResults" :key="line.line_id">
-            <div class="link-item" :class="{'disabled': isSelected(line.line_id)}">
-              <div class="link-info">
-                <span class="bill-no" x-text="line.bill_no"></span>
-                <span class="date" x-text="line.biz_date"></span>
-                <span class="party" x-text="line.party_name"></span>
-                <span class="material" x-text="line.material_name"></span>
-              </div>
-              <div class="link-amounts">
-                <span class="original">金额: <strong x-text="formatAmount(line.amount)"></strong></span>
-                <span class="allocated">已分: <strong x-text="formatAmount(line.allocated)"></strong></span>
-                <span class="remaining">剩余: <strong x-text="formatAmount(line.remaining)"></strong></span>
-                <button type="button"
-                        @click="addLink(line)"
-                        :disabled="isSelected(line.line_id)"
-                        class="btn btn-sm">
-                  <i data-lucide="plus"></i><span x-text="isSelected(line.line_id) ? '已选' : '添加'"></span>
-                </button>
-              </div>
-            </div>
-          </template>
-        </div>
-        <div class="picker-foot">
-          <span class="muted">添加后默认按剩余最大可拆分金额预填，可在下方明细行修改</span>
-          <button type="button" class="btn btn-secondary" @click="closePicker()">完成</button>
-        </div>
-      </div>
+      </template>
     </div>
-
-    <!-- 隐藏字段：提交关联数据 -->
-    <input type="hidden" name="kingdee_links" :value="JSON.stringify(getLinkData())">
-
-    <datalist id="sales-customer-options">{% for option in form.customer_options %}<option value="{{ option }}"></option>{% endfor %}</datalist>
-    <div class="form-actions">
-      <button type="submit"><i data-lucide="check"></i>保存</button>
-      <a class="button secondary" href="{% url 'sales:shipment_list' %}">取消</a>
-      <span class="spacer">带 * 的为必填项</span>
+    <div class="picker-foot">
+      <span class="muted">添加后默认按剩余最大可拆分金额预填，关闭弹窗后在右侧明细行修改</span>
+      <button type="button" class="btn btn-secondary" @click="closePicker()">完成</button>
     </div>
-  </form>
+  </div>
+</div>
 </div>
 
 <script>
@@ -198,9 +235,19 @@ function salesShipmentForm() {
 
       this.selectedLinks.push({
         line_id: line.line_id,
+        entry_id: line.entry_id,
         bill_no: line.bill_no,
+        biz_date: line.biz_date,
         party_name: line.party_name,
+        material_number: line.material_number,
         material_name: line.material_name,
+        specification: line.specification,
+        quantity: line.quantity,
+        unit: line.unit,
+        unit_price: line.unit_price,
+        amount_original: line.amount_original,
+        currency: line.currency,
+        price_lc: line.price_lc,
         amount: line.amount,
         allocated: line.allocated,
         remaining: line.remaining,
@@ -224,8 +271,19 @@ function salesShipmentForm() {
       link.over_allocated = Math.max(0, allocated - remaining);
     },
 
+    totalAllocated() {
+      return this.selectedLinks.reduce(
+        (sum, link) => sum + (parseFloat(link.allocated_amount) || 0), 0
+      );
+    },
+
     formatAmount(value) {
       return parseFloat(value || 0).toFixed(2);
+    },
+
+    formatQty(value) {
+      const n = parseFloat(value || 0);
+      return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, '');
     },
 
     getLinkData() {
@@ -245,9 +303,19 @@ function salesShipmentForm() {
         if (data.links && data.links.length > 0) {
           this.selectedLinks = data.links.map(link => ({
             line_id: link.line_id,
+            entry_id: link.entry_id,
             bill_no: link.bill_no,
+            biz_date: link.biz_date,
             party_name: link.party_name,
+            material_number: link.material_number,
             material_name: link.material_name,
+            specification: link.specification,
+            quantity: link.quantity,
+            unit: link.unit,
+            unit_price: link.unit_price,
+            amount_original: link.amount_original,
+            currency: link.currency,
+            price_lc: link.price_lc,
             amount: link.amount,
             allocated: link.total_allocated - link.allocated_amount, // 其他日报的分摊
             remaining: link.remaining + link.allocated_amount,
@@ -264,9 +332,166 @@ function salesShipmentForm() {
 </script>
 
 <style>
-/* 选单弹窗：复用 ⌘K 遮罩变量，加宽以承载明细行 */
+/* 两栏布局：左日报表单，右已关联明细。窄屏回落单栏 */
+.shipment-layout {
+  display: grid;
+  grid-template-columns: minmax(420px, 660px) minmax(380px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .shipment-layout { grid-template-columns: 1fr; }
+}
+
+.links-aside {
+  padding: 20px 22px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.aside-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.aside-head h4 { margin: 0; }
+
+.aside-sum { font-size: 0.875rem; color: var(--text-secondary); }
+
+.links-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-tertiary);
+}
+
+.links-empty .field-help { margin-top: 0.5rem; }
+
+.link-line1 {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.4rem;
+}
+
+.link-line1 .bill-no { font-family: var(--font-mono); font-weight: 600; }
+
+.link-line1 .entry-id {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.link-line1 .date { font-size: 0.8125rem; color: var(--text-tertiary); }
+
+.link-line1 .party { font-size: 0.875rem; color: var(--text-secondary); }
+
+.link-line2 {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+
+.link-line2 .material-no {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.link-line2 .material { font-size: 0.9375rem; }
+
+.link-spec {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.muted-sep { color: var(--text-tertiary); font-size: 0.8125rem; }
+
+.link-item {
+  padding: 0.9rem 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.link-item.selected {
+  border-color: var(--brand-500);
+  background: var(--surface-0);
+}
+
+.link-item.disabled { opacity: 0.5; }
+
+.link-amounts {
+  display: flex;
+  gap: 1.1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.link-amounts strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.link-amounts .remaining strong { color: var(--brand-hi); }
+
+.link-alloc {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.55rem;
+  font-size: 0.875rem;
+}
+
+.link-alloc label { color: var(--text-dim); font-weight: 600; font-size: 0.8125rem; }
+
+.link-alloc .remaining { margin-left: auto; font-size: 0.8125rem; color: var(--text-secondary); }
+
+.amount-input {
+  width: 150px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+  font-size: 0.875rem;
+  color: #ef4444;
+}
+
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--brand-500);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-link:hover { text-decoration: underline; }
+
+/* 选单弹窗：在 form-card 之外，全视口居中，加宽以承载字段列 */
 .link-picker {
-  width: 100%; max-width: 760px; max-height: 76vh;
+  width: 100%; max-width: 1080px; max-height: 82vh;
   display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid var(--line-hi); border-radius: 16px;
   background: var(--panel-solid);
@@ -301,89 +526,6 @@ function salesShipmentForm() {
   flex: 1;
   color: var(--text-tertiary);
   font-size: 0.8125rem;
-}
-
-.link-item {
-  padding: 1rem;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-}
-
-.link-item.selected {
-  border-color: var(--brand-500);
-  background: var(--surface-0);
-}
-
-.link-item.disabled {
-  opacity: 0.5;
-}
-
-.link-info {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.link-info .bill-no {
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-
-.link-info .party {
-  color: var(--text-secondary);
-}
-
-.link-info .material {
-  color: var(--text-tertiary);
-  font-size: 0.875rem;
-}
-
-.link-amounts {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.link-amounts span {
-  font-size: 0.875rem;
-}
-
-.amount-input {
-  width: 150px;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-0);
-}
-
-.warning {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-left: 3px solid #ef4444;
-  font-size: 0.875rem;
-  color: #ef4444;
-}
-
-.loading {
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--brand-500);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.btn-link:hover {
-  text-decoration: underline;
 }
 </style>
 {% endblock %}

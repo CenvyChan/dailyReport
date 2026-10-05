@@ -84,10 +84,12 @@ class KingdeeFormConfig(TimeStampedModel):
     fld_party_name = models.CharField("客户/供应商名称字段", max_length=64, default="", blank=True)
     fld_material_number = models.CharField("物料编码字段", max_length=64, default="FMaterialId.FNumber", blank=True)
     fld_material_name = models.CharField("物料名称字段", max_length=64, default="FMaterialId.FName", blank=True)
+    fld_specification = models.CharField("物料规格字段", max_length=64, default="", blank=True)
     fld_qty = models.CharField("数量字段", max_length=64, default="FRealQty", blank=True)
     fld_unit = models.CharField("单位字段", max_length=64, default="FUnitID.FName", blank=True)
     fld_price = models.CharField("单价字段", max_length=64, default="FPrice", blank=True)
     fld_amount = models.CharField("金额字段", max_length=64, default="FAmount", blank=True)
+    fld_amount_original = models.CharField("原币金额字段", max_length=64, default="FAmount", blank=True)
     fld_currency = models.CharField("币种字段", max_length=64, default="", blank=True)
 
     is_active = models.BooleanField("启用", default=True)
@@ -107,8 +109,10 @@ class KingdeeFormConfig(TimeStampedModel):
             "date": self.fld_date, "status": self.fld_status, "approve_date": self.fld_approve_date,
             "org_number": self.fld_org_number, "party_number": self.fld_party_number,
             "party_name": self.fld_party_name, "material_number": self.fld_material_number,
-            "material_name": self.fld_material_name, "qty": self.fld_qty, "unit": self.fld_unit,
-            "price": self.fld_price, "amount": self.fld_amount, "currency": self.fld_currency,
+            "material_name": self.fld_material_name, "specification": self.fld_specification,
+            "qty": self.fld_qty, "unit": self.fld_unit,
+            "price": self.fld_price, "amount": self.fld_amount,
+            "amount_original": self.fld_amount_original, "currency": self.fld_currency,
         }
         return {role: key.strip() for role, key in roles.items() if key and key.strip()}
 
@@ -250,10 +254,12 @@ class StockTransactionLine(models.Model):
     seq = models.PositiveIntegerField("行号", default=0)
     material_number = models.CharField("物料编码", max_length=80, blank=True, default="")
     material_name = models.CharField("物料名称", max_length=200, blank=True, default="")
+    specification = models.CharField("物料规格", max_length=255, blank=True, default="")
     quantity = models.DecimalField("数量", max_digits=20, decimal_places=6, default=0)
     unit = models.CharField("单位", max_length=32, blank=True, default="")
     unit_price = models.DecimalField("单价", max_digits=20, decimal_places=6, default=0)
     amount = models.DecimalField("金额", max_digits=20, decimal_places=4, default=0)
+    amount_original = models.DecimalField("原币金额", max_digits=20, decimal_places=4, default=0)
 
     class Meta:
         verbose_name = "库存发生明细"
