@@ -55,7 +55,18 @@ def _ensure_supplier_assignment(buyer, supplier, company):
         raise PermissionError("供应商未分配给采购负责人")
 
 
-def create_purchase_receipt(*, actor, company, data):
+def create_purchase_receipt(*, actor, company, data, kingdee_links=None):
+    """创建采购日报。
+
+    Args:
+        actor: 操作人
+        company: 公司
+        data: 日报数据
+        kingdee_links: 可选，金蝶关联列表 [{"line_id": 123, "allocated_amount": 5000.00}, ...]
+
+    Returns:
+        receipt: 创建的日报对象
+    """
     if is_read_only(actor):
         raise PermissionError("报表查看角色不能录入日报")
     payload = dict(data)
@@ -83,10 +94,32 @@ def create_purchase_receipt(*, actor, company, data):
         before={},
         after=_receipt_snapshot(receipt),
     )
+
+    # 保存金蝶关联（可选）
+    if kingdee_links:
+        from integrations.services.daily_link import save_daily_with_links
+        save_daily_with_links(
+            daily_report=receipt,
+            report_type="PURCHASE",
+            link_data=kingdee_links,
+            operator=actor,
+        )
+
     return receipt
 
 
-def update_purchase_receipt(*, actor, receipt, data):
+def update_purchase_receipt(*, actor, receipt, data, kingdee_links=None):
+    """更新采购日报。
+
+    Args:
+        actor: 操作人
+        receipt: 要更新的日报对象
+        data: 更新数据
+        kingdee_links: 可选，金蝶关联列表（传入则覆盖现有关联）
+
+    Returns:
+        receipt: 更新后的日报对象
+    """
     payload = dict(data)
     stored_receipt = PurchaseReceipt.objects.get(pk=receipt.pk)
     # 此前 actor 完全不参与判断，写权限靠视图层 queryset 取不到就 404 兜着；
@@ -120,6 +153,17 @@ def update_purchase_receipt(*, actor, receipt, data):
         before=before,
         after=_receipt_snapshot(receipt),
     )
+
+    # 更新金蝶关联（可选）
+    if kingdee_links is not None:
+        from integrations.services.daily_link import save_daily_with_links
+        save_daily_with_links(
+            daily_report=receipt,
+            report_type="PURCHASE",
+            link_data=kingdee_links,
+            operator=actor,
+        )
+
     return receipt
 
 

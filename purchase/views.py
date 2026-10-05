@@ -121,11 +121,22 @@ def receipt_create(request):
                 {"form": form, "title": "新增采购日报"},
                 status=400,
             )
+
+        # 解析金蝶关联数据
+        kingdee_links = None
+        if request.POST.get("kingdee_links"):
+            import json
+            try:
+                kingdee_links = json.loads(request.POST.get("kingdee_links"))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
         try:
             create_purchase_receipt(
                 actor=request.user,
                 company=request.company,
                 data={**form.cleaned_data, "buyer": form.resolved_owner},
+                kingdee_links=kingdee_links,
             )
         except MissingExchangeRate as exc:
             form.add_error(None, str(exc))
@@ -164,11 +175,22 @@ def receipt_edit(request, pk):
                 {"form": form, "title": "编辑采购日报"},
                 status=400,
             )
+
+        # 解析金蝶关联数据
+        kingdee_links = None
+        if request.POST.get("kingdee_links"):
+            import json
+            try:
+                kingdee_links = json.loads(request.POST.get("kingdee_links"))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
         try:
             update_purchase_receipt(
                 actor=request.user,
                 receipt=receipt,
                 data={**form.cleaned_data, "buyer": form.resolved_owner},
+                kingdee_links=kingdee_links,
             )
         except MissingExchangeRate as exc:
             form.add_error(None, str(exc))

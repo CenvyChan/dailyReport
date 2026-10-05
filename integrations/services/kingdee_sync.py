@@ -116,16 +116,16 @@ class _PartyResolver:
         if mapping.match_status != KingdeePartyMapping.MatchStatus.MANUAL:
             if mapping.k3_name != k3_name and k3_name:
                 mapping.k3_name = k3_name
-            status, resolved_id, candidates = decide(k3_name or k3_number, self._local_names(party_type))
-            mapping.match_status = status
+            # 模糊匹配只产出候选建议，不再自动挂接：一律落 PENDING（有候选）/UNMATCHED（无候选），交人工确认。
+            _status, _resolved_id, candidates = decide(k3_name or k3_number, self._local_names(party_type))
+            mapping.match_status = (
+                KingdeePartyMapping.MatchStatus.PENDING
+                if candidates
+                else KingdeePartyMapping.MatchStatus.UNMATCHED
+            )
             mapping.candidates = candidates
             mapping.customer = None
             mapping.supplier = None
-            if status == "AUTO" and resolved_id:
-                if party_type == KingdeePartyMapping.PartyType.CUSTOMER:
-                    mapping.customer_id = resolved_id
-                else:
-                    mapping.supplier_id = resolved_id
             mapping.save()
         self._cache[key] = mapping
         return mapping
@@ -210,24 +210,41 @@ def _sync_binding_form(binding, form, run, sdk, resolver, as_of, dry_run, window
                     "sync_run": run,
                 },
             )
-            txn.lines.all().delete()
-            lines = []
+            # 幂等更新明细：按 entry_id 更新，保留本地主键和已有关联
+            seen_entry_ids = set()
             for i, ln in enumerate(line_records, start=1):
-                entry_id = str(ln.get("entry_id") or "").strip() or f"{fid}-{i}"
-                lines.append(
-                    StockTransactionLine(
-                        transaction=txn,
-                        entry_id=entry_id,
-                        seq=i,
-                        material_number=str(ln.get("material_number") or ""),
-                        material_name=str(ln.get("material_name") or ""),
-                        quantity=_dec(ln.get("qty")),
-                        unit=str(ln.get("unit") or ""),
-                        unit_price=_dec(ln.get("price")),
-                        amount=_dec(ln.get("amount")),
+                entry_id = str(ln.get("entry_id") or "").strip()
+                if not entry_id:
+                    # 缺失真实明细内码，记录异常但不伪造身份
+                    logger.warning(
+                        "金蝶明细缺失 FEntryID，跳过：company=%s, form=%s, fid=%s, seq=%d",
+                        company, form.form_id, fid, i
                     )
+                    continue
+                seen_entry_ids.add(entry_id)
+                StockTransactionLine.objects.update_or_create(
+                    transaction=txn,
+                    entry_id=entry_id,
+                    defaults={
+                        "seq": i,
+                        "material_number": str(ln.get("material_number") or ""),
+                        "material_name": str(ln.get("material_name") or ""),
+                        "quantity": _dec(ln.get("qty")),
+                        "unit": str(ln.get("unit") or ""),
+                        "unit_price": _dec(ln.get("price")),
+                        "amount": _dec(ln.get("amount")),
+                    }
                 )
-            StockTransactionLine.objects.bulk_create(lines)
+            # 金蝶删除明细时，标记失效（本地保留，不物理删除）
+            # 暂时保留原有删除逻辑，后续可改为软删标记
+            # TODO: 为 StockTransactionLine 添加 is_active 字段后启用软删
+            stale_lines = txn.lines.exclude(entry_id__in=list(seen_entry_ids))
+            if stale_lines.exists():
+                logger.info(
+                    "金蝶明细已删除或不在窗口内，本地删除：company=%s, fid=%s, count=%d",
+                    company, fid, stale_lines.count()
+                )
+                stale_lines.delete()
             upserted += 1
 
         # 失效对账：窗口内、本次未见到的 FID → 软删。

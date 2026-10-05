@@ -123,11 +123,22 @@ def shipment_create(request):
                 {"form": form, "title": "新增销售日报"},
                 status=400,
             )
+
+        # 解析金蝶关联数据
+        kingdee_links = None
+        if request.POST.get("kingdee_links"):
+            import json
+            try:
+                kingdee_links = json.loads(request.POST.get("kingdee_links"))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
         try:
             create_sales_shipment(
                 actor=request.user,
                 company=request.company,
                 data={**form.cleaned_data, "owner": form.resolved_owner},
+                kingdee_links=kingdee_links,
             )
         except MissingExchangeRate as exc:
             form.add_error(None, str(exc))
@@ -166,11 +177,22 @@ def shipment_edit(request, pk):
                 {"form": form, "title": "编辑销售日报"},
                 status=400,
             )
+
+        # 解析金蝶关联数据
+        kingdee_links = None
+        if request.POST.get("kingdee_links"):
+            import json
+            try:
+                kingdee_links = json.loads(request.POST.get("kingdee_links"))
+            except (json.JSONDecodeError, ValueError):
+                pass
+
         try:
             update_sales_shipment(
                 actor=request.user,
                 shipment=shipment,
                 data={**form.cleaned_data, "owner": form.resolved_owner},
+                kingdee_links=kingdee_links,
             )
         except MissingExchangeRate as exc:
             form.add_error(None, str(exc))

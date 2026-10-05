@@ -360,3 +360,375 @@ class DingtalkApprovalInstance(models.Model):
 
     def __str__(self):
         return self.title or self.process_instance_id
+
+
+class DailyReportKingdeeLink(models.Model):
+    """日报-金蝶明细关联：双向多对多，支持部分分摊、跨日关联。
+
+    核心规则：
+    - 每条关联只属于一种日报（销售或采购）
+    - 同一日报+同一明细只能存在一条有效关联（通过唯一约束保证）
+    - 允许超额分摊（业务记录保留，由对账逻辑标记异常）
+    - 保存关联时的参考值，用于判断来源数据是否变化
+    """
+
+    class ReportType(models.TextChoices):
+        SALES = "SALES", "销售日报"
+        PURCHASE = "PURCHASE", "采购日报"
+
+    report_type = models.CharField("日报类型", max_length=10, choices=ReportType.choices)
+    sales_shipment = models.ForeignKey(
+        "sales.SalesShipment",
+        verbose_name="销售日报",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="kingdee_links",
+    )
+    purchase_receipt = models.ForeignKey(
+        "purchase.PurchaseReceipt",
+        verbose_name="采购日报",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="kingdee_links",
+    )
+    transaction_line = models.ForeignKey(
+        StockTransactionLine,
+        verbose_name="金蝶明细行",
+        on_delete=models.PROTECT,
+        related_name="daily_report_links",
+    )
+    allocated_quantity = models.DecimalField(
+        "分摊数量",
+        max_digits=20,
+        decimal_places=6,
+        default=0,
+        help_text="记录分摊值，第一期不做数量对账",
+    )
+    allocated_amount = models.DecimalField(
+        "分摊金额（人民币）",
+        max_digits=20,
+        decimal_places=4,
+        help_text="本位币金额，用于对账",
+    )
+    reference_k3_amount = models.DecimalField(
+        "关联时金蝶原始金额",
+        max_digits=20,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        help_text="快照，用于判断来源是否变化",
+    )
+    reference_daily_amount = models.DecimalField(
+        "关联时日报金额",
+        max_digits=18,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="快照，用于判断日报是否变化",
+    )
+    linked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="关联操作人",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    created_at = models.DateTimeField("关联时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "日报-金蝶关联"
+        verbose_name_plural = "日报-金蝶关联"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["report_type", "sales_shipment", "transaction_line"], name="link_sales_idx"),
+            models.Index(fields=["report_type", "purchase_receipt", "transaction_line"], name="link_purchase_idx"),
+            models.Index(fields=["transaction_line"], name="link_k3line_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(report_type="SALES", sales_shipment__isnull=False, purchase_receipt__isnull=True)
+                    | models.Q(report_type="PURCHASE", purchase_receipt__isnull=False, sales_shipment__isnull=True)
+                ),
+                name="link_report_type_match",
+            ),
+            models.UniqueConstraint(
+                fields=["report_type", "sales_shipment", "transaction_line"],
+                condition=models.Q(report_type="SALES"),
+                name="uniq_sales_line_link",
+            ),
+            models.UniqueConstraint(
+                fields=["report_type", "purchase_receipt", "transaction_line"],
+                condition=models.Q(report_type="PURCHASE"),
+                name="uniq_purchase_line_link",
+            ),
+        ]
+
+    def __str__(self):
+        if self.report_type == self.ReportType.SALES:
+            return f"销售日报 #{self.sales_shipment_id} → 金蝶明细 #{self.transaction_line_id}"
+        return f"采购日报 #{self.purchase_receipt_id} → 金蝶明细 #{self.transaction_line_id}"
+
+    @property
+    def daily_report(self):
+        """返回关联的日报对象（销售或采购）。"""
+        return self.sales_shipment if self.report_type == self.ReportType.SALES else self.purchase_receipt
+
+
+class ReportSnapshot(models.Model):
+    """报表快照：不可变归档，按公司+日期+范围唯一。
+
+    各渠道（邮件、钉钉）使用同一快照，避免重复生成不一致内容。
+    记录生成时的同步窗口信息和数据完整性，失败时仍可发送带警告的报表。
+    """
+
+    class Scope(models.TextChoices):
+        SALES = "SALES", "仅销售"
+        PURCHASE = "PURCHASE", "仅采购"
+        BOTH = "BOTH", "销售和采购"
+
+    company = models.ForeignKey(
+        "core.Company",
+        verbose_name="公司",
+        on_delete=models.PROTECT,
+        related_name="report_snapshots",
+    )
+    report_date = models.DateField("报表日期", help_text="报表所属业务日期（前一自然日）")
+    scope = models.CharField("业务范围", max_length=10, choices=Scope.choices)
+    data = models.JSONField("报表数据", help_text="包含对账结果、经营指标、异常明细等")
+    sync_windows = models.JSONField(
+        "同步窗口信息",
+        default=dict,
+        help_text="记录金蝶同步的实际窗口和完成时间",
+    )
+    calculation_version = models.CharField(
+        "计算口径版本",
+        max_length=32,
+        default="v1",
+        help_text="用于区分不同版本的对账算法",
+    )
+    is_complete = models.BooleanField(
+        "数据完整",
+        default=True,
+        help_text="金蝶同步失败或累计期间不完整时标记为 False",
+    )
+    sync_warnings = models.JSONField(
+        "同步警告",
+        default=list,
+        blank=True,
+        help_text="同步失败或窗口不完整的说明",
+    )
+    generated_at = models.DateTimeField("生成时间", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "报表快照"
+        verbose_name_plural = "报表快照"
+        ordering = ["-report_date", "-generated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "report_date", "scope"],
+                name="uniq_report_snapshot",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["company", "report_date", "scope"], name="snapshot_lookup_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.company} {self.report_date} {self.get_scope_display()}"
+
+
+class ReportCorrection(models.Model):
+    """报表更正记录：追踪历史报表的变化，用于次日更正区。
+
+    当日报、关联、映射或金蝶数据发生变化时，记录受影响的历史日期和差额。
+    通过 reported_in_snapshot 去重，避免同一变更重复播报。
+    """
+
+    class CorrectionType(models.TextChoices):
+        DAILY_ADD = "DAILY_ADD", "日报补录"
+        DAILY_EDIT = "DAILY_EDIT", "日报修改"
+        DAILY_DELETE = "DAILY_DELETE", "日报删除"
+        LINK_ADD = "LINK_ADD", "关联新增"
+        LINK_REMOVE = "LINK_REMOVE", "关联解除"
+        K3_CHANGE = "K3_CHANGE", "金蝶变更"
+        MAPPING_CHANGE = "MAPPING_CHANGE", "映射变更"
+
+    class AffectedReport(models.TextChoices):
+        SALES = "SALES", "销售"
+        PURCHASE = "PURCHASE", "采购"
+
+    company = models.ForeignKey(
+        "core.Company",
+        verbose_name="公司",
+        on_delete=models.PROTECT,
+        related_name="report_corrections",
+    )
+    original_date = models.DateField("原报表日期")
+    correction_type = models.CharField("更正类型", max_length=20, choices=CorrectionType.choices)
+    original_value = models.DecimalField(
+        "原值",
+        max_digits=20,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    new_value = models.DecimalField(
+        "新值",
+        max_digits=20,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    diff_amount = models.DecimalField(
+        "差额",
+        max_digits=20,
+        decimal_places=4,
+        help_text="新值 - 原值",
+    )
+    reason = models.TextField("变化原因", blank=True, default="")
+    affected_report = models.CharField("受影响报表", max_length=20, choices=AffectedReport.choices)
+    reference_id = models.CharField(
+        "关联数据ID",
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="日报ID、关联ID或单据ID，用于追溯",
+    )
+    detected_at = models.DateTimeField("检测时间", auto_now_add=True)
+    reported_in_snapshot = models.ForeignKey(
+        ReportSnapshot,
+        verbose_name="已报告于快照",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="corrections",
+    )
+
+    class Meta:
+        verbose_name = "报表更正"
+        verbose_name_plural = "报表更正"
+        ordering = ["-detected_at"]
+        indexes = [
+            models.Index(
+                fields=["company", "original_date", "reported_in_snapshot"],
+                name="correction_lookup_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.company} {self.original_date} {self.get_correction_type_display()} {self.diff_amount:+.2f}"
+
+
+class ReportDelivery(models.Model):
+    """报表推送记录：按"快照+渠道+目标"记录发送结果。
+
+    实现渠道隔离：成功渠道不因其他渠道失败而重复发送。
+    支持失败重试和结果不明处理，最多自动尝试 5 次。
+    """
+
+    class Channel(models.TextChoices):
+        EMAIL = "EMAIL", "邮件"
+        DINGTALK = "DINGTALK", "钉钉群消息"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "待发送"
+        SENT = "SENT", "发送成功"
+        FAILED = "FAILED", "发送失败"
+        UNCERTAIN = "UNCERTAIN", "结果不明"
+
+    snapshot = models.ForeignKey(
+        ReportSnapshot,
+        verbose_name="报表快照",
+        on_delete=models.PROTECT,
+        related_name="deliveries",
+    )
+    channel = models.CharField("推送渠道", max_length=20, choices=Channel.choices)
+    target_identifier = models.CharField(
+        "目标标识",
+        max_length=255,
+        help_text="邮件收件组ID或钉钉群ID",
+    )
+    target_display = models.CharField("目标名称", max_length=255, blank=True, default="")
+    status = models.CharField("发送状态", max_length=20, choices=Status.choices, default=Status.PENDING)
+    attempt_count = models.PositiveSmallIntegerField("尝试次数", default=0)
+    last_error = models.TextField("最近错误", blank=True, default="")
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    sent_at = models.DateTimeField("发送时间", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "报表推送记录"
+        verbose_name_plural = "报表推送记录"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["snapshot", "channel", "target_identifier"],
+                name="uniq_delivery_per_target",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["snapshot", "channel", "target_identifier"],
+                name="report_delivery_idx",
+            ),
+            models.Index(
+                fields=["status", "attempt_count"],
+                name="delivery_retry_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.snapshot} → {self.get_channel_display()} {self.target_display or self.target_identifier}"
+
+
+class DingtalkGroupConfig(models.Model):
+    """钉钉群推送配置：面向企业内部群，使用应用机器人群消息接口。
+
+    第一期仅支持内部群推送，不采用 Webhook 自定义机器人。
+    """
+
+    class Scope(models.TextChoices):
+        SALES = "SALES", "仅销售"
+        PURCHASE = "PURCHASE", "仅采购"
+        BOTH = "BOTH", "销售和采购"
+
+    company = models.ForeignKey(
+        "core.Company",
+        verbose_name="公司",
+        on_delete=models.CASCADE,
+        related_name="dingtalk_groups",
+    )
+    app = models.ForeignKey(
+        DingtalkApp,
+        verbose_name="钉钉应用",
+        on_delete=models.PROTECT,
+        related_name="group_configs",
+    )
+    name = models.CharField("配置名称", max_length=120, help_text="用于识别不同的推送目标")
+    open_conversation_id = models.CharField(
+        "内部群ID",
+        max_length=128,
+        help_text="群的 openConversationId，通过机器人获取",
+    )
+    scope = models.CharField("推送内容", max_length=10, choices=Scope.choices, default=Scope.BOTH)
+    send_at = models.TimeField("每日发送时间", help_text="按服务器所在时区（Asia/Shanghai）触发")
+    is_active = models.BooleanField("启用", default=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "钉钉群推送配置"
+        verbose_name_plural = "钉钉群推送配置"
+        ordering = ["company", "send_at", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "name"],
+                name="uniq_dingtalk_group_per_company",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.company} - {self.name}"

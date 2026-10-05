@@ -81,3 +81,30 @@ services:
     depends_on:
       - web
 
+  scheduler:
+    build: .
+    image: daily-report:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    # 新增调度容器：整合近期同步和报表推送
+    # 1. 每 10 分钟检查到点任务（报表推送）
+    # 2. 每小时整点执行近期同步（当前月+最近7天）
+    # 先 sleep 90 秒，等 web 完成 migrate 和 mailer 启动
+    command: >
+      sh -c "sleep 90;
+      while true; do
+        CURRENT_HOUR=$$(date +%H);
+        CURRENT_MIN=$$(date +%M);
+
+        python manage.py sync_kingdee_recent --hour $$CURRENT_HOUR >> /app/logs/scheduler.log 2>&1 || true;
+        python manage.py generate_and_send_report >> /app/logs/scheduler.log 2>&1 || true;
+
+        sleep 600;
+      done"
+    depends_on:
+      - web
+

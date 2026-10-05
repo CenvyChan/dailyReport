@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load static display %}
+
+{% block title %}{{ snapshot.company.name }} {{ snapshot.report_date }} 经营日报{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">
+        <i data-lucide="file-text"></i>
+        经营日报 - {{ snapshot.report_date|date:"Y年m月d日" }}
+      </h1>
+      <p class="page-subtitle">
+        {{ snapshot.company.name }}
+        {% if not snapshot.is_complete %}
+        <span class="badge badge-warning"><i data-lucide="alert-circle"></i>数据不完整</span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="page-actions">
+      <a href="?download=excel" class="btn btn-secondary">
+        <i data-lucide="download"></i>下载 Excel
+      </a>
+    </div>
+  </div>
+
+  {% if snapshot.sync_warnings %}
+  <div class="alert alert-warning">
+    <i data-lucide="alert-triangle"></i>
+    <div>
+      <strong>同步警告</strong>
+      <ul class="mt-2 space-y-1">
+        {% for warning in snapshot.sync_warnings %}
+        <li>{{ warning }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if snapshot.data.corrections %}
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title"><i data-lucide="git-pull-request"></i>次日更正</h2>
+    </div>
+    <div class="card-body">
+      <p class="text-sm text-zinc-400 mb-4">以下为历史报表的变化，不计入今日经营金额</p>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>原日期</th>
+              <th>更正类型</th>
+              <th>受影响报表</th>
+              <th class="text-right">原值</th>
+              <th class="text-right">新值</th>
+              <th class="text-right">差额</th>
+              <th>原因</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for corr in snapshot.data.corrections %}
+            <tr>
+              <td>{{ corr.detected_at|slice:":10" }}</td>
+              <td><span class="badge">{{ corr.type }}</span></td>
+              <td>{{ corr.affected_report }}</td>
+              <td class="text-right font-mono">{{ corr.original_value|floatformat:2|default:"—" }}</td>
+              <td class="text-right font-mono">{{ corr.new_value|floatformat:2|default:"—" }}</td>
+              <td class="text-right font-mono">
+                <span class="{% if corr.diff_amount > 0 %}text-green-400{% elif corr.diff_amount < 0 %}text-red-400{% endif %}">
+                  {{ corr.diff_amount|floatformat:2|default:"—" }}
+                </span>
+              </td>
+              <td class="text-sm text-zinc-400">{{ corr.reason|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if "SALES" in snapshot.scope or snapshot.scope == "BOTH" %}
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title"><i data-lucide="trending-up"></i>销售对账</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <!-- 日报侧关联覆盖率 -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">日报关联覆盖率</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div class="stat-card">
+            <div class="stat-label">日报笔数</div>
+            <div class="stat-value">{{ snapshot.data.sales.daily_coverage.total_reports }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">日报金额</div>
+            <div class="stat-value">{{ snapshot.data.sales.daily_coverage.total_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">已关联金额</div>
+            <div class="stat-value text-green-400">{{ snapshot.data.sales.daily_coverage.covered_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">覆盖率</div>
+            <div class="stat-value">
+              {% if snapshot.data.sales.daily_coverage.coverage_rate %}
+                {{ snapshot.data.sales.daily_coverage.coverage_rate|floatformat:1 }}%
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 期间金额差异 -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">月度对账</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="stat-card">
+            <div class="stat-label">系统金额</div>
+            <div class="stat-value">{{ snapshot.data.sales.month_diff.system_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">金蝶金额</div>
+            <div class="stat-value">{{ snapshot.data.sales.month_diff.k3_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">差额</div>
+            <div class="stat-value {% if snapshot.data.sales.month_diff.diff_amount > 0 %}text-green-400{% elif snapshot.data.sales.month_diff.diff_amount < 0 %}text-red-400{% endif %}">
+              {{ snapshot.data.sales.month_diff.diff_amount|floatformat:2 }}
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">差异率</div>
+            <div class="stat-value">
+              {% if snapshot.data.sales.month_diff.diff_rate %}
+                {{ snapshot.data.sales.month_diff.diff_rate|floatformat:2 }}%
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 金蝶明细分摊情况 -->
+      {% if snapshot.data.sales.k3_allocation.details %}
+      <div>
+        <h3 class="text-lg font-semibold mb-3">金蝶明细分摊情况（前50条）</h3>
+        <div class="table-responsive">
+          <table class="table text-sm">
+            <thead>
+              <tr>
+                <th>单据编号</th>
+                <th>业务日期</th>
+                <th>客商</th>
+                <th>物料</th>
+                <th class="text-right">金额</th>
+                <th class="text-right">已分摊</th>
+                <th class="text-right">剩余</th>
+                <th class="text-right">超额</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in snapshot.data.sales.k3_allocation.details|slice:":50" %}
+              <tr>
+                <td class="font-mono text-xs">{{ line.bill_no }}</td>
+                <td>{{ line.biz_date }}</td>
+                <td class="text-sm">{{ line.party_name|truncatechars:20 }}</td>
+                <td class="text-sm text-zinc-400">{{ line.material_name|truncatechars:30 }}</td>
+                <td class="text-right font-mono">{{ line.amount|floatformat:2 }}</td>
+                <td class="text-right font-mono">{{ line.allocated|floatformat:2 }}</td>
+                <td class="text-right font-mono">{{ line.remaining|floatformat:2 }}</td>
+                <td class="text-right font-mono text-red-400">
+                  {% if line.over_allocated > 0 %}{{ line.over_allocated|floatformat:2 }}{% else %}—{% endif %}
+                </td>
+                <td>
+                  {% if line.is_cross_date %}
+                  <span class="badge badge-warning">跨日</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if "PURCHASE" in snapshot.scope or snapshot.scope == "BOTH" %}
+  <section class="card">
+    <div class="card-header">
+      <h2 class="card-title"><i data-lucide="trending-down"></i>采购对账</h2>
+    </div>
+    <div class="card-body space-y-6">
+      <!-- 采购对账内容类似销售，省略重复代码 -->
+      <div>
+        <h3 class="text-lg font-semibold mb-3">日报关联覆盖率</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="stat-card">
+            <div class="stat-label">日报笔数</div>
+            <div class="stat-value">{{ snapshot.data.purchase.daily_coverage.total_reports }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">日报金额</div>
+            <div class="stat-value">{{ snapshot.data.purchase.daily_coverage.total_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">已关联金额</div>
+            <div class="stat-value text-green-400">{{ snapshot.data.purchase.daily_coverage.covered_amount|floatformat:2 }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">覆盖率</div>
+            <div class="stat-value">
+              {% if snapshot.data.purchase.daily_coverage.coverage_rate %}
+                {{ snapshot.data.purchase.daily_coverage.coverage_rate|floatformat:1 }}%
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <footer class="text-center text-sm text-zinc-500 mt-8 pb-8">
+    <p>报表生成时间：{{ snapshot.generated_at|date:"Y-m-d H:i:s" }}</p>
+    {% if snapshot.sync_windows.finished_at %}
+    <p>金蝶同步完成于：{{ snapshot.sync_windows.finished_at|slice:":19" }}</p>
+    {% endif %}
+  </footer>
+</div>
+{% endblock %}

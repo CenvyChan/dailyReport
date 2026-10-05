@@ -60,7 +60,18 @@ def _ensure_customer_assignment(owner, customer, company):
         raise PermissionError("客户未分配给销售负责人")
 
 
-def create_sales_shipment(*, actor, company, data):
+def create_sales_shipment(*, actor, company, data, kingdee_links=None):
+    """创建销售日报。
+
+    Args:
+        actor: 操作人
+        company: 公司
+        data: 日报数据
+        kingdee_links: 可选，金蝶关联列表 [{"line_id": 123, "allocated_amount": 5000.00}, ...]
+
+    Returns:
+        shipment: 创建的日报对象
+    """
     if is_read_only(actor):
         raise PermissionError("报表查看角色不能录入日报")
     payload = dict(data)
@@ -88,10 +99,32 @@ def create_sales_shipment(*, actor, company, data):
         before={},
         after=_shipment_snapshot(shipment),
     )
+
+    # 保存金蝶关联（可选）
+    if kingdee_links:
+        from integrations.services.daily_link import save_daily_with_links
+        save_daily_with_links(
+            daily_report=shipment,
+            report_type="SALES",
+            link_data=kingdee_links,
+            operator=actor,
+        )
+
     return shipment
 
 
-def update_sales_shipment(*, actor, shipment, data):
+def update_sales_shipment(*, actor, shipment, data, kingdee_links=None):
+    """更新销售日报。
+
+    Args:
+        actor: 操作人
+        shipment: 要更新的日报对象
+        data: 更新数据
+        kingdee_links: 可选，金蝶关联列表（传入则覆盖现有关联）
+
+    Returns:
+        shipment: 更新后的日报对象
+    """
     payload = dict(data)
     stored_shipment = SalesShipment.objects.get(pk=shipment.pk)
     # actor 必须对这条记录有写权限。此前这里只校验「负责人字段有没有被换人」，
@@ -126,6 +159,17 @@ def update_sales_shipment(*, actor, shipment, data):
         before=before,
         after=_shipment_snapshot(shipment),
     )
+
+    # 更新金蝶关联（可选）
+    if kingdee_links is not None:
+        from integrations.services.daily_link import save_daily_with_links
+        save_daily_with_links(
+            daily_report=shipment,
+            report_type="SALES",
+            link_data=kingdee_links,
+            operator=actor,
+        )
+
     return shipment
 
 

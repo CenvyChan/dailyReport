@@ -8,7 +8,7 @@
   </div>
 </div>
 <div class="form-card">
-  <form method="post">
+  <form method="post" x-data="salesShipmentForm()">
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% include "includes/field.html" with field=form.customer %}
@@ -21,6 +21,97 @@
       {% include "includes/field.html" with field=form.quantity numeric=1 %}
     </div>
     {% include "includes/field.html" with field=form.original_amount numeric=1 %}
+
+    <!-- 金蝶明细关联选单 -->
+    <div class="field-group" x-show="showLinkSection">
+      <div class="field-label-row">
+        <label class="field-label">金蝶明细关联</label>
+        <button type="button" class="btn-link" @click="toggleLinkPanel" x-text="linkPanelOpen ? '收起' : '展开'"></button>
+      </div>
+      <p class="field-help">可选：将此日报与金蝶出库明细关联，用于金额对账</p>
+
+      <div x-show="linkPanelOpen" class="link-panel">
+        <!-- 检索条件 -->
+        <div class="search-box">
+          <input type="text" x-model="searchQuery" @input="debounceSearch" placeholder="单据编号 / 客商 / 物料名称">
+          <div class="field-row">
+            <input type="date" x-model="searchDateFrom" @change="performSearch">
+            <input type="date" x-model="searchDateTo" @change="performSearch">
+            <button type="button" @click="performSearch" class="btn btn-secondary">
+              <i data-lucide="search"></i>搜索
+            </button>
+          </div>
+        </div>
+
+        <!-- 已选明细 -->
+        <template x-if="selectedLinks.length > 0">
+          <div class="selected-links">
+            <h4>已关联明细 (<span x-text="selectedLinks.length"></span>)</h4>
+            <template x-for="(link, index) in selectedLinks" :key="link.line_id">
+              <div class="link-item selected">
+                <div class="link-info">
+                  <span class="bill-no" x-text="link.bill_no"></span>
+                  <span class="party" x-text="link.party_name"></span>
+                  <span class="material" x-text="link.material_name"></span>
+                </div>
+                <div class="link-amounts">
+                  <span class="original">原始: <strong x-text="formatAmount(link.amount)"></strong></span>
+                  <span class="allocated">已分: <strong x-text="formatAmount(link.allocated)"></strong></span>
+                  <input type="number"
+                         x-model="link.allocated_amount"
+                         @input="validateAllocation(link)"
+                         step="0.01"
+                         placeholder="本次分摊金额"
+                         class="amount-input">
+                  <button type="button" @click="removeLink(index)" class="btn-icon">
+                    <i data-lucide="x"></i>
+                  </button>
+                </div>
+                <template x-if="link.over_allocated > 0">
+                  <p class="warning"><i data-lucide="alert-triangle"></i>超额分摊 <span x-text="formatAmount(link.over_allocated)"></span></p>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- 搜索结果 -->
+        <template x-if="searchResults.length > 0">
+          <div class="search-results">
+            <h4>搜索结果</h4>
+            <template x-for="line in searchResults" :key="line.line_id">
+              <div class="link-item" :class="{'disabled': isSelected(line.line_id)}">
+                <div class="link-info">
+                  <span class="bill-no" x-text="line.bill_no"></span>
+                  <span class="date" x-text="line.biz_date"></span>
+                  <span class="party" x-text="line.party_name"></span>
+                  <span class="material" x-text="line.material_name"></span>
+                </div>
+                <div class="link-amounts">
+                  <span class="original">金额: <strong x-text="formatAmount(line.amount)"></strong></span>
+                  <span class="allocated">已分: <strong x-text="formatAmount(line.allocated)"></strong></span>
+                  <span class="remaining">剩余: <strong x-text="formatAmount(line.remaining)"></strong></span>
+                  <button type="button"
+                          @click="addLink(line)"
+                          :disabled="isSelected(line.line_id)"
+                          class="btn btn-sm">
+                    <i data-lucide="plus"></i>添加
+                  </button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template x-if="searching">
+          <p class="loading"><i data-lucide="loader"></i>搜索中...</p>
+        </template>
+      </div>
+    </div>
+
+    <!-- 隐藏字段：提交关联数据 -->
+    <input type="hidden" name="kingdee_links" :value="JSON.stringify(getLinkData())">
+
     <datalist id="sales-customer-options">{% for option in form.customer_options %}<option value="{{ option }}"></option>{% endfor %}</datalist>
     <div class="form-actions">
       <button type="submit"><i data-lucide="check"></i>保存</button>
@@ -29,4 +120,232 @@
     </div>
   </form>
 </div>
+
+<script>
+function salesShipmentForm() {
+  return {
+    showLinkSection: true,
+    linkPanelOpen: false,
+    searchQuery: '',
+    searchDateFrom: '',
+    searchDateTo: '',
+    searchResults: [],
+    selectedLinks: [],
+    searching: false,
+    searchTimeout: null,
+
+    init() {
+      // 如果是编辑模式，加载已有关联
+      const shipmentId = '{{ form.instance.pk|default:"" }}';
+      if (shipmentId) {
+        this.loadExistingLinks(shipmentId);
+      }
+    },
+
+    toggleLinkPanel() {
+      this.linkPanelOpen = !this.linkPanelOpen;
+      if (this.linkPanelOpen && this.searchResults.length === 0) {
+        this.performSearch();
+      }
+    },
+
+    debounceSearch() {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = setTimeout(() => this.performSearch(), 500);
+    },
+
+    async performSearch() {
+      this.searching = true;
+      try {
+        const params = new URLSearchParams({
+          company_id: '{{ request.company.id }}',
+          business_type: 'SALES_OUT',
+        });
+
+        if (this.searchQuery) params.append('query', this.searchQuery);
+        if (this.searchDateFrom) params.append('date_from', this.searchDateFrom);
+        if (this.searchDateTo) params.append('date_to', this.searchDateTo);
+
+        const response = await fetch(`/integrations/search-kingdee-lines/?${params}`);
+        const data = await response.json();
+
+        this.searchResults = data.lines || [];
+      } catch (error) {
+        console.error('搜索失败:', error);
+        alert('搜索金蝶明细失败，请稍后重试');
+      } finally {
+        this.searching = false;
+      }
+    },
+
+    addLink(line) {
+      if (this.isSelected(line.line_id)) return;
+
+      this.selectedLinks.push({
+        line_id: line.line_id,
+        bill_no: line.bill_no,
+        party_name: line.party_name,
+        material_name: line.material_name,
+        amount: line.amount,
+        allocated: line.allocated,
+        remaining: line.remaining,
+        allocated_amount: line.remaining > 0 ? line.remaining : '',
+        over_allocated: 0,
+      });
+    },
+
+    removeLink(index) {
+      this.selectedLinks.splice(index, 1);
+    },
+
+    isSelected(lineId) {
+      return this.selectedLinks.some(link => link.line_id === lineId);
+    },
+
+    validateAllocation(link) {
+      const allocated = parseFloat(link.allocated_amount) || 0;
+      const remaining = link.amount - link.allocated;
+      link.over_allocated = Math.max(0, allocated - remaining);
+    },
+
+    formatAmount(value) {
+      return parseFloat(value || 0).toFixed(2);
+    },
+
+    getLinkData() {
+      return this.selectedLinks
+        .filter(link => link.allocated_amount && parseFloat(link.allocated_amount) > 0)
+        .map(link => ({
+          line_id: link.line_id,
+          allocated_amount: parseFloat(link.allocated_amount),
+        }));
+    },
+
+    async loadExistingLinks(shipmentId) {
+      try {
+        const response = await fetch(`/integrations/daily-links/SALES/${shipmentId}/`);
+        const data = await response.json();
+
+        if (data.links && data.links.length > 0) {
+          this.selectedLinks = data.links.map(link => ({
+            line_id: link.line_id,
+            bill_no: link.bill_no,
+            party_name: link.party_name,
+            material_name: link.material_name,
+            amount: link.amount,
+            allocated: link.total_allocated - link.allocated_amount, // 其他日报的分摊
+            remaining: link.remaining + link.allocated_amount,
+            allocated_amount: link.allocated_amount,
+            over_allocated: 0,
+          }));
+          this.linkPanelOpen = true;
+        }
+      } catch (error) {
+        console.error('加载已有关联失败:', error);
+      }
+    },
+  };
+}
+</script>
+
+<style>
+.link-panel {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.search-box {
+  margin-bottom: 1.5rem;
+}
+
+.search-box input[type="text"] {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.link-item {
+  padding: 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.link-item.selected {
+  border-color: var(--brand-500);
+  background: var(--surface-0);
+}
+
+.link-item.disabled {
+  opacity: 0.5;
+}
+
+.link-info {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.link-info .bill-no {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.link-info .party {
+  color: var(--text-secondary);
+}
+
+.link-info .material {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.link-amounts {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.link-amounts span {
+  font-size: 0.875rem;
+}
+
+.amount-input {
+  width: 150px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-0);
+}
+
+.warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+  font-size: 0.875rem;
+  color: #ef4444;
+}
+
+.loading {
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--brand-500);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+</style>
 {% endblock %}
