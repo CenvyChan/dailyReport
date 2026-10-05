@@ -22,18 +22,57 @@
     </div>
     {% include "includes/field.html" with field=form.original_amount numeric=1 %}
 
-    <!-- 金蝶明细关联选单 -->
+    <!-- 金蝶明细关联：点击弹窗选单，选中后以 FEntryID + 拆分金额写入 -->
     <div class="field-group" x-show="showLinkSection">
       <div class="field-label-row">
         <label class="field-label">金蝶明细关联</label>
-        <button type="button" class="btn-link" @click="toggleLinkPanel" x-text="linkPanelOpen ? '收起' : '展开'"></button>
+        <button type="button" class="btn-link" @click="openPicker()">选单</button>
       </div>
       <p class="field-help">可选：将此日报与金蝶入库明细关联，用于金额对账</p>
 
-      <div x-show="linkPanelOpen" class="link-panel">
-        <!-- 检索条件 -->
-        <div class="search-box">
-          <input type="text" x-model="searchQuery" @input="debounceSearch" placeholder="单据编号 / 供应商 / 物料名称">
+      <!-- 已选明细（常显，金额可改） -->
+      <template x-if="selectedLinks.length > 0">
+        <div class="selected-links">
+          <h4>已关联明细 (<span x-text="selectedLinks.length"></span>)</h4>
+          <template x-for="(link, index) in selectedLinks" :key="link.line_id">
+            <div class="link-item selected">
+              <div class="link-info">
+                <span class="bill-no" x-text="link.bill_no"></span>
+                <span class="party" x-text="link.party_name"></span>
+                <span class="material" x-text="link.material_name"></span>
+              </div>
+              <div class="link-amounts">
+                <span class="original">原始: <strong x-text="formatAmount(link.amount)"></strong></span>
+                <span class="allocated">已分: <strong x-text="formatAmount(link.allocated)"></strong></span>
+                <input type="number"
+                       x-model="link.allocated_amount"
+                       @input="validateAllocation(link)"
+                       step="0.01"
+                       placeholder="本次分摊金额"
+                       class="amount-input">
+                <button type="button" @click="removeLink(index)" class="btn-icon">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+              <template x-if="link.over_allocated > 0">
+                <p class="warning"><i data-lucide="alert-triangle"></i>超额分摊 <span x-text="formatAmount(link.over_allocated)"></span></p>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- 选单弹窗 -->
+    <div class="cmd-overlay" x-show="pickerOpen" x-cloak @click.self="closePicker()" @keydown.escape.window="closePicker()">
+      <div class="link-picker" role="dialog" aria-modal="true" aria-label="选择金蝶明细">
+        <div class="cmd-head">
+          <strong>选择金蝶入库明细</strong>
+          <span class="spacer"></span>
+          <button type="button" class="btn-icon" @click="closePicker()" aria-label="关闭"><i data-lucide="x"></i></button>
+        </div>
+        <div class="picker-toolbar">
+          <input type="text" x-model="searchQuery" @input="debounceSearch" placeholder="单据编号 / 供应商 / 物料名称" x-ref="pickerSearch">
           <div class="field-row">
             <input type="date" x-model="searchDateFrom" @change="performSearch">
             <input type="date" x-model="searchDateTo" @change="performSearch">
@@ -42,70 +81,39 @@
             </button>
           </div>
         </div>
-
-        <!-- 已选明细 -->
-        <template x-if="selectedLinks.length > 0">
-          <div class="selected-links">
-            <h4>已关联明细 (<span x-text="selectedLinks.length"></span>)</h4>
-            <template x-for="(link, index) in selectedLinks" :key="link.line_id">
-              <div class="link-item selected">
-                <div class="link-info">
-                  <span class="bill-no" x-text="link.bill_no"></span>
-                  <span class="party" x-text="link.party_name"></span>
-                  <span class="material" x-text="link.material_name"></span>
-                </div>
-                <div class="link-amounts">
-                  <span class="original">原始: <strong x-text="formatAmount(link.amount)"></strong></span>
-                  <span class="allocated">已分: <strong x-text="formatAmount(link.allocated)"></strong></span>
-                  <input type="number"
-                         x-model="link.allocated_amount"
-                         @input="validateAllocation(link)"
-                         step="0.01"
-                         placeholder="本次分摊金额"
-                         class="amount-input">
-                  <button type="button" @click="removeLink(index)" class="btn-icon">
-                    <i data-lucide="x"></i>
-                  </button>
-                </div>
-                <template x-if="link.over_allocated > 0">
-                  <p class="warning"><i data-lucide="alert-triangle"></i>超额分摊 <span x-text="formatAmount(link.over_allocated)"></span></p>
-                </template>
+        <div class="picker-results">
+          <template x-if="searching">
+            <p class="loading"><i data-lucide="loader"></i>搜索中...</p>
+          </template>
+          <template x-if="!searching && searchResults.length === 0">
+            <p class="loading">无匹配明细，试试调整关键词或日期</p>
+          </template>
+          <template x-for="line in searchResults" :key="line.line_id">
+            <div class="link-item" :class="{'disabled': isSelected(line.line_id)}">
+              <div class="link-info">
+                <span class="bill-no" x-text="line.bill_no"></span>
+                <span class="date" x-text="line.biz_date"></span>
+                <span class="party" x-text="line.party_name"></span>
+                <span class="material" x-text="line.material_name"></span>
               </div>
-            </template>
-          </div>
-        </template>
-
-        <!-- 搜索结果 -->
-        <template x-if="searchResults.length > 0">
-          <div class="search-results">
-            <h4>搜索结果</h4>
-            <template x-for="line in searchResults" :key="line.line_id">
-              <div class="link-item" :class="{'disabled': isSelected(line.line_id)}">
-                <div class="link-info">
-                  <span class="bill-no" x-text="line.bill_no"></span>
-                  <span class="date" x-text="line.biz_date"></span>
-                  <span class="party" x-text="line.party_name"></span>
-                  <span class="material" x-text="line.material_name"></span>
-                </div>
-                <div class="link-amounts">
-                  <span class="original">金额: <strong x-text="formatAmount(line.amount)"></strong></span>
-                  <span class="allocated">已分: <strong x-text="formatAmount(line.allocated)"></strong></span>
-                  <span class="remaining">剩余: <strong x-text="formatAmount(line.remaining)"></strong></span>
-                  <button type="button"
-                          @click="addLink(line)"
-                          :disabled="isSelected(line.line_id)"
-                          class="btn btn-sm">
-                    <i data-lucide="plus"></i>添加
-                  </button>
-                </div>
+              <div class="link-amounts">
+                <span class="original">金额: <strong x-text="formatAmount(line.amount)"></strong></span>
+                <span class="allocated">已分: <strong x-text="formatAmount(line.allocated)"></strong></span>
+                <span class="remaining">剩余: <strong x-text="formatAmount(line.remaining)"></strong></span>
+                <button type="button"
+                        @click="addLink(line)"
+                        :disabled="isSelected(line.line_id)"
+                        class="btn btn-sm">
+                  <i data-lucide="plus"></i><span x-text="isSelected(line.line_id) ? '已选' : '添加'"></span>
+                </button>
               </div>
-            </template>
-          </div>
-        </template>
-
-        <template x-if="searching">
-          <p class="loading"><i data-lucide="loader"></i>搜索中...</p>
-        </template>
+            </div>
+          </template>
+        </div>
+        <div class="picker-foot">
+          <span class="muted">添加后默认按剩余最大可拆分金额预填，可在下方明细行修改</span>
+          <button type="button" class="btn btn-secondary" @click="closePicker()">完成</button>
+        </div>
       </div>
     </div>
 
@@ -125,7 +133,7 @@
 function purchaseReceiptForm() {
   return {
     showLinkSection: true,
-    linkPanelOpen: false,
+    pickerOpen: false,
     searchQuery: '',
     searchDateFrom: '',
     searchDateTo: '',
@@ -142,11 +150,18 @@ function purchaseReceiptForm() {
       }
     },
 
-    toggleLinkPanel() {
-      this.linkPanelOpen = !this.linkPanelOpen;
-      if (this.linkPanelOpen && this.searchResults.length === 0) {
+    openPicker() {
+      this.pickerOpen = true;
+      this.$nextTick(() => {
+        if (this.$refs.pickerSearch) this.$refs.pickerSearch.focus();
+      });
+      if (this.searchResults.length === 0) {
         this.performSearch();
       }
+    },
+
+    closePicker() {
+      this.pickerOpen = false;
     },
 
     debounceSearch() {
@@ -189,6 +204,7 @@ function purchaseReceiptForm() {
         amount: line.amount,
         allocated: line.allocated,
         remaining: line.remaining,
+        // 默认取剩余最大可拆分金额，省去手动计算；想拆小再改
         allocated_amount: line.remaining > 0 ? line.remaining : '',
         over_allocated: 0,
       });
@@ -238,7 +254,6 @@ function purchaseReceiptForm() {
             allocated_amount: link.allocated_amount,
             over_allocated: 0,
           }));
-          this.linkPanelOpen = true;
         }
       } catch (error) {
         console.error('加载已有关联失败:', error);
@@ -249,20 +264,43 @@ function purchaseReceiptForm() {
 </script>
 
 <style>
-.link-panel {
-  margin-top: 1rem;
-  padding: 1.5rem;
-  background: var(--surface-2);
-  border-radius: 12px;
+/* 选单弹窗：复用 ⌘K 遮罩变量，加宽以承载明细行 */
+.link-picker {
+  width: 100%; max-width: 760px; max-height: 76vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--line-hi); border-radius: 16px;
+  background: var(--panel-solid);
+  box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(99, 102, 241, 0.12);
 }
 
-.search-box {
-  margin-bottom: 1.5rem;
+.picker-toolbar {
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line);
 }
 
-.search-box input[type="text"] {
+.picker-toolbar input[type="text"] {
   width: 100%;
   margin-bottom: 0.75rem;
+}
+
+.picker-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 13px 15px;
+}
+
+.picker-foot {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 10px 15px;
+  border-top: 1px solid var(--line);
+}
+
+.picker-foot .muted {
+  flex: 1;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
 }
 
 .link-item {

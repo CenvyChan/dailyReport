@@ -1,4 +1,4 @@
-"""钉钉企业内部应用客户端（旧版服务端 API）：access_token 缓存 + 审批实例列表/详情。
+"""钉钉企业内部应用客户端：旧版 oapi（审批实例）+ 新版开放平台（群消息）。
 
 requests 惰性导入，未安装时给出清晰错误，也便于测试桩替换本客户端方法。
 """
@@ -9,6 +9,8 @@ import time
 logger = logging.getLogger("integrations")
 
 BASE = "https://oapi.dingtalk.com"
+# 新版开放平台 API：token 走请求头而不是 query 参数，路径带 /v1.0 前缀
+NEW_API_BASE = "https://api.dingtalk.com"
 
 
 class DingtalkError(RuntimeError):
@@ -79,3 +81,29 @@ class DingtalkClient:
         if data.get("errcode") != 0:
             raise DingtalkError(f"拉取审批实例详情失败（{process_instance_id}）：{data}")
         return data.get("process_instance", {}) or {}
+
+    def post(self, path, payload):
+        """调用新版开放平台 API（api.dingtalk.com），path 形如 /v1.0/robot/groupMessages/send。
+
+        新版接口 access_token 放请求头 x-acs-dingtalk-access-token；
+        返回体 errcode 缺省为 0 表示成功，非 0 抛 DingtalkError。
+        """
+        resp = _requests().post(
+            f"{NEW_API_BASE}{path}",
+            headers={"x-acs-dingtalk-access-token": self.token()},
+            json=payload,
+            timeout=20,
+        )
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise DingtalkError(f"钉钉接口 {path} 返回非 JSON（HTTP {resp.status_code}）：{resp.text[:200]}") from exc
+        if data.get("errcode", 0) != 0:
+            raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
+        return data
+
+
+def build_client(app):
+    """按 DingtalkApp 构造客户端。"""
+
+    return DingtalkClient(app)

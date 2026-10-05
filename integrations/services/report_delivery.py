@@ -7,6 +7,7 @@
 - 失败重试和渠道隔离
 """
 
+import json
 import logging
 from datetime import timedelta
 from typing import Optional
@@ -344,17 +345,25 @@ def _send_to_dingtalk_channels(
             # 构建精简摘要
             markdown_text = _build_dingtalk_markdown(snapshot)
 
-            # 发送群消息（使用应用机器人接口）
+            # 应用机器人群消息接口（新版开放平台）：
+            # msgKey 固定 sampleMarkdown；msgParam 是 JSON 字符串，机器人 capabilities
+            # 里 markdown 消息的 title 进群消息卡片标题，text 是正文；
+            # robotCode 对企业内部应用而言就是应用的 AppKey。
             response = client.post(
-                "/robot/oToMessage/batchSend",
+                "/v1.0/robot/groupMessages/send",
                 {
-                    "robotCode": group_config.app.agent_id,  # 机器人标识
-                    "msgParam": {"msgtype": "markdown", "markdown": {"text": markdown_text}},
+                    "robotCode": group_config.app.app_key,
                     "openConversationId": group_config.open_conversation_id,
+                    "msgKey": "sampleMarkdown",
+                    "msgParam": json.dumps(
+                        {"title": f"{snapshot.company.name} 经营日报 {snapshot.report_date}", "text": markdown_text},
+                        ensure_ascii=False,
+                    ),
                 },
             )
 
-            if response.get("errcode") == 0:
+            # 新版接口成功时 errcode 缺省为 0（客户端 post 已校验非 0 抛错），此处兜底
+            if response.get("errcode", 0) == 0:
                 delivery.status = ReportDelivery.Status.SENT
                 delivery.attempt_count += 1
                 delivery.sent_at = timezone.now()
