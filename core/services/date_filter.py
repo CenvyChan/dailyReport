@@ -52,7 +52,8 @@ def resolve(request, *, today=None):
     返回 dict，键：
       start / end   date 或 None，供 queryset 过滤
       preset        当前生效的预设名，供按钮高亮；手填日期时为 None
-      prev_* / next_*  前后一天/一段的日期，供翻页按钮直接写进日期框
+      span / can_step  当前区间长度、是否可翻页，供翻页按钮显示与启用
+      step_label    翻页跨度的人话（"一天"/"7 天"），显示在按钮 title 上
       label         人话描述当前口径，显示在筛选栏上
     """
     today = today or timezone.localdate()
@@ -98,9 +99,10 @@ def resolve(request, *, today=None):
 def _resolved(start, end, preset, request, today):
     """组装返回值。
 
-    翻页步长跟随当前区间长度：看单日就翻一天，看一段就整段前后移。
-    直接给出目标日期让按钮写进日期框，不再拼 URL——模板里 Django 会把 & 转义成
-    &amp;，参数名会变成 amp;end，等于 end 根本没传出去（真出过这个 bug）。
+    翻页由服务端按当前区间长度整段前后移（见 resolve() 的 step 处理）：模板把
+    当前 start/end 连同 step=prev/next 提交上来即可，服务端据现值算出目标区间。
+    不在前端预算目标日期、也不拼 URL——曾因 Django 把 & 转义成 &amp;，参数名变成
+    amp;end 让结束日期丢失（真出过这个 bug）。
     """
     span = (end - start).days + 1 if (start and end) else None
     return {
@@ -110,10 +112,6 @@ def _resolved(start, end, preset, request, today):
         "is_single_day": bool(span == 1),
         "span": span,
         "can_step": bool(span),
-        "prev_start": (start - timedelta(days=span)) if span else None,
-        "prev_end": (end - timedelta(days=span)) if span else None,
-        "next_start": (start + timedelta(days=span)) if span else None,
-        "next_end": (end + timedelta(days=span)) if span else None,
         "step_label": _step_label(span),
         "label": _label(start, end, today),
     }

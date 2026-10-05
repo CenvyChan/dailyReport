@@ -16,8 +16,17 @@ class KingdeeError(RuntimeError):
     pass
 
 
+LOGIN_SERVICE = "Kingdee.BOS.WebApi.ServicesStub.AuthService.LoginByAppSecret"
+
+
 def build_sdk(account):
-    """按账套凭证构造并初始化金蝶 SDK。app_secret 以密文入库，此处运行时解密。"""
+    """按账套凭证构造并初始化金蝶 SDK，登录建会话后返回。
+
+    SDK 8.2.0 的 ExecuteBillQuery 依赖已建立的会话（KDService_SessionId），
+    自身不会先登录；未登录直接查询会得到「会话信息已丢失」的错误信封。
+    因此这里显式调 LoginByAppSecret，失败立即抛错，避免失败同步被当成
+    空数据静默成功。
+    """
     try:
         from k3cloud_webapi_sdk.main import K3CloudApiSdk
     except ImportError as exc:  # pragma: no cover - 依赖未装时
@@ -34,6 +43,23 @@ def build_sdk(account):
         lcid=account.lcid or 2052,
         org_num=0,
     )
+
+    login = json.loads(
+        sdk.PostJson(
+            LOGIN_SERVICE,
+            {
+                "acctID": account.acct_id,
+                "userName": account.username,
+                "appId": account.app_id,
+                "appSecret": decrypt(account.app_secret),
+                "lcid": account.lcid or 2052,
+            },
+        )
+    )
+    if login.get("LoginResultType") != 1:
+        raise KingdeeError(
+            f"金蝶登录失败（{account.name}）：{login.get('Message') or login}"
+        )
     return sdk
 
 
@@ -45,6 +71,18 @@ def _unwrap(raw, form_id, filter_string):
         except (ValueError, TypeError) as exc:
             raise KingdeeError(f"金蝶查询 {form_id} 返回无法解析：{raw!r}") from exc
     if isinstance(data, list):
+        # 错误响应与正常二维数组同形：[[{"Result": {"ResponseStatus": {...}}}] ]，
+        # 必须先识别错误信封再当数据用，否则失败同步会被静默当成空数据。
+        first = data[0] if data else None
+        if isinstance(first, list) and first and isinstance(first[0], dict):
+            status = (first[0].get("Result") or {}).get("ResponseStatus") or {}
+            if status.get("IsSuccess") is False:
+                errors = "; ".join(
+                    e.get("Message", "") for e in status.get("Errors") or [] if isinstance(e, dict)
+                )
+                raise KingdeeError(
+                    f"金蝶查询 {form_id} 失败（filter={filter_string}）：{errors or status}"
+                )
         # 成功返回二维数组；空结果为 []。
         return data
     raise KingdeeError(f"金蝶查询 {form_id} 失败（filter={filter_string}）：{data}")

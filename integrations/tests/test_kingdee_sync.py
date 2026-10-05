@@ -101,12 +101,14 @@ class KingdeeSyncTests(TestCase):
         self.assertIn("FDocumentStatus = 'C'", filter_string)
         self.assertIn("FStockOrgId.FNumber = 'ORG01'", filter_string)
 
-    def test_party_auto_match_links_customer(self):
+    def test_party_single_candidate_no_autolink(self):
         customer = Customer.objects.create(company=self.company, name="华为")
         self._run([self._line("1", "E1", party_number="C001", party_name="华为技术有限公司")])
         mapping = KingdeePartyMapping.objects.get(company=self.company, k3_number="C001")
-        self.assertEqual(mapping.match_status, "AUTO")
-        self.assertEqual(mapping.customer_id, customer.id)
+        # 模糊匹配只给候选建议，不再自动挂接：即便唯一强命中也落 PENDING、customer 留空。
+        self.assertEqual(mapping.match_status, "PENDING")
+        self.assertIsNone(mapping.customer_id)
+        self.assertTrue(any(c["id"] == customer.id for c in mapping.candidates))
         self.assertEqual(StockTransaction.objects.get(fid="1").party_id, mapping.id)
 
     def test_party_multiple_candidates_pending(self):

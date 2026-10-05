@@ -1,21 +1,25 @@
 """日报关联视图：为销售/采购日报提供金蝶明细检索、选单、分摊接口。
 
 接口规范：
-- POST /integrations/search-kingdee-lines/: 检索金蝶明细
+- GET/POST /integrations/search-kingdee-lines/: 检索金蝶明细
+  （前端表单用 GET 查询串；也兼容 POST JSON body）
 - POST /integrations/suggest-historical-matches/: 历史候选确认
-- POST /sales/shipments/{id}/save-with-links/: 保存销售日报与关联
-- POST /purchase/receipts/{id}/save-with-links/: 保存采购日报与关联
+- GET /integrations/daily-links/{report_type}/{report_id}/: 读取日报已关联明细
 - DELETE /integrations/daily-links/{report_type}/{report_id}/: 解除关联
+- 日报与关联的保存由日报表单提交（隐藏字段 kingdee_links）完成，无独立接口
 """
 
+import json
 import logging
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from core.services.permissions import can_access_company
+from core.services.permissions import can_access_purchase, can_access_sales, is_read_only
+from integrations.models import DailyReportKingdeeLink
 from integrations.services.daily_link import (
     remove_links,
     save_daily_with_links,
@@ -28,12 +32,39 @@ from sales.models import SalesShipment
 logger = logging.getLogger("integrations")
 
 
-@login_required
-@require_http_methods(["POST"])
-def search_kingdee_lines_view(request):
-    """检索金蝶明细行接口。
+def _company_access_denied(user, company, business_type):
+    """按业务类型校验用户对公司的访问权限，越权时返回 403 响应，通过返回 None。"""
+    allowed = (
+        can_access_sales(user, company)
+        if business_type == "SALES_OUT"
+        else can_access_purchase(user, company)
+    )
+    if not allowed:
+        return JsonResponse({"ok": False, "error": "无权访问该公司数据"}, status=403)
+    return None
 
-    Request body:
+
+def _as_bool(value) -> bool:
+    """查询参数布尔值兼容：GET 传字符串，JSON 传真布尔，缺省开启。"""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return True
+    return str(value).strip().lower() not in ("false", "0")
+
+
+def _as_int(value, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+@login_required
+def search_kingdee_lines_view(request):
+    """检索金蝶明细行接口（前端 fetch 为 GET 查询串，也兼容 POST JSON body）。
+
+    Request body / query:
         {
             "company_id": int,
             "business_type": "SALES_OUT" | "PURCHASE_IN",
@@ -72,9 +103,16 @@ def search_kingdee_lines_view(request):
     """
     try:
         from core.models import Company
-        import json
 
-        data = json.loads(request.body)
+        # 前端表单用 GET 查询串发起搜索；文档约定的 POST JSON body 也兼容
+        if request.method == "POST":
+            try:
+                data = json.loads(request.body or "{}")
+            except json.JSONDecodeError:
+                return JsonResponse({"ok": False, "error": "请求体不是合法 JSON"}, status=400)
+        else:
+            data = request.GET.dict()
+
         company_id = data.get("company_id")
         business_type = data.get("business_type")
 
@@ -83,20 +121,28 @@ def search_kingdee_lines_view(request):
 
         company = Company.objects.get(id=company_id)
 
-        if not can_access_company(request.user, company):
-            return JsonResponse({"ok": False, "error": "无权访问该公司数据"}, status=403)
+        denied = _company_access_denied(request.user, company, business_type)
+        if denied:
+            return denied
 
         lines = search_kingdee_lines(
             company=company,
             business_type=business_type,
+            query=data.get("query", ""),
             bill_no=data.get("bill_no", ""),
             party_name=data.get("party_name", ""),
             date_from=data.get("date_from", ""),
             date_to=data.get("date_to", ""),
             material_name=data.get("material_name", ""),
-            only_recent=data.get("only_recent", True),
-            limit=data.get("limit", 100),
+            only_recent=_as_bool(data.get("only_recent")),
+            limit=_as_int(data.get("limit"), 100),
         )
+
+        # 补充前端使用的字段别名（shipment_form/receipt_form 读取 party_name/allocated/remaining）
+        for line in lines:
+            line["party_name"] = line.get("system_party_name") or line.get("k3_party_name") or ""
+            line["allocated"] = line.get("allocated_amount", 0)
+            line["remaining"] = line.get("remaining_amount", 0)
 
         return JsonResponse({"ok": True, "lines": lines})
 
@@ -146,8 +192,9 @@ def suggest_historical_matches_view(request):
 
         company = Company.objects.get(id=company_id)
 
-        if not can_access_company(request.user, company):
-            return JsonResponse({"ok": False, "error": "无权访问该公司数据"}, status=403)
+        denied = _company_access_denied(request.user, company, business_type)
+        if denied:
+            return denied
 
         candidates = suggest_historical_matches(
             company=company,
@@ -166,6 +213,76 @@ def suggest_historical_matches_view(request):
         return JsonResponse({"ok": False, "error": "公司不存在"}, status=404)
     except Exception as e:
         logger.exception("历史匹配失败")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+def daily_links_view(request, report_type, report_id):
+    """日报关联明细集合接口：GET 读取已关联明细，DELETE 解除关联。"""
+    if request.method == "DELETE":
+        return remove_daily_links_view(request, report_type, report_id)
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "不支持的请求方法"}, status=405)
+    return _list_daily_links(request, report_type, report_id)
+
+
+def _list_daily_links(request, report_type, report_id):
+    """返回某张日报已关联的金蝶明细及分摊情况（前端 loadExistingLinks 使用）。"""
+    try:
+        rt = "SALES" if report_type.lower() == "sales" else "PURCHASE"
+        if rt == "SALES":
+            daily_report = SalesShipment.objects.get(id=report_id)
+        else:
+            daily_report = PurchaseReceipt.objects.get(id=report_id)
+
+        biz_type = "SALES_OUT" if rt == "SALES" else "PURCHASE_IN"
+        denied = _company_access_denied(request.user, daily_report.company, biz_type)
+        if denied:
+            return denied
+
+        links = DailyReportKingdeeLink.objects.filter(report_type=rt).select_related(
+            "transaction_line__transaction__party"
+        )
+        links = (
+            links.filter(sales_shipment=daily_report)
+            if rt == "SALES"
+            else links.filter(purchase_receipt=daily_report)
+        )
+
+        out = []
+        for lk in links:
+            line = lk.transaction_line
+            txn = line.transaction
+            total_allocated = (
+                DailyReportKingdeeLink.objects.filter(transaction_line=line)
+                .aggregate(total=Sum("allocated_amount"))["total"]
+                or Decimal("0")
+            )
+            system_name = None
+            if txn.party:
+                party = txn.party.customer if rt == "SALES" else txn.party.supplier
+                system_name = party.name if party else None
+            out.append({
+                "id": lk.id,
+                "line_id": line.id,
+                "bill_no": txn.bill_no,
+                "biz_date": txn.biz_date.isoformat(),
+                "party_name": system_name or txn.k3_party_name,
+                "material_name": line.material_name,
+                "quantity": float(line.quantity),
+                "unit": line.unit,
+                "amount": float(line.amount),
+                "total_allocated": float(total_allocated),
+                "allocated_amount": float(lk.allocated_amount),
+                "remaining": float(line.amount - total_allocated),
+            })
+
+        return JsonResponse({"ok": True, "links": out})
+
+    except (SalesShipment.DoesNotExist, PurchaseReceipt.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "日报不存在"}, status=404)
+    except Exception as e:
+        logger.exception("读取日报关联失败")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 
@@ -195,8 +312,14 @@ def remove_daily_links_view(request, report_type, report_id):
         else:
             daily_report = PurchaseReceipt.objects.get(id=report_id)
 
-        if not can_access_company(request.user, daily_report.company):
-            return JsonResponse({"ok": False, "error": "无权访问该公司数据"}, status=403)
+        # 只读角色不能变更关联（实施计划阶段 2 的权限边界）
+        if is_read_only(request.user):
+            return JsonResponse({"ok": False, "error": "只读角色不能变更关联"}, status=403)
+
+        biz_type = "SALES_OUT" if report_type_upper == "SALES" else "PURCHASE_IN"
+        denied = _company_access_denied(request.user, daily_report.company, biz_type)
+        if denied:
+            return denied
 
         line_ids_str = request.GET.get("line_ids", "")
         line_ids = [int(x.strip()) for x in line_ids_str.split(",") if x.strip()] if line_ids_str else None

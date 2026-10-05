@@ -95,19 +95,27 @@ class SteppingTests(SimpleTestCase):
         return date_filter.resolve(self.request_factory.get("/", params), today=TODAY)
 
     def test_a_single_day_steps_by_one_day(self):
-        resolved = self._resolve({"start": "2026-08-20", "end": "2026-08-20"})
-
-        self.assertEqual(resolved["span"], 1)
-        self.assertEqual(resolved["prev_start"], date(2026, 8, 19))
-        self.assertEqual(resolved["next_start"], date(2026, 8, 21))
+        base = {"start": "2026-08-20", "end": "2026-08-20"}
+        self.assertEqual(self._resolve(base)["span"], 1)
+        prev = self._resolve({**base, "step": "prev"})
+        self.assertEqual((prev["start"], prev["end"]), (date(2026, 8, 19), date(2026, 8, 19)))
+        nxt = self._resolve({**base, "step": "next"})
+        self.assertEqual((nxt["start"], nxt["end"]), (date(2026, 8, 21), date(2026, 8, 21)))
 
     def test_a_week_steps_by_seven_days(self):
-        resolved = self._resolve({"start": "2026-08-17", "end": "2026-08-23"})
+        base = {"start": "2026-08-17", "end": "2026-08-23"}
+        self.assertEqual(self._resolve(base)["span"], 7)
+        prev = self._resolve({**base, "step": "prev"})
+        self.assertEqual((prev["start"], prev["end"]), (date(2026, 8, 10), date(2026, 8, 16)))
+        nxt = self._resolve({**base, "step": "next"})
+        self.assertEqual((nxt["start"], nxt["end"]), (date(2026, 8, 24), date(2026, 8, 30)))
 
-        self.assertEqual(resolved["span"], 7)
-        self.assertEqual(resolved["prev_start"], date(2026, 8, 10))
-        self.assertEqual(resolved["prev_end"], date(2026, 8, 16))
-        self.assertEqual(resolved["next_start"], date(2026, 8, 24))
+    def test_stepping_is_computed_from_the_current_range_not_doubled(self):
+        """点一次「往前」只移一段。位移只由服务端按当前 start/end 算一次——
+        曾因前端把已位移的目标写回日期框、服务端又移一次，导致翻一次跳两段。"""
+        base = {"start": "2026-08-17", "end": "2026-08-23"}  # span=7
+        prev = self._resolve({**base, "step": "prev"})
+        self.assertEqual(prev["start"], date(2026, 8, 10))  # 只 -7 天，不是 -14
 
     def test_stepping_back_is_applied_server_side(self):
         """服务端处理 step 参数，禁用 JS 也能翻页。"""
@@ -132,7 +140,7 @@ class SteppingTests(SimpleTestCase):
         resolved = self._resolve({"preset": "all"})
 
         self.assertFalse(resolved["can_step"])
-        self.assertIsNone(resolved["prev_start"])
+        self.assertIsNone(resolved["span"])
 
     def test_the_step_label_tells_the_user_how_far(self):
         self.assertEqual(self._resolve({"start": "2026-08-20", "end": "2026-08-20"})["step_label"], "一天")
@@ -218,6 +226,14 @@ class ShipmentListDateFilterTests(TestCase):
 
         self.assertContains(response, 'name="step" value="prev"')
         self.assertContains(response, 'name="step" value="next"')
+
+    def test_the_stepping_buttons_carry_no_precomputed_dates(self):
+        """翻页位移由服务端按当前区间算一次。按钮若预置目标日期（data-start/-end），
+        前端把它写回日期框、服务端再移一次，就会点一次跳两段——守住不再回退。"""
+        response = self.client.get(reverse("sales:shipment_list"))
+
+        self.assertNotContains(response, "data-start")
+        self.assertNotContains(response, "data-end")
 
     def test_stepping_back_a_month_finds_the_older_record(self):
         """核心回归：翻页必须同时改写开始和结束日期。此前 &amp; 转义让 end

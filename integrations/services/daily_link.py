@@ -31,6 +31,7 @@ def search_kingdee_lines(
     company: Company,
     business_type: str,
     *,
+    query: str = "",
     bill_no: str = "",
     party_name: str = "",
     date_from: str = "",
@@ -44,6 +45,7 @@ def search_kingdee_lines(
     Args:
         company: 公司对象
         business_type: 业务类型（SALES_OUT/PURCHASE_IN）
+        query: 综合搜索词（单号/客商/物料任一命中即可）
         bill_no: 单据编号（模糊匹配）
         party_name: 客商名称（模糊匹配）
         date_from: 起始日期 YYYY-MM-DD
@@ -90,6 +92,14 @@ def search_kingdee_lines(
         qs = qs.filter(transaction__biz_date__lte=date_to)
     if material_name:
         qs = qs.filter(material_name__icontains=material_name)
+
+    if query:
+        qs = qs.filter(
+            Q(transaction__bill_no__icontains=query)
+            | Q(transaction__k3_party_name__icontains=query)
+            | Q(transaction__party__k3_name__icontains=query)
+            | Q(material_name__icontains=query)
+        )
 
     if only_recent and not date_from:
         recent = date.today() - timedelta(days=30)

@@ -3,7 +3,7 @@
 <div class="page-head">
   <div>
     <h1>金蝶客商映射</h1>
-    <p class="sub">系统客户/供应商多为简称，自动模糊匹配命中多个时在此人工选定 · 共 {{ page.paginator.count }} 条</p>
+    <p class="sub">模糊匹配仅提供候选建议，需在此逐条人工确认；一个系统客商可挂接多个金蝶编码 · 共 {{ page.paginator.count }} 条</p>
   </div>
 </div>
 
@@ -30,15 +30,15 @@
       <span class="sub">编码 {{ m.k3_number }} · {{ m.get_match_status_display }} · 当前挂接：{{ m.customer|default:m.supplier|default:"无" }}</span>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
-      {% for c in m.candidates %}
-      <label style="display:inline-flex;gap:4px;align-items:center">
-        <input type="radio" name="choice" value="{{ c.id }}" {% if m.customer_id == c.id or m.supplier_id == c.id %}checked{% endif %}>
+      {% for c in m.view_candidates %}
+      <label style="display:inline-flex;gap:4px;align-items:center{% if not c.owned %};opacity:.5{% endif %}">
+        <input type="radio" name="choice" value="{{ c.id }}"{% if not c.owned %} disabled title="非你负责的客商"{% endif %} {% if m.customer_id == c.id or m.supplier_id == c.id %}checked{% endif %}>
         {{ c.name }} <span class="sub">({{ c.score }})</span>
       </label>
       {% empty %}
       <span class="sub">无候选（可到「集成配置」后台手工挂接）</span>
       {% endfor %}
-      <label style="display:inline-flex;gap:4px;align-items:center"><input type="radio" name="choice" value="">清除挂接</label>
+      {% if is_admin %}<label style="display:inline-flex;gap:4px;align-items:center"><input type="radio" name="choice" value="">清除挂接</label>{% endif %}
       <button type="submit"><i data-lucide="check"></i>保存</button>
     </div>
   </form>

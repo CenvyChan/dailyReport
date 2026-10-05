@@ -1,9 +1,11 @@
 {% comment %}
 日报列表的日期筛选栏。销售/采购共用。
 
-翻页按钮直接改写开始/结束日期框再提交——按钮和日期框是同一套值，用户看得见
-自己在哪个区间，也能接着手改。此前是拼 URL 跳转，Django 把 & 转义成 &amp;
-导致参数名变成 amp;end，结束日期根本没传出去。
+翻页按钮 (‹ ›) 只提交 step=prev/next，连同日期框里的当前值一起交给服务端，
+由服务端按当前区间长度整段前后移（见 core.services.date_filter.resolve）。
+不在前端预算目标日期：既避免"前端已位移 + 服务端再位移"叠成双倍翻页，也让禁用
+JS 时照常能翻。此前拼 URL 跳转时 Django 把 & 转义成 &amp;，参数名变成 amp;end，
+结束日期传不出去。
 
 用法：{% include "includes/date_filter.html" with search_placeholder="客户或负责人" %}
 {% endcomment %}
@@ -11,10 +13,9 @@
   {% comment %} 日期区间、翻页和快捷按钮同一行：它们都是「限定时间范围」这一件事 {% endcomment %}
   <div class="df-line">
     {% if dates.can_step %}
-    {% comment %} 用 button 的 name/value 把目标区间提交上去（step 参数），服务端
-       据此改写日期，所以禁用 JS 也能翻页；JS 只是顺手刷新日期框。 {% endcomment %}
+    {% comment %} 翻页按钮只提交 step=prev/next，连同日期框里的当前 start/end 一起交给
+       服务端，按现值整段前后移。不预置目标日期，禁用 JS 也能翻页。 {% endcomment %}
     <button type="submit" class="step" name="step" value="prev"
-            data-start="{{ dates.prev_start|date:'Y-m-d' }}" data-end="{{ dates.prev_end|date:'Y-m-d' }}"
             title="往前{{ dates.step_label }}" aria-label="往前{{ dates.step_label }}">‹</button>
     {% endif %}
 
@@ -24,7 +25,6 @@
 
     {% if dates.can_step %}
     <button type="submit" class="step" name="step" value="next"
-            data-start="{{ dates.next_start|date:'Y-m-d' }}" data-end="{{ dates.next_end|date:'Y-m-d' }}"
             title="往后{{ dates.step_label }}" aria-label="往后{{ dates.step_label }}">›</button>
     {% endif %}
 
@@ -87,13 +87,9 @@
   const start = document.getElementById("df-start");
   const end = document.getElementById("df-end");
 
-  // 翻页：把目标区间写进日期框再提交。这样地址栏、日期框、列表三者始终一致。
-  form.querySelectorAll("button.step").forEach((button) => {
-    button.addEventListener("click", () => {
-      start.value = button.dataset.start;
-      end.value = button.dataset.end;
-    });
-  });
+  // 翻页按钮 (button.step) 故意不动日期框：它只提交 step 和当前 start/end，
+  // 位移交给服务端算。若在这里把日期框改成目标区间，会和服务端的位移叠加成
+  // 双倍翻页（点一次「往前」跳两段）。
 
   // 预设和「搜索全部时间」都要清空日期框，否则 resolve() 里的「显式日期优先」
   // 会让预填的日期把它们顶掉——按钮看起来点了没反应。
