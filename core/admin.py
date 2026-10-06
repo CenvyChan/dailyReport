@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from django.contrib import admin
@@ -92,7 +92,7 @@ def action_label(action):
 def _json_value(value):
     if isinstance(value, Model):
         return value.pk
-    if isinstance(value, (date, datetime)):
+    if isinstance(value, (date, datetime, time)):
         return value.isoformat()
     if isinstance(value, Decimal):
         return str(value)
