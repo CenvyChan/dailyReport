@@ -9,11 +9,13 @@ from .crypto import encrypt
 from .models import (
     DingtalkApp,
     DingtalkApprovalInstance,
+    DingtalkGroupConfig,
     DingtalkProcessConfig,
     KingdeeAccount,
     KingdeeFormConfig,
     KingdeeOrgBinding,
     KingdeePartyMapping,
+    ReportDelivery,
     StockTransaction,
     StockTransactionLine,
     SyncRun,
@@ -139,6 +141,35 @@ class DingtalkAppAdmin(SecretMaskingAdmin):
         "app_key": "钉钉企业内部应用 AppKey。",
         "app_secret": "钉钉企业内部应用 AppSecret，仅本表保存。",
     }
+
+
+class DingtalkGroupConfigForm(forms.ModelForm):
+    class Meta:
+        model = DingtalkGroupConfig
+        fields = "__all__"
+
+    def clean(self):
+        data = super().clean()
+        company, app = data.get("company"), data.get("app")
+        if company and app and app.company_id != company.pk:
+            raise forms.ValidationError("钉钉应用所属公司必须与群配置公司一致。")
+        return data
+
+
+@admin.register(DingtalkGroupConfig)
+class DingtalkGroupConfigAdmin(AuditedAdmin):
+    form = DingtalkGroupConfigForm
+    list_display = ("company", "name", "app", "scope", "send_at", "is_active")
+    list_filter = ("company", "scope", "is_active")
+    search_fields = ("name", "open_conversation_id")
+
+
+@admin.register(ReportDelivery)
+class ReportDeliveryAdmin(ReadOnlyAdmin):
+    list_display = ("snapshot", "channel", "target_display", "status", "attempt_count", "sent_at")
+    list_filter = ("channel", "status")
+    search_fields = ("target_display", "target_identifier", "last_error")
+    readonly_fields = [f.name for f in ReportDelivery._meta.fields]
 
 
 @admin.register(DingtalkProcessConfig)
