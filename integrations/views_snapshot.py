@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 
-from core.services.permissions import can_access_company
+from core.services.permissions import can_view_comparison
 from integrations.models import ReportSnapshot
 from integrations.services.snapshot_export import export_snapshot_to_excel
 
@@ -18,7 +18,7 @@ def snapshot_view(request, snapshot_id):
     """查看报表快照。"""
     snapshot = get_object_or_404(ReportSnapshot, pk=snapshot_id)
 
-    if not can_access_company(request.user, snapshot.company):
+    if not can_view_comparison(request.user, snapshot.company):
         from core.responses import forbidden_page
         return forbidden_page(request, "无权访问该公司的报表")
 

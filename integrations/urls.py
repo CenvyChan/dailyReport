@@ -1,6 +1,7 @@
 from django.urls import path
 
 from integrations import views, views_links
+from integrations.views_snapshot import snapshot_view
 
 app_name = "integrations"
 
@@ -14,4 +15,5 @@ urlpatterns = [
     path("search-kingdee-lines/", views_links.search_kingdee_lines_view, name="search_kingdee_lines"),
     path("suggest-historical-matches/", views_links.suggest_historical_matches_view, name="suggest_historical_matches"),
     path("daily-links/<str:report_type>/<int:report_id>/", views_links.daily_links_view, name="daily_links"),
+    path("snapshots/<int:snapshot_id>/", snapshot_view, name="snapshot_view"),
 ]
