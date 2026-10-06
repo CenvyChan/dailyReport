@@ -15,6 +15,7 @@
 """
 
 import logging
+from datetime import timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -31,6 +32,38 @@ from purchase.models import PurchaseReceipt
 from sales.models import SalesShipment
 
 logger = logging.getLogger("integrations")
+
+
+def _daily_amount_trend(company, date_from, date_to, business_type):
+    """返回日报手填金额的逐日趋势，供快照图表使用。"""
+    if business_type == "SALES":
+        model = SalesShipment
+        date_field = "shipment_date"
+    else:
+        model = PurchaseReceipt
+        date_field = "purchase_date"
+
+    grouped = dict(
+        model.objects.filter(
+            company=company,
+            **{f"{date_field}__gte": date_from, f"{date_field}__lte": date_to},
+        )
+        .values(date_field)
+        .annotate(total=Sum("amount_cny"))
+        .values_list(date_field, "total")
+    )
+    days = (date_to - date_from).days + 1
+    values = [
+        (date_from + timedelta(days=index), grouped.get(date_from + timedelta(days=index), Decimal("0")))
+        for index in range(days)
+    ]
+    max_value = max((abs(value) for _, value in values), default=Decimal("0"))
+    points = []
+    for index, (day, value) in enumerate(values):
+        x = 35 if days == 1 else 35 + (645 * index / (days - 1))
+        y = 112 if max_value == 0 else 112 - (float(abs(value) / max_value) * 82)
+        points.append({"date": day.isoformat(), "value": float(value), "x": round(x, 1), "y": round(y, 1)})
+    return {"points": points, "max_value": float(max_value)}
 
 
 def calculate_daily_coverage(
@@ -333,8 +366,6 @@ def generate_reconciliation_report(
     Returns:
         完整报表数据字典，包含三个维度的对账结果
     """
-    from datetime import timedelta
-
     result = {
         "company": company.name,
         "report_date": report_date.isoformat(),
@@ -353,6 +384,7 @@ def generate_reconciliation_report(
     if scope in ("BOTH", "SALES"):
         result["sales"] = {
             "daily_coverage": calculate_daily_coverage(company, report_date, "SALES"),
+            "daily_trend": _daily_amount_trend(company, month_start, month_end, "SALES"),
             "month_diff": calculate_period_diff(company, month_start, month_end, "SALES"),
             "year_diff": calculate_period_diff(company, year_start, year_end, "SALES"),
             "k3_allocation": calculate_k3_allocation_status(
@@ -363,11 +395,25 @@ def generate_reconciliation_report(
     if scope in ("BOTH", "PURCHASE"):
         result["purchase"] = {
             "daily_coverage": calculate_daily_coverage(company, report_date, "PURCHASE"),
+            "daily_trend": _daily_amount_trend(company, month_start, month_end, "PURCHASE"),
             "month_diff": calculate_period_diff(company, month_start, month_end, "PURCHASE"),
             "year_diff": calculate_period_diff(company, year_start, year_end, "PURCHASE"),
             "k3_allocation": calculate_k3_allocation_status(
                 company, month_start, month_end, BusinessType.PURCHASE_IN
             ),
         }
+
+    daily_amounts = [
+        result[key]["daily_coverage"]["total_amount"]
+        for key in ("sales", "purchase")
+        if key in result
+    ]
+    max_daily_amount = max(daily_amounts, default=0) or 1
+    for key in ("sales", "purchase"):
+        if key in result:
+            result[key]["daily_chart_ratio"] = round(
+                result[key]["daily_coverage"]["total_amount"] / max_daily_amount * 100,
+                2,
+            )
 
     return result
