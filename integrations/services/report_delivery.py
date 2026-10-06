@@ -51,20 +51,18 @@ def generate_report_snapshot(
     Raises:
         已存在且不强制重新生成时返回现有快照
     """
-    # 检查是否已存在
-    if not force_regenerate:
-        existing = ReportSnapshot.objects.filter(
-            company=company,
-            report_date=report_date,
-            scope=scope,
-        ).first()
+    existing = ReportSnapshot.objects.filter(
+        company=company,
+        report_date=report_date,
+        scope=scope,
+    ).first()
 
-        if existing:
-            logger.info(
-                "报表快照已存在：company=%s, date=%s, scope=%s",
-                company, report_date, scope
-            )
-            return existing
+    if existing and not force_regenerate:
+        logger.info(
+            "报表快照已存在：company=%s, date=%s, scope=%s",
+            company, report_date, scope
+        )
+        return existing
 
     # 生成对账数据
     logger.info(
@@ -132,18 +130,32 @@ def generate_report_snapshot(
         "corrections": corrections_data,
     }
 
-    # 创建快照
+    # 首次生成创建记录；强制重生成原地更新，保留快照 ID 和渠道发送记录，
+    # 避免唯一约束冲突，也避免删除快照触发 ReportDelivery.PROTECT。
     with transaction.atomic():
-        snapshot = ReportSnapshot.objects.create(
-            company=company,
-            report_date=report_date,
-            scope=scope,
-            data=snapshot_data,
-            sync_windows=sync_windows,
-            calculation_version="v1",
-            is_complete=is_complete,
-            sync_warnings=sync_warnings,
-        )
+        if existing:
+            snapshot = existing
+            snapshot.data = snapshot_data
+            snapshot.sync_windows = sync_windows
+            snapshot.calculation_version = "v1"
+            snapshot.is_complete = is_complete
+            snapshot.sync_warnings = sync_warnings
+            snapshot.generated_at = timezone.now()
+            snapshot.save(update_fields=[
+                "data", "sync_windows", "calculation_version", "is_complete",
+                "sync_warnings", "generated_at",
+            ])
+        else:
+            snapshot = ReportSnapshot.objects.create(
+                company=company,
+                report_date=report_date,
+                scope=scope,
+                data=snapshot_data,
+                sync_windows=sync_windows,
+                calculation_version="v1",
+                is_complete=is_complete,
+                sync_warnings=sync_warnings,
+            )
 
         # 标记更正已报告
         unreported_corrections.update(reported_in_snapshot=snapshot)
