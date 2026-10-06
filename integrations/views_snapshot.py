@@ -38,4 +38,8 @@ def snapshot_view(request, snapshot_id):
             from django.contrib import messages
             messages.error(request, f"导出失败：{e}")
 
-    return render(request, "integrations/report_snapshot.html", {"snapshot": snapshot})
+    return render(
+        request,
+        "integrations/report_snapshot.html",
+        {"snapshot": snapshot, "standalone": False},
+    )

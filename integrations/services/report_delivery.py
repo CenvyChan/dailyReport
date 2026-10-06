@@ -24,11 +24,14 @@ logger = logging.getLogger("integrations")
 MAX_RETRY_ATTEMPTS = 5
 
 
-def render_snapshot_html(snapshot: ReportSnapshot) -> str:
+def render_snapshot_html(snapshot: ReportSnapshot, *, standalone: bool = True) -> str:
     """渲染合并版 HTML 快照，邮件和钉钉文件消息共用同一份内容。"""
     from django.template.loader import render_to_string
 
-    return render_to_string("integrations/report_snapshot.html", {"snapshot": snapshot})
+    return render_to_string(
+        "integrations/report_snapshot.html",
+        {"snapshot": snapshot, "standalone": standalone},
+    )
 
 
 def generate_report_snapshot(
