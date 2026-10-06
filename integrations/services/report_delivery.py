@@ -24,6 +24,13 @@ logger = logging.getLogger("integrations")
 MAX_RETRY_ATTEMPTS = 5
 
 
+def render_snapshot_html(snapshot: ReportSnapshot) -> str:
+    """渲染合并版 HTML 快照，邮件和钉钉文件消息共用同一份内容。"""
+    from django.template.loader import render_to_string
+
+    return render_to_string("integrations/report_snapshot.html", {"snapshot": snapshot})
+
+
 def generate_report_snapshot(
     company: Company,
     report_date,
@@ -204,7 +211,7 @@ def _send_to_email_channels(
 
     # 准备邮件内容（对所有收件组共用）
     email_subject = f"{snapshot.company.name} {snapshot.report_date:%Y年%m月%d日} 经营日报"
-    email_html = render_to_string("integrations/report_snapshot.html", {"snapshot": snapshot})
+    email_html = render_snapshot_html(snapshot)
 
     # 准备 Excel 附件
     excel_bytes = None
@@ -345,10 +352,9 @@ def _send_to_dingtalk_channels(
             # 构建精简摘要
             markdown_text = _build_dingtalk_markdown(snapshot)
 
-            # 应用机器人群消息接口（新版开放平台）：
-            # msgKey 固定 sampleMarkdown；msgParam 是 JSON 字符串，机器人 capabilities
-            # 里 markdown 消息的 title 进群消息卡片标题，text 是正文；
-            # robotCode 对企业内部应用而言就是应用的 AppKey。
+            # 摘要先以 Markdown 发送，文件消息随后发送合并版 HTML。
+            # HTML 文件上传/发送失败时仍保留摘要发送结果，避免文件能力
+            # 未开通阻断日报正文。
             response = client.post(
                 "/v1.0/robot/groupMessages/send",
                 {
@@ -357,6 +363,27 @@ def _send_to_dingtalk_channels(
                     "msgKey": "sampleMarkdown",
                     "msgParam": json.dumps(
                         {"title": f"{snapshot.company.name} 经营日报 {snapshot.report_date}", "text": markdown_text},
+                        ensure_ascii=False,
+                    ),
+                },
+            )
+
+            html_bytes = render_snapshot_html(snapshot).encode("utf-8")
+            media_id = client.upload_media(
+                f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html",
+                html_bytes,
+            )
+            client.post(
+                "/v1.0/robot/groupMessages/send",
+                {
+                    "robotCode": group_config.app.app_key,
+                    "openConversationId": group_config.open_conversation_id,
+                    "msgKey": "sampleFile",
+                    "msgParam": json.dumps(
+                        {
+                            "mediaId": media_id,
+                            "fileName": f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html",
+                        },
                         ensure_ascii=False,
                     ),
                 },

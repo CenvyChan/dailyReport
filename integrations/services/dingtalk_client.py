@@ -102,6 +102,29 @@ class DingtalkClient:
             raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
         return data
 
+    def upload_media(self, filename, content, media_type="file"):
+        """上传机器人文件媒体，返回 media_id。
+
+        旧版媒体上传接口仍被新版机器人文件消息兼容使用；文件消息本身
+        仍通过 api.dingtalk.com/v1.0/robot/groupMessages/send 发送。
+        """
+        resp = _requests().post(
+            f"{BASE}/media/upload",
+            params={"access_token": self.token(), "type": media_type},
+            files={"media": (filename, content, "text/html; charset=utf-8")},
+            timeout=30,
+        )
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise DingtalkError(f"钉钉媒体上传返回非 JSON（HTTP {resp.status_code}）：{resp.text[:200]}") from exc
+        if resp.status_code >= 400 or data.get("errcode", 0) != 0:
+            raise DingtalkError(f"钉钉媒体上传失败：{data}")
+        media_id = data.get("media_id")
+        if not media_id:
+            raise DingtalkError(f"钉钉媒体上传未返回 media_id：{data}")
+        return media_id
+
 
 def build_client(app):
     """按 DingtalkApp 构造客户端。"""
