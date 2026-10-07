@@ -78,3 +78,11 @@ htmlcov/
 Thumbs.db
 .idea/
 .vscode/
+
+# Agent/MCP 运行产物与一次性快照，不入库
+.omo/
+.playwright-mcp/
+.claude/
+.codegraph/
+*.bak
+bi-snapshot-current.png
