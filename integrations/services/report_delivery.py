@@ -170,17 +170,34 @@ def generate_report_snapshot(
 def send_report_to_all_channels(
     snapshot: ReportSnapshot,
     send_now: bool = False,
+    force_resend: bool = False,
 ) -> list[tuple[str, str, str]]:
     """推送报表到所有渠道。
 
     Args:
         snapshot: 报表快照
         send_now: 立即发送，忽略收件组发送时间
+        force_resend: 重置该快照的发送记录后重投。
+            --force 原地更新快照时 ID 不变、ReportDelivery 仍是 SENT，
+            定时链路靠这条记录防重复刷屏；手动 force 重生成是明确的「按最新内容重发」
+            意图，故把已发送记录重置为 PENDING（attempt_count 归零），让渠道重新投递。
+            仅手动 force 时为 True，定时任务不传此参数，行为不变。
 
     Returns:
         list of (channel_name, status, message)
     """
     results = []
+
+    if force_resend:
+        reset_count = ReportDelivery.objects.filter(snapshot=snapshot).update(
+            status=ReportDelivery.Status.PENDING,
+            attempt_count=0,
+            last_error="",
+        )
+        if reset_count:
+            logger.info(
+                "强制重发：重置 %s 条发送记录 snapshot=%s", reset_count, snapshot.id
+            )
 
     # 推送到邮件
     email_results = _send_to_email_channels(snapshot, send_now)

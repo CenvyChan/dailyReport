@@ -79,6 +79,7 @@ class Command(BaseCommand):
                     results = send_report_to_all_channels(
                         snapshot=snapshot,
                         send_now=options["now"],
+                        force_resend=options["force"],
                     )
 
                     for channel, status, message in results:
