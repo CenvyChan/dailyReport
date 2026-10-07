@@ -332,13 +332,13 @@
   </div>
   <div class="ledger-wrap">
     <table class="ledger">
-      <thead><tr><th style="width:40px">#</th><th>客户名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <thead><tr><th style="width:40px">#</th><th>客户名称</th><th style="width:84px">提报人</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
       <tbody>
         {% for row in snapshot.data.sales.daily_coverage.details %}
-        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
+        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
         {% endfor %}
       </tbody>
-      <tfoot><tr><td colspan="3">合计</td><td class="num">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">合计</td><td class="num">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</td></tr></tfoot>
     </table>
   </div>
   <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 3 节 · 销售明细</span></div>
@@ -357,13 +357,13 @@
   </div>
   <div class="ledger-wrap">
     <table class="ledger">
-      <thead><tr><th style="width:40px">#</th><th>供应商名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <thead><tr><th style="width:40px">#</th><th>供应商名称</th><th style="width:84px">提报人</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
       <tbody>
         {% for row in snapshot.data.purchase.daily_coverage.details %}
-        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
+        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
         {% endfor %}
       </tbody>
-      <tfoot><tr><td colspan="3">合计</td><td class="num">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">合计</td><td class="num">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</td></tr></tfoot>
     </table>
   </div>
   <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 4 节 · 采购明细</span></div>

@@ -89,6 +89,7 @@ def calculate_daily_coverage(
                     "report_id": int,
                     "date": str,
                     "party_name": str,
+                    "reporter": str,
                     "amount": Decimal,
                     "allocated_amount": Decimal,
                     "coverage": float | None,
@@ -100,15 +101,20 @@ def calculate_daily_coverage(
         model = SalesShipment
         date_field = "shipment_date"
         party_field = "customer__name"
+        reporter_field = "owner"  # 销售业务员即提报人
     else:
         model = PurchaseReceipt
         date_field = "purchase_date"
         party_field = "supplier__name"
+        reporter_field = "buyer"  # 采购员即提报人
 
     reports = model.objects.filter(
         company=company,
         **{date_field: report_date}
-    ).select_related("customer" if business_type == "SALES" else "supplier")
+    ).select_related(
+        "customer" if business_type == "SALES" else "supplier",
+        reporter_field,
+    )
 
     total_amount = Decimal("0")
     covered_amount = Decimal("0")
@@ -139,10 +145,16 @@ def calculate_daily_coverage(
             coverage = float(capped_allocated / abs(amount) * 100)
 
         party = report.customer if business_type == "SALES" else report.supplier
+        reporter_user = getattr(report, reporter_field, None)
+        if reporter_user:
+            reporter_name = reporter_user.get_full_name() or reporter_user.get_username()
+        else:
+            reporter_name = ""
         details.append({
             "report_id": report.id,
             "date": getattr(report, date_field).isoformat(),
             "party_name": party.name if party else "",
+            "reporter": reporter_name,
             "amount": float(amount),
             "allocated_amount": float(allocated),
             "capped_allocated": float(capped_allocated),
