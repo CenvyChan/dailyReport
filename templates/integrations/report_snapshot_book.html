@@ -1,0 +1,411 @@
+{% load display %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{ snapshot.company.name }} 经营日报 {{ snapshot.report_date }}</title>
+<style>
+  /* ===== 书册式·现代极简白 (对齐 dailyreportAure modern 主题) ===== */
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --page-bg: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary: #94a3b8;
+    --accent: #2563eb;
+    --card-bg: #f8fafc;
+    --card-border: #e2e8f0;
+    --divider: #e2e8f0;
+    --head-bg: #f1f5f9;
+    --sales: #2563eb;
+    --purchase: #16a34a;
+    --emerald: #059669;
+    --amber: #d97706;
+    --rose: #e11d48;
+  }
+  html, body {
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    position: relative;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 16mm 15mm 14mm;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* 字体与通用 */
+  .mono { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+  .serif { font-family: Georgia, "Noto Serif CJK SC", "Source Han Serif SC", serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ===== 分节页眉 ===== */
+  .sec-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 1px solid var(--divider);
+    padding-bottom: 10px; margin-bottom: 18px;
+  }
+  .sec-head .eyebrow {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+    font-family: "SF Mono", Consolas, monospace; display: block; margin-bottom: 3px;
+  }
+  .sec-head h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .sec-head .meta { text-align: right; font-size: 10px; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; line-height: 1.6; }
+
+  /* 页脚 */
+  .page-foot {
+    margin-top: auto; padding-top: 10px; border-top: 1px solid var(--divider);
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--text-tertiary);
+    font-family: "SF Mono", Consolas, monospace;
+  }
+
+  /* ===== 封面 ===== */
+  .cover { justify-content: space-between; }
+  .cover-frame {
+    position: absolute; inset: 10mm;
+    border: 1px solid var(--card-border); border-radius: 10px; pointer-events: none;
+  }
+  .cover-top {
+    position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; font-family: "SF Mono", Consolas, monospace; color: var(--text-secondary);
+    padding-top: 6mm;
+  }
+  .cover-badge {
+    border: 1px solid rgba(5,150,105,0.3); color: var(--emerald);
+    background: rgba(5,150,105,0.08); border-radius: 5px; padding: 3px 9px;
+  }
+  .cover-hero { position: relative; z-index: 1; text-align: center; margin: auto; max-width: 150mm; }
+  .cover-emblem { width: 84px; height: 84px; margin: 0 auto 26px; }
+  .cover-company { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 14px; }
+  .cover-title { font-size: 46px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 16px; }
+  .cover-pill {
+    display: inline-flex; gap: 10px; align-items: center;
+    border: 1px solid var(--card-border); border-radius: 999px;
+    padding: 6px 16px; font-size: 12px; font-family: "SF Mono", Consolas, monospace;
+    color: var(--text-secondary); margin-bottom: 26px;
+  }
+  .cover-desc { font-size: 13px; line-height: 1.9; color: var(--text-secondary); max-width: 130mm; margin: 0 auto 30px; }
+  .cover-badges { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; max-width: 135mm; margin: 0 auto; text-align: left; }
+  .cover-badges .b {
+    border: 1px solid var(--card-border); background: var(--card-bg);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .cover-badges .b span { font-size: 10px; color: var(--text-tertiary); display: block; margin-bottom: 5px; }
+  .cover-badges .b strong { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cover-foot { position: relative; z-index: 1; text-align: center; font-size: 10px; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; padding-bottom: 6mm; }
+
+  /* ===== KPI 卡片 ===== */
+  .kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 12px; padding: 16px 18px; break-inside: avoid; }
+  .kpi .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .kpi .top span { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .kpi .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .kpi strong { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; display: block; letter-spacing: -0.02em; }
+  .kpi .unit { font-size: 13px; font-weight: 500; color: var(--text-tertiary); }
+  .kpi small { font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px; }
+  .kpi.sales strong { color: var(--sales); }
+  .kpi.purchase strong { color: var(--purchase); }
+  .kpi.net strong { color: var(--emerald); }
+
+  /* ===== 经营纪要 ===== */
+  .commentary {
+    border: 1px solid var(--card-border); background: rgba(15,23,42,0.015);
+    border-radius: 12px; padding: 18px 20px; break-inside: avoid;
+  }
+  .commentary h4 {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: "SF Mono", Consolas, monospace; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px; color: var(--amber);
+  }
+  .commentary p { font-size: 13px; line-height: 1.95; color: var(--text-secondary); }
+  .commentary strong { color: var(--text-primary); font-weight: 700; }
+
+  /* ===== 柱状图(趋势) ===== */
+  .trend-note { font-size: 12px; line-height: 1.85; color: var(--text-secondary); margin-bottom: 18px; }
+  .trend-note strong { color: var(--text-primary); }
+  .bars-block { break-inside: avoid; margin-bottom: 22px; }
+  .bars-block h3 {
+    font-size: 13px; font-weight: 600; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px; color: var(--text-primary);
+  }
+  .bars-block h3 i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .bars {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    gap: 5px; align-items: end; height: 128px;
+    border-bottom: 1.5px solid var(--card-border); padding-bottom: 0;
+  }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar-val { font-size: 8.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 3px; white-space: nowrap; }
+  .bar {
+    width: 72%; max-width: 26px; border-radius: 4px 4px 0 0; min-height: 2px;
+  }
+  .bar.s { background: linear-gradient(180deg, #3b82f6, #2563eb); }
+  .bar.p { background: linear-gradient(180deg, #22c55e, #16a34a); }
+  .bar-labels {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin-top: 6px;
+  }
+  .bar-labels span { font-size: 8px; text-align: center; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; }
+  .bars-legend { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* ===== 明细表(紧凑行高、去关联列) ===== */
+  .ledger-badge {
+    font-size: 11px; font-family: "SF Mono", Consolas, monospace;
+    background: rgba(37,99,235,0.08); color: var(--accent);
+    border: 1px solid rgba(37,99,235,0.2); border-radius: 5px; padding: 3px 10px;
+  }
+  .ledger-badge.p { background: rgba(22,163,74,0.08); color: var(--purchase); border-color: rgba(22,163,74,0.2); }
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.ledger thead th {
+    background: var(--head-bg); color: var(--text-secondary);
+    font-weight: 600; text-align: left; padding: 6px 10px;
+    border-bottom: 1.5px solid var(--card-border);
+    font-size: 10px; letter-spacing: 0.03em;
+  }
+  table.ledger thead th.num { text-align: right; }
+  table.ledger tbody td {
+    padding: 4px 10px; border-bottom: 1px solid #f1f5f9;
+    line-height: 1.3; color: var(--text-primary);
+  }
+  table.ledger tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.ledger tbody td.idx { color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; font-size: 10px; }
+  table.ledger tbody tr:nth-child(even) td { background: #fafbfc; }
+  table.ledger tfoot td {
+    padding: 7px 10px; font-weight: 700; border-top: 1.5px solid var(--card-border);
+    font-variant-numeric: tabular-nums;
+  }
+  table.ledger tfoot td.num { text-align: right; }
+  .ledger-wrap { break-inside: auto; }
+
+  /* ===== 金蝶参考 ===== */
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ref-card { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 12px; padding: 18px 20px; break-inside: avoid; }
+  .ref-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .ref-card h3 .tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .ref-card h3 .tag.s { background: rgba(37,99,235,0.1); color: var(--sales); }
+  .ref-card h3 .tag.p { background: rgba(22,163,74,0.1); color: var(--purchase); }
+  .ref-row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+  .ref-row:last-child { border-bottom: none; }
+  .ref-row span { color: var(--text-secondary); }
+  .ref-row b { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+  .ref-row b.pos { color: var(--emerald); }
+  .ref-row b.neg { color: var(--rose); }
+  .ref-explain { margin-top: 14px; font-size: 11px; line-height: 1.8; color: var(--text-tertiary); }
+  .principle-note {
+    margin-top: 20px; padding: 14px 18px; border-radius: 10px;
+    background: rgba(37,99,235,0.04); border: 1px solid rgba(37,99,235,0.15);
+    font-size: 12px; line-height: 1.8; color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+{# ============ 第 1 页：封面 ============ #}
+<section class="page cover">
+  <div class="cover-frame"></div>
+  <div class="cover-top">
+    <span>FINOS OPERATING FOLIO · {{ snapshot.report_date|date:"Y-m" }}</span>
+    <span class="cover-badge">内部资料 · 核验有效</span>
+  </div>
+  <div class="cover-hero">
+    <svg class="cover-emblem" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+      <polygon points="50,12 85,30 85,70 50,88 15,70 15,30" fill="none" stroke="#2563eb" stroke-width="1.5" opacity="0.6"/>
+      <polygon points="50,22 76,36 76,64 50,78 24,64 24,36" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.4"/>
+      <circle cx="50" cy="50" r="16" fill="#2563eb" fill-opacity="0.08" stroke="#2563eb" stroke-width="1.5"/>
+      <path d="M42 50 L50 42 L58 50 L50 58 Z" fill="#2563eb" opacity="0.85"/>
+    </svg>
+    <div class="cover-company">{{ snapshot.company.name }}</div>
+    <h1 class="cover-title serif">经营日报</h1>
+    <div class="cover-pill">
+      <span>报告基准日：{{ snapshot.report_date|date:"Y年m月d日" }}</span>
+      <span>·</span>
+      <span>快照 #{{ snapshot.id }}</span>
+    </div>
+    <p class="cover-desc">手填日报为主口径，金蝶数据作为参考与对账依据。本公报汇编当日产销、原料采购账目、本月十五日动态走势与金蝶系统对账结论。</p>
+    <div class="cover-badges">
+      {% if snapshot.data.sales %}<div class="b"><span>当日销售出货</span><strong style="color:var(--sales)">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong></div>{% endif %}
+      {% if snapshot.data.purchase %}<div class="b"><span>当日采购发生</span><strong style="color:var(--purchase)">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong></div>{% endif %}
+      <div class="b"><span>当日净差额</span><strong style="color:var(--emerald)">{{ net_margin|money }}</strong></div>
+    </div>
+  </div>
+  <div class="cover-foot">{{ snapshot.company.name }} · 经营日报 · 生成于 {{ snapshot.generated_at|date:"Y-m-d H:i" }}</div>
+</section>
+
+{# ============ 第 2 页：经营总览 + 关键指标 + 经营纪要 ============ #}
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">EXECUTIVE OVERVIEW · SECTION 01</span>
+      <h2 class="serif">经营总览与关键指标</h2>
+    </div>
+    <div class="meta">快照 #{{ snapshot.id }}<br>{{ snapshot.generated_at|date:"Y-m-d H:i" }}</div>
+  </div>
+
+  <div class="kpis">
+    {% if snapshot.data.sales %}
+    <div class="kpi sales">
+      <div class="top"><span>销售日报金额</span><i class="dot" style="background:var(--sales)"></i></div>
+      <strong>¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong>
+      <small>{{ snapshot.data.sales.daily_coverage.total_reports }} 笔手填单据</small>
+    </div>
+    {% endif %}
+    {% if snapshot.data.purchase %}
+    <div class="kpi purchase">
+      <div class="top"><span>采购日报金额</span><i class="dot" style="background:var(--purchase)"></i></div>
+      <strong>¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong>
+      <small>{{ snapshot.data.purchase.daily_coverage.total_reports }} 笔手填单据</small>
+    </div>
+    {% endif %}
+    <div class="kpi net">
+      <div class="top"><span>当日经营净差额</span><i class="dot" style="background:var(--emerald)"></i></div>
+      <strong>¥{{ net_margin|money }}</strong>
+      <small>销售出货 − 采购发生</small>
+    </div>
+  </div>
+
+  <div class="commentary">
+    <h4>⬢ 经营纪要与管理层建议</h4>
+    <p>
+      今日实现销售出货手填金额 <strong>¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong>，
+      采购发生额 <strong>¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong>，
+      本日经营活动现金流入净差额 <strong>¥{{ net_margin|money }}</strong>。
+      当日共录入销售日报 {{ snapshot.data.sales.daily_coverage.total_reports }} 笔、采购日报 {{ snapshot.data.purchase.daily_coverage.total_reports }} 笔，
+      数据以手工填报口径为准，金蝶系统数据作为后续对账与稽核的参考依据。
+    </p>
+  </div>
+
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 1 节 · 经营总览</span></div>
+</section>
+
+{# ============ 第 3 页：趋势对比与图表观察(柱状图·万元) ============ #}
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">TRENDS & CHART NOTES · SECTION 02</span>
+      <h2 class="serif">趋势对比与图表观察</h2>
+    </div>
+    <div class="meta">本月日报金额动态走势<br>近 15 日 · 单位：万元</div>
+  </div>
+
+  <p class="trend-note">
+    下图按日报业务日期汇总近 15 日销售出货与采购发生的手填金额走势，<strong>金额单位为万元（保留两位小数）</strong>。
+    销售与采购各自独立归一，柱高反映组内相对强弱，便于快速识别当月的交付高峰与采购结算节点。
+  </p>
+
+  <div class="bars-block">
+    <h3><i style="background:var(--sales)"></i>销售出货金额走势（万元）</h3>
+    <div class="bars">
+      {% for p in sales_trend %}<div class="bar-col"><div class="bar-val">{{ p.wan_text }}</div><div class="bar s" style="height:{{ p.ratio }}%"></div></div>{% endfor %}
+    </div>
+    <div class="bar-labels">{% for p in sales_trend %}<span>{{ p.date|slice:"5:" }}</span>{% endfor %}</div>
+  </div>
+
+  <div class="bars-block">
+    <h3><i style="background:var(--purchase)"></i>采购发生金额走势（万元）</h3>
+    <div class="bars">
+      {% for p in purchase_trend %}<div class="bar-col"><div class="bar-val">{{ p.wan_text }}</div><div class="bar p" style="height:{{ p.ratio }}%"></div></div>{% endfor %}
+    </div>
+    <div class="bar-labels">{% for p in purchase_trend %}<span>{{ p.date|slice:"5:" }}</span>{% endfor %}</div>
+  </div>
+
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 2 节 · 趋势走势</span></div>
+</section>
+
+{# ============ 第 4 页：销售日报明细 ============ #}
+{% if snapshot.data.sales %}
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">MANUAL SALES LEDGER · SECTION 03</span>
+      <h2 class="serif">销售日报明细账簿</h2>
+    </div>
+    <span class="ledger-badge">共 {{ snapshot.data.sales.daily_coverage.total_reports }} 笔 · ¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</span>
+  </div>
+  <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th style="width:40px">#</th><th>客户名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.data.sales.daily_coverage.details %}
+        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="3">合计</td><td class="num">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 3 节 · 销售明细</span></div>
+</section>
+{% endif %}
+
+{# ============ 第 5 页：采购日报明细 ============ #}
+{% if snapshot.data.purchase %}
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">MANUAL PURCHASE LEDGER · SECTION 04</span>
+      <h2 class="serif">采购日报明细账簿</h2>
+    </div>
+    <span class="ledger-badge p">共 {{ snapshot.data.purchase.daily_coverage.total_reports }} 笔 · ¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</span>
+  </div>
+  <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th style="width:40px">#</th><th>供应商名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <tbody>
+        {% for row in snapshot.data.purchase.daily_coverage.details %}
+        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="3">合计</td><td class="num">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 4 节 · 采购明细</span></div>
+</section>
+{% endif %}
+
+{# ============ 第 6 页：金蝶参考 ============ #}
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">KINGDEE REFERENCE · SECTION 05</span>
+      <h2 class="serif">金蝶系统参考数据</h2>
+    </div>
+    <div class="meta">本月累计 · 对账参考<br>{{ snapshot.report_date|date:"Y年m月" }}</div>
+  </div>
+  <div class="ref-grid">
+    {% if snapshot.data.sales %}
+    <div class="ref-card">
+      <h3>销售对账 <span class="tag s">SALES</span></h3>
+      <div class="ref-row"><span>本月手填累计</span><b>¥{{ snapshot.data.sales.month_diff.system_amount|money }}</b></div>
+      <div class="ref-row"><span>本月金蝶累计</span><b>¥{{ snapshot.data.sales.month_diff.k3_amount|money }}</b></div>
+      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="{% if snapshot.data.sales.month_diff.diff_amount >= 0 %}pos{% else %}neg{% endif %}">¥{{ snapshot.data.sales.month_diff.diff_amount|money }}</b></div>
+      {% if snapshot.data.sales.month_diff.diff_rate != None %}<div class="ref-row"><span>差异率</span><b>{{ snapshot.data.sales.month_diff.diff_rate|floatformat:2 }}%</b></div>{% endif %}
+      <div class="ref-explain">手填日报为经营口径的主数据，金蝶金额因结账归集、凭证生成存在时间差，差额将随次日金蝶入账逐步收敛。</div>
+    </div>
+    {% endif %}
+    {% if snapshot.data.purchase %}
+    <div class="ref-card">
+      <h3>采购对账 <span class="tag p">PURCHASE</span></h3>
+      <div class="ref-row"><span>本月手填累计</span><b>¥{{ snapshot.data.purchase.month_diff.system_amount|money }}</b></div>
+      <div class="ref-row"><span>本月金蝶累计</span><b>¥{{ snapshot.data.purchase.month_diff.k3_amount|money }}</b></div>
+      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="{% if snapshot.data.purchase.month_diff.diff_amount >= 0 %}pos{% else %}neg{% endif %}">¥{{ snapshot.data.purchase.month_diff.diff_amount|money }}</b></div>
+      {% if snapshot.data.purchase.month_diff.diff_rate != None %}<div class="ref-row"><span>差异率</span><b>{{ snapshot.data.purchase.month_diff.diff_rate|floatformat:2 }}%</b></div>{% endif %}
+      <div class="ref-explain">采购发生额以手填日报为准，金蝶入库凭证按实际收料与结算节奏生成，月末对账差额通常回归合理区间。</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="principle-note">
+    <strong>口径说明：</strong>本报告一律以手工填报日报为经营主口径，金蝶系统数据仅作参考与对账依据。两者差异反映的是单据流转与系统入账之间的时间差，不代表经营数据错误。
+  </div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 5 节 · 金蝶参考</span></div>
+</section>
+
+</body>
+</html>

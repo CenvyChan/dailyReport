@@ -34,7 +34,63 @@ def render_snapshot_html(snapshot: ReportSnapshot, *, standalone: bool = True) -
     )
 
 
-def render_snapshot_pdf(snapshot: ReportSnapshot) -> bytes:
+def _build_book_context(snapshot: ReportSnapshot) -> dict:
+    """为书册式(book)模板预处理上下文。
+
+    书册式趋势图要求「每日金额以万元为单位、保留两位小数」，而快照里存的
+    是元。Django 模板没有除法过滤器，这里在 Python 侧把 points 补上
+    `wan`(万元数值)和 `wan_text`(两位小数字符串)，并算出柱状图高度比例，
+    避免模板里做算术。销售/采购共用同一最大值归一，两组柱子高度可直接比较。
+    """
+
+    def _augment(points):
+        if not points:
+            return []
+        peak = max((abs(p.get("value") or 0) for p in points), default=0) or 1
+        out = []
+        for p in points:
+            value = p.get("value") or 0
+            wan = value / 10000
+            out.append(
+                {
+                    "date": p.get("date", ""),
+                    "value": value,
+                    "wan": wan,
+                    "wan_text": f"{wan:,.2f}",
+                    "ratio": round(abs(value) / peak * 100, 2),
+                }
+            )
+        return out
+
+    data = snapshot.data or {}
+    sales = data.get("sales") or {}
+    purchase = data.get("purchase") or {}
+    sales_total = (sales.get("daily_coverage") or {}).get("total_amount") or 0
+    purchase_total = (purchase.get("daily_coverage") or {}).get("total_amount") or 0
+
+    return {
+        "snapshot": snapshot,
+        "sales_trend": _augment((sales.get("daily_trend") or {}).get("points")),
+        "purchase_trend": _augment((purchase.get("daily_trend") or {}).get("points")),
+        "net_margin": sales_total - purchase_total,
+    }
+
+
+def render_snapshot_book_html(snapshot: ReportSnapshot) -> str:
+    """渲染「书册式」(book)风格的自包含 HTML。
+
+    对齐 dailyreportAure 的现代极简白主题，按节分页，供 PDF 打印使用。
+    与经典版(report_snapshot.html)完全独立，互不影响。
+    """
+    from django.template.loader import render_to_string
+
+    return render_to_string(
+        "integrations/report_snapshot_book.html",
+        _build_book_context(snapshot),
+    )
+
+
+def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> bytes:
     """用 Chromium(playwright)把快照 HTML 渲染为多页 A4 PDF。
 
     钉钉 APP 无法在线预览 HTML 文件，但原生支持 PDF 预览。这里直接复用
@@ -42,10 +98,18 @@ def render_snapshot_pdf(snapshot: ReportSnapshot) -> bytes:
     （grid/flex/SVG 等现代布局都能正确呈现，weasyprint 做不到）。
 
     打印背景色必须开启，否则 KPI 卡片、柱状图等依赖背景色的元素会丢色。
+
+    style="classic" 为现有投递使用的看板版；style="book" 为新增的书册式
+    分节报告(自带 @page 分页，margin 清零交给模板控制)。
     """
     from playwright.sync_api import sync_playwright
 
-    html = render_snapshot_html(snapshot)
+    if style == "book":
+        html = render_snapshot_book_html(snapshot)
+        margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
+    else:
+        html = render_snapshot_html(snapshot)
+        margin = {"top": "12mm", "bottom": "12mm", "left": "10mm", "right": "10mm"}
     with sync_playwright() as p:
         browser = p.chromium.launch(
             args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
@@ -57,7 +121,7 @@ def render_snapshot_pdf(snapshot: ReportSnapshot) -> bytes:
             pdf_bytes = page.pdf(
                 format="A4",
                 print_background=True,
-                margin={"top": "12mm", "bottom": "12mm", "left": "10mm", "right": "10mm"},
+                margin=margin,
             )
         finally:
             browser.close()
@@ -433,11 +497,11 @@ def _send_to_dingtalk_channels(
             # 优先投递 PDF（钉钉 APP 可直接预览）；PDF 渲染失败时回退 HTML，
             # 避免 Chromium 环境异常阻断整条日报推送。
             try:
-                file_bytes = render_snapshot_pdf(snapshot)
+                file_bytes = render_snapshot_pdf(snapshot, style="book")
                 file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.pdf"
             except Exception as pdf_exc:
                 logger.warning("PDF 渲染失败，回退 HTML：snapshot=%s, err=%s", snapshot.id, pdf_exc)
-                file_bytes = render_snapshot_html(snapshot).encode("utf-8")
+                file_bytes = render_snapshot_book_html(snapshot).encode("utf-8")
                 file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html"
             media_id = client.upload_media(file_name, file_bytes)
             client.post(
