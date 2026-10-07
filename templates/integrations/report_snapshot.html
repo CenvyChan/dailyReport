@@ -4,7 +4,7 @@
 {% block title %}{{ snapshot.company.name }} {{ snapshot.report_date }} 经营日报{% endblock %}
 
 {% block content %}
-<div class="bi-page" id="top">
+<div class="bi-page{% if standalone %} bi-standalone{% endif %}" id="top">
   <header class="bi-head">
     <div>
       <span class="bi-eyebrow">DAILY OPERATING INTELLIGENCE</span>
@@ -47,15 +47,21 @@
 
   <section id="manual" class="bi-section">
     <div class="bi-section-head"><div><span class="bi-kicker">MANUAL REPORTS</span><h2>日报经营明细</h2></div><span class="bi-note">主经营口径：日报手工录入数据</span></div>
-    <div class="bi-tabs" role="tablist" aria-label="日报经营分类">
-      <button class="active" type="button" role="tab" aria-selected="true" data-tab="sales">销售日报 <span>{{ snapshot.data.sales.daily_coverage.total_reports|default:0 }}</span></button>
-      <button type="button" role="tab" aria-selected="false" data-tab="purchase">采购日报 <span>{{ snapshot.data.purchase.daily_coverage.total_reports|default:0 }}</span></button>
-    </div>
-    <div class="bi-tab-panel active" data-panel="sales">
+    <div class="bi-tab-switcher">
+      <input class="bi-tab-input" type="radio" name="report-tab" id="report-tab-sales" checked>
+      <input class="bi-tab-input" type="radio" name="report-tab" id="report-tab-purchase">
+      <div class="bi-tabs" role="tablist" aria-label="日报经营分类">
+        <label for="report-tab-sales" role="tab">销售日报 <span>{{ snapshot.data.sales.daily_coverage.total_reports|default:0 }}</span></label>
+        <label for="report-tab-purchase" role="tab">采购日报 <span>{{ snapshot.data.purchase.daily_coverage.total_reports|default:0 }}</span></label>
+      </div>
+      <div class="bi-tab-panels">
+    <div class="bi-tab-panel sales-panel">
       {% if snapshot.data.sales %}<article class="bi-panel"><div class="bi-panel-head"><h3>销售日报</h3><strong class="panel-total">{{ snapshot.data.sales.daily_coverage.total_amount|floatformat:2 }}</strong></div><div class="bar-summary"><span>已关联金额</span><strong>{{ snapshot.data.sales.daily_coverage.covered_amount|floatformat:2 }}</strong><div><i style="width:{% if snapshot.data.sales.daily_coverage.coverage_rate %}{{ snapshot.data.sales.daily_coverage.coverage_rate }}{% else %}0{% endif %}%"></i></div></div><div class="bi-scroll"><table class="bi-table"><thead><tr><th>客户</th><th>日期</th><th class="right">日报金额</th><th class="right">已关联</th><th>状态</th></tr></thead><tbody>{% for detail in snapshot.data.sales.daily_coverage.details %}<tr><td>{{ detail.party_name|default:"未填写" }}</td><td>{{ detail.date }}</td><td class="right num">{{ detail.amount|floatformat:2 }}</td><td class="right num">{{ detail.allocated_amount|floatformat:2 }}</td><td>{% if detail.coverage >= 100 %}<span class="tag ok">已覆盖</span>{% elif detail.coverage %}<span class="tag warn">部分</span>{% else %}<span class="tag bad">未关联</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="empty">当日暂无销售日报</td></tr>{% endfor %}</tbody></table></div></article>{% endif %}
     </div>
-    <div class="bi-tab-panel" data-panel="purchase">
+    <div class="bi-tab-panel purchase-panel">
       {% if snapshot.data.purchase %}<article class="bi-panel"><div class="bi-panel-head"><h3>采购日报</h3><strong class="panel-total">{{ snapshot.data.purchase.daily_coverage.total_amount|floatformat:2 }}</strong></div><div class="bar-summary"><span>已关联金额</span><strong>{{ snapshot.data.purchase.daily_coverage.covered_amount|floatformat:2 }}</strong><div><i class="green-bar" style="width:{% if snapshot.data.purchase.daily_coverage.coverage_rate %}{{ snapshot.data.purchase.daily_coverage.coverage_rate }}{% else %}0{% endif %}%"></i></div></div><div class="bi-scroll"><table class="bi-table"><thead><tr><th>供应商</th><th>日期</th><th class="right">日报金额</th><th class="right">已关联</th><th>状态</th></tr></thead><tbody>{% for detail in snapshot.data.purchase.daily_coverage.details %}<tr><td>{{ detail.party_name|default:"未填写" }}</td><td>{{ detail.date }}</td><td class="right num">{{ detail.amount|floatformat:2 }}</td><td class="right num">{{ detail.allocated_amount|floatformat:2 }}</td><td>{% if detail.coverage >= 100 %}<span class="tag ok">已覆盖</span>{% elif detail.coverage %}<span class="tag warn">部分</span>{% else %}<span class="tag bad">未关联</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="empty">当日暂无采购日报</td></tr>{% endfor %}</tbody></table></div></article>{% endif %}
+    </div>
+      </div>
     </div>
   </section>
 
@@ -83,6 +89,7 @@
 html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif}.bi-page{min-height:100vh}.bi-nav{top:var(--nav-h);background:var(--bg);position:sticky}.bi-nav a{transition:transform .18s ease,border-color .18s ease,color .18s ease}.bi-nav a:hover{transform:translateY(-1px)}
 .bi-chart-grid{grid-template-columns:1fr 1fr}.bar{height:var(--bar-height);max-height:120px}.sales-line{fill:none;stroke:#2563eb;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.purchase-line{fill:none;stroke:#16a34a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.sales-point{fill:#2563eb;stroke:var(--surface-1);stroke-width:2}.purchase-point{fill:#16a34a;stroke:var(--surface-1);stroke-width:2}
 .bi-tab-panel{display:none}.bi-tab-panel.active{display:block}
+.bi-tab-switcher{position:relative}.bi-tab-input{position:absolute;inline-size:1px;block-size:1px;opacity:0;pointer-events:none}.bi-tabs label{flex:1;display:block;border:1px solid transparent;background:transparent;color:var(--text-secondary);padding:11px 14px;border-radius:7px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:center}.bi-tabs label span{margin-left:5px;font-variant-numeric:tabular-nums;color:var(--text-tertiary)}#report-tab-sales:checked~.bi-tabs label[for="report-tab-sales"],#report-tab-purchase:checked~.bi-tabs label[for="report-tab-purchase"]{background:var(--surface-1);color:var(--brand-hi);border-color:var(--brand-500);box-shadow:0 3px 12px rgba(15,23,42,.08)}#report-tab-sales:checked~.bi-tab-panels .sales-panel,#report-tab-purchase:checked~.bi-tab-panels .purchase-panel{display:block}.bi-standalone .bi-nav{top:0}
 @media(max-width:850px){.bi-chart-grid{grid-template-columns:1fr}.chart-wide{grid-column:auto}}
 </style>
 <script>
