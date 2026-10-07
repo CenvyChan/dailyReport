@@ -107,12 +107,18 @@ class DingtalkClient:
 
         旧版媒体上传接口仍被新版机器人文件消息兼容使用；文件消息本身
         仍通过 api.dingtalk.com/v1.0/robot/groupMessages/send 发送。
+        MIME 按扩展名推断，确保 PDF/HTML 等不同文件类型都被钉钉正确识别。
         """
+        import mimetypes
+
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        if content_type == "text/html":
+            content_type = "text/html; charset=utf-8"
         resp = _requests().post(
             f"{BASE}/media/upload",
             params={"access_token": self.token(), "type": media_type},
-            files={"media": (filename, content, "text/html; charset=utf-8")},
-            timeout=30,
+            files={"media": (filename, content, content_type)},
+            timeout=60,
         )
         try:
             data = resp.json()

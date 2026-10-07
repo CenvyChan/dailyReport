@@ -381,10 +381,13 @@ def generate_reconciliation_report(
     year_start = report_date.replace(month=1, day=1)
     year_end = report_date
 
+    # 趋势图窗口：最近 15 个自然日（含报表日），比整月更聚焦近期波动
+    trend_start = report_date - timedelta(days=14)
+
     if scope in ("BOTH", "SALES"):
         result["sales"] = {
             "daily_coverage": calculate_daily_coverage(company, report_date, "SALES"),
-            "daily_trend": _daily_amount_trend(company, month_start, month_end, "SALES"),
+            "daily_trend": _daily_amount_trend(company, trend_start, report_date, "SALES"),
             "month_diff": calculate_period_diff(company, month_start, month_end, "SALES"),
             "year_diff": calculate_period_diff(company, year_start, year_end, "SALES"),
             "k3_allocation": calculate_k3_allocation_status(
@@ -395,7 +398,7 @@ def generate_reconciliation_report(
     if scope in ("BOTH", "PURCHASE"):
         result["purchase"] = {
             "daily_coverage": calculate_daily_coverage(company, report_date, "PURCHASE"),
-            "daily_trend": _daily_amount_trend(company, month_start, month_end, "PURCHASE"),
+            "daily_trend": _daily_amount_trend(company, trend_start, report_date, "PURCHASE"),
             "month_diff": calculate_period_diff(company, month_start, month_end, "PURCHASE"),
             "year_diff": calculate_period_diff(company, year_start, year_end, "PURCHASE"),
             "k3_allocation": calculate_k3_allocation_status(
@@ -413,6 +416,21 @@ def generate_reconciliation_report(
         if key in result:
             result[key]["daily_chart_ratio"] = round(
                 result[key]["daily_coverage"]["total_amount"] / max_daily_amount * 100,
+                2,
+            )
+
+    # 本月汇总柱状图：以 month_diff 的系统侧(手填)本月累计金额为准，
+    # 销售/采购共用同一最大值归一，保证两根柱子高度可直接横向比较。
+    month_amounts = [
+        abs(result[key]["month_diff"]["system_amount"])
+        for key in ("sales", "purchase")
+        if key in result
+    ]
+    max_month_amount = max(month_amounts, default=0) or 1
+    for key in ("sales", "purchase"):
+        if key in result:
+            result[key]["month_chart_ratio"] = round(
+                abs(result[key]["month_diff"]["system_amount"]) / max_month_amount * 100,
                 2,
             )
 

@@ -15,6 +15,24 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Chromium 运行所需系统库 + 中文字体（fonts-noto-cjk，否则 PDF 中文显示为方块）。
+# 老 CPU（Core2，无 avx）实测可正常运行 Chromium 渲染 PDF。
+# 字体包名随 Debian 版本变化，这里显式列出已验证可用的依赖，避免 install-deps 因
+# 过时字体包（ttf-unifont 等）报错中断。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+        libdrm2 libxcb1 libxkbcommon0 libatspi2.0-0 libx11-6 libxcomposite1 \
+        libxdamage1 libxext6 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 \
+        libcairo2 libasound2 fonts-liberation fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Chromium 二进制装到全局路径，让运行期的 app 用户也能访问（默认装到 ~/.cache，
+# 会随 USER 切换而找不到）。不带 --with-deps，系统库已由上一步显式安装。
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN python -m playwright install chromium \
+    && chmod -R a+rX /opt/pw-browsers
+
 COPY . .
 
 # 静态文件在构建期收集，运行期不需要写权限。

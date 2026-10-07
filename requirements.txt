@@ -16,3 +16,6 @@ kingdee-cdp-webapi-sdk==8.2.0
 # 集成密钥（金蝶/钉钉 AppSecret）静态加密：Fernet 来自 cryptography。wheel 内是 Rust 预编译，
 # 与 CPU 指令集无关，老 CPU 亦可装。密钥放 .env 的 FIELD_ENCRYPTION_KEY，不入库。
 cryptography==50.0.0
+# 日报 PDF 渲染：用 Chromium 真实引擎把 HTML 模板转多页 PDF（钉钉 APP 可直接预览）。
+# 纯 Python 包装层，浏览器二进制在 Dockerfile 中单独安装。老 CPU 实测可运行。
+playwright==1.47.0

@@ -34,6 +34,36 @@ def render_snapshot_html(snapshot: ReportSnapshot, *, standalone: bool = True) -
     )
 
 
+def render_snapshot_pdf(snapshot: ReportSnapshot) -> bytes:
+    """用 Chromium(playwright)把快照 HTML 渲染为多页 A4 PDF。
+
+    钉钉 APP 无法在线预览 HTML 文件，但原生支持 PDF 预览。这里直接复用
+    同一份 HTML 模板，用真实浏览器引擎渲染，保证 PDF 与网页端所见一致
+    （grid/flex/SVG 等现代布局都能正确呈现，weasyprint 做不到）。
+
+    打印背景色必须开启，否则 KPI 卡片、柱状图等依赖背景色的元素会丢色。
+    """
+    from playwright.sync_api import sync_playwright
+
+    html = render_snapshot_html(snapshot)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+        )
+        try:
+            page = browser.new_page()
+            # 等网络空闲，确保字体/SVG 都渲染完成再截 PDF。
+            page.set_content(html, wait_until="networkidle")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                margin={"top": "12mm", "bottom": "12mm", "left": "10mm", "right": "10mm"},
+            )
+        finally:
+            browser.close()
+    return pdf_bytes
+
+
 def generate_report_snapshot(
     company: Company,
     report_date,
@@ -400,11 +430,16 @@ def _send_to_dingtalk_channels(
                 },
             )
 
-            html_bytes = render_snapshot_html(snapshot).encode("utf-8")
-            media_id = client.upload_media(
-                f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html",
-                html_bytes,
-            )
+            # 优先投递 PDF（钉钉 APP 可直接预览）；PDF 渲染失败时回退 HTML，
+            # 避免 Chromium 环境异常阻断整条日报推送。
+            try:
+                file_bytes = render_snapshot_pdf(snapshot)
+                file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.pdf"
+            except Exception as pdf_exc:
+                logger.warning("PDF 渲染失败，回退 HTML：snapshot=%s, err=%s", snapshot.id, pdf_exc)
+                file_bytes = render_snapshot_html(snapshot).encode("utf-8")
+                file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html"
+            media_id = client.upload_media(file_name, file_bytes)
             client.post(
                 "/v1.0/robot/groupMessages/send",
                 {
@@ -414,7 +449,7 @@ def _send_to_dingtalk_channels(
                     "msgParam": json.dumps(
                         {
                             "mediaId": media_id,
-                            "fileName": f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html",
+                            "fileName": file_name,
                         },
                         ensure_ascii=False,
                     ),
