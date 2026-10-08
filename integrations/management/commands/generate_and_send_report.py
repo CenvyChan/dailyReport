@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from core.models import Company
 from integrations.services.report_delivery import (
+    backfill_missed_deliveries,
     generate_report_snapshot,
     send_report_to_all_channels,
 )
@@ -29,6 +30,12 @@ class Command(BaseCommand):
         parser.add_argument("--now", action="store_true", help="立即发送，忽略收件组发送时间")
         parser.add_argument("--force", action="store_true", help="强制重新生成快照，即使已存在")
         parser.add_argument("--dry-run", action="store_true", help="只生成快照，不实际发送")
+        parser.add_argument(
+            "--backfill-days",
+            type=int,
+            default=3,
+            help="额外补投前 N 天内未成功发送的快照（0 关闭），默认 3",
+        )
 
     def handle(self, *args, **options):
         # 解析报表日期：默认前一自然日
@@ -49,6 +56,7 @@ class Command(BaseCommand):
                 raise CommandError(f"找不到公司代码：{options['company']}")
 
         scope = options["scope"]
+        backfill_days = max(0, options["backfill_days"])
 
         # 逐公司生成快照和推送
         for company in companies:
@@ -89,6 +97,31 @@ class Command(BaseCommand):
                             self.stdout.write(f"  {channel}: 跳过 - {message}")
                         else:
                             self.stdout.write(self.style.ERROR(f"  {channel}: 失败 - {message}"))
+
+                    # 空结果等于「本轮没有任何渠道到点」，必须说出来：这个命令每 10
+                    # 分钟跑一轮，不打印的话「窗口未到」和「链路挂了」在日志里长得
+                    # 一模一样，排查时只能靠猜。
+                    if not results:
+                        self.stdout.write("  本轮无到点渠道（未到 send_at 或未配置启用渠道）")
+
+                    # 补投早于本轮目标日期的漏发快照。仅在定时场景（未显式指定
+                    # --date/--now）启用，避免手动补发某天时顺带把别的日期也发出去。
+                    if backfill_days > 0 and not options["date"] and not options["now"]:
+                        for missed, missed_results in backfill_missed_deliveries(
+                            company=company,
+                            before_date=report_date,
+                            days=backfill_days,
+                            scope=scope,
+                        ):
+                            for channel, status, message in missed_results:
+                                if status == "SENT":
+                                    self.stdout.write(
+                                        self.style.SUCCESS(f"  [补发 {missed.report_date}] {channel}: 发送成功")
+                                    )
+                                elif status != "SKIPPED":
+                                    self.stdout.write(
+                                        self.style.ERROR(f"  [补发 {missed.report_date}] {channel}: 失败 - {message}")
+                                    )
                 else:
                     self.stdout.write("  [dry-run] 跳过实际发送")
 

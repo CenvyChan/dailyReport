@@ -304,6 +304,56 @@ def send_report_to_all_channels(
     return results
 
 
+def backfill_missed_deliveries(
+    company: Company,
+    before_date,
+    days: int,
+    scope: str = "BOTH",
+) -> list[tuple[ReportSnapshot, list[tuple[str, str, str]]]]:
+    """补投早于 before_date 的、尚未成功发送的快照。
+
+    定时链路每轮只盯「当天的目标日期」，一旦投递窗口（收件组/群配置的 send_at
+    到当日 24:00）内遇到容器重启、断网或 API 故障，过了零点目标日期就滚到下一天，
+    那份日报永久不会再发，也没人会收到告警。这里兜住这类丢单。
+
+    Args:
+        company: 公司
+        before_date: 补发范围上界（不含）。必须传当轮的目标报表日期，
+            这样今天还没到 send_at 的那份不会被补发逻辑提前发出去。
+        days: 向前回溯天数
+        scope: 业务范围，与快照唯一约束对齐
+
+    Returns:
+        list of (snapshot, results)，只包含实际产生了渠道动作的快照
+    """
+    start_date = before_date - timedelta(days=days)
+
+    snapshots = ReportSnapshot.objects.filter(
+        company=company,
+        scope=scope,
+        report_date__gte=start_date,
+        report_date__lt=before_date,
+    ).order_by("report_date")
+
+    backfilled = []
+    for snapshot in snapshots:
+        # 这些快照的投递窗口早已过去，不再受 send_at 约束，判定为漏发就立即补。
+        # 渠道内部按 (快照, 渠道, 目标) 判重并有 MAX_RETRY_ATTEMPTS 上限，
+        # 已成功的会走 SKIPPED，不会重复刷屏，也不会无限重试。
+        results = send_report_to_all_channels(snapshot, send_now=True)
+        actionable = [r for r in results if r[1] != "SKIPPED"]
+        if actionable:
+            logger.info(
+                "补发漏投快照：snapshot=%s, date=%s, 结果=%s",
+                snapshot.id,
+                snapshot.report_date,
+                actionable,
+            )
+            backfilled.append((snapshot, results))
+
+    return backfilled
+
+
 def _send_to_email_channels(
     snapshot: ReportSnapshot,
     send_now: bool,
@@ -335,17 +385,21 @@ def _send_to_email_channels(
     else:
         mailing_lists = list(mailing_lists)
 
+    # 没有到点的收件组就直接返回：下面的 HTML 渲染和 SMTP 连接都是无条件执行的，
+    # 而本命令每 10 分钟跑一轮，不短路等于每轮白渲染一遍完整日报 HTML。
+    if not mailing_lists:
+        return results
+
     # 准备邮件内容（对所有收件组共用）
     email_subject = f"{snapshot.company.name} {snapshot.report_date:%Y年%m月%d日} 经营日报"
     email_html = render_snapshot_html(snapshot)
 
     # 准备 Excel 附件
     excel_bytes = None
-    if mailing_lists:  # 只有需要发送时才生成
-        try:
-            excel_bytes = export_snapshot_to_excel(snapshot)
-        except Exception as e:
-            logger.exception("生成 Excel 失败：snapshot=%s", snapshot.id)
+    try:
+        excel_bytes = export_snapshot_to_excel(snapshot)
+    except Exception as e:
+        logger.exception("生成 Excel 失败：snapshot=%s", snapshot.id)
 
     # 建立 SMTP 连接（复用）
     connection = None

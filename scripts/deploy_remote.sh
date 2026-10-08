@@ -17,6 +17,7 @@ WEB="${APP_NAME}-web"
 MAILER="${APP_NAME}-mailer"
 BACKUP="${APP_NAME}-backup"
 SYNC="${APP_NAME}-sync"
+SCHEDULER="${APP_NAME}-scheduler"
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -69,12 +70,12 @@ echo "==> 构建镜像"
 ssh "$SSH_HOST" 'cd ~/deploy/'"${APP_NAME}"' && docker build -t '"${IMAGE}"' .'
 
 echo "==> 重建容器"
-ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' SYNC='${SYNC}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
+ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' SYNC='${SYNC}' SCHEDULER='${SCHEDULER}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
 set -euo pipefail
 cd ~/deploy/"$APP_NAME"
 
 # 只删本应用的容器，不影响主机上其它容器。
-docker rm -f "$WEB" "$MAILER" "$BACKUP" "$SYNC" >/dev/null 2>&1 || true
+docker rm -f "$WEB" "$MAILER" "$BACKUP" "$SYNC" "$SCHEDULER" >/dev/null 2>&1 || true
 
 # 容器内以 uid 10001 运行，挂载目录必须可写，否则 SQLite 报 readonly database。
 # 上一次部署后这些文件已归 10001，普通用户再 chmod 会 Permission denied，
@@ -111,6 +112,18 @@ docker run -d --name "$SYNC" --restart unless-stopped \
   -v "$PWD/data:/app/data" \
   "$IMAGE" \
   sh -c 'while true; do if [ "$(date +%H)" -ge 20 ]; then python manage.py sync_kingdee >> /app/data/logs/sync.log 2>&1 || true; python manage.py sync_dingtalk >> /app/data/logs/sync.log 2>&1 || true; fi; sleep 1800; done' >/dev/null
+
+# 日报调度 sidecar：每 10 分钟一轮，先补当月近期金蝶数据（命令内部按小时幂等），
+# 再生成前一自然日快照并推送到到点的渠道（钉钉群 / 邮件收件组）。
+# 这个容器此前只存在于 docker-compose.yml 和手工 docker run，而这台机器走的是
+# plain docker run：部署脚本不管它 → 重新部署后它仍挂在旧镜像层上（代码更新不
+# 生效），被 docker rm 掉也不会重建，定时投递会静默消失。故纳入脚本统一管理。
+# 先 sleep 90 秒等 web 跑完 migrate。日志与其它 sidecar 一致写到 data 卷下。
+docker run -d --name "$SCHEDULER" --restart unless-stopped \
+  --env-file .env \
+  -v "$PWD/data:/app/data" \
+  "$IMAGE" \
+  sh -c 'sleep 90; while true; do python manage.py sync_kingdee_recent --hour $(date +%H) >> /app/data/logs/scheduler.log 2>&1 || true; python manage.py generate_and_send_report >> /app/data/logs/scheduler.log 2>&1 || true; sleep 600; done' >/dev/null
 
 ready=""
 for _ in $(seq 1 20); do
