@@ -311,21 +311,31 @@ def send_interactive_card(client, group_id: str, card_data: Dict[str, Any],
     if not template_id:
         raise ValueError("必须提供 template_id，请先在钉钉开放平台创建卡片模板")
 
-    # 构建卡片发送请求
+    # 生成唯一追踪ID
+    import time
+    out_track_id = f"payment_report_{int(time.time() * 1000)}"
+
+    # 构建卡片发送请求（参考钉钉官方文档）
     payload = {
         "cardTemplateId": template_id,
-        "outTrackId": f"payment_report_{card_data.get('dateRange', '')}",  # 唯一追踪ID
-        "conversationType": 1,  # 1: 群聊
+        "outTrackId": out_track_id,
+        "conversationType": "2",  # 字符串类型: "2"表示群聊
         "conversationId": group_id,
         "cardData": {
             "cardParamMap": card_data,  # 填充模板变量
         },
-        "atOpenIds": [],  # 可选：@用户
+        "callbackType": "STREAM",  # 回调方式
     }
+
+    # 调试日志
+    logger.info(f"发送互动卡片到群 {group_id}")
+    logger.debug(f"卡片数据字段: {list(card_data.keys())}")
+    logger.debug(f"模板ID: {template_id}")
+    logger.debug(f"追踪ID: {out_track_id}")
 
     # 调用卡片发送接口
     result = client.post('/v1.0/card/instances', payload)
-    logger.info(f"互动卡片已发送到群 {group_id}: {result}")
+    logger.info(f"互动卡片发送结果: {result}")
 
     return result
 
