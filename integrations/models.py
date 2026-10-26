@@ -693,13 +693,13 @@ class ReportDelivery(models.Model):
 class DingtalkGroupConfig(models.Model):
     """钉钉群推送配置：面向企业内部群，使用应用机器人群消息接口。
 
-    第一期仅支持内部群推送，不采用 Webhook 自定义机器人。
+    第一期仅支持内部群推送,不采用 Webhook 自定义机器人。
     """
 
-    class Scope(models.TextChoices):
-        SALES = "SALES", "仅销售"
-        PURCHASE = "PURCHASE", "仅采购"
-        BOTH = "BOTH", "销售和采购"
+    class ContentType(models.TextChoices):
+        SALES = "SALES", "销售出库"
+        PURCHASE = "PURCHASE", "采购入库"
+        APPROVALS = "APPROVALS", "付款审批"
 
     company = models.ForeignKey(
         "core.Company",
@@ -719,7 +719,11 @@ class DingtalkGroupConfig(models.Model):
         max_length=128,
         help_text="群的 openConversationId，通过机器人获取",
     )
-    scope = models.CharField("推送内容", max_length=10, choices=Scope.choices, default=Scope.BOTH)
+    content_types = models.JSONField(
+        "推送内容",
+        default=list,
+        help_text="勾选要包含的数据类型：销售、采购、审批",
+    )
     send_at = models.TimeField("每日发送时间", help_text="按服务器所在时区（Asia/Shanghai）触发")
     is_active = models.BooleanField("启用", default=True)
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
@@ -738,3 +742,15 @@ class DingtalkGroupConfig(models.Model):
 
     def __str__(self):
         return f"{self.company} - {self.name}"
+
+    @property
+    def includes_sales(self):
+        return "SALES" in self.content_types
+
+    @property
+    def includes_purchase(self):
+        return "PURCHASE" in self.content_types
+
+    @property
+    def includes_approvals(self):
+        return "APPROVALS" in self.content_types

@@ -9,7 +9,7 @@
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -329,24 +329,38 @@ class Command(BaseCommand):
             'company': company,
             'process_code': config.process_code,
             'process_name': instance_data.get('title', ''),
-            'process_instance_id': instance_data.get('process_instance_id') or instance_id,  # 优先从数据取，否则用传入的ID
+            'process_instance_id': instance_id,  # 使用传入的instance_id（这就是钉钉的process_instance_id）
             'title': instance_data.get('title', ''),
             'status': instance_data.get('status', ''),
             'result': instance_data.get('result', ''),
         }
 
-        # 时间字段
+        # 时间字段 - 支持两种格式：毫秒时间戳（整数）和字符串格式（'2026-10-26 11:08:50'）
         create_time = instance_data.get('create_time')
         if create_time:
-            result['create_time'] = timezone.datetime.fromtimestamp(
-                int(create_time) / 1000, tz=timezone.utc
-            )
+            if isinstance(create_time, str):
+                # 字符串格式：'2026-10-26 11:08:50'
+                result['create_time'] = datetime.strptime(
+                    create_time, '%Y-%m-%d %H:%M:%S'
+                ).replace(tzinfo=dt_timezone.utc)
+            else:
+                # 毫秒时间戳
+                result['create_time'] = datetime.fromtimestamp(
+                    int(create_time) / 1000, tz=dt_timezone.utc
+                )
 
         finish_time = instance_data.get('finish_time')
         if finish_time:
-            result['finish_time'] = timezone.datetime.fromtimestamp(
-                int(finish_time) / 1000, tz=timezone.utc
-            )
+            if isinstance(finish_time, str):
+                # 字符串格式：'2026-10-26 11:08:50'
+                result['finish_time'] = datetime.strptime(
+                    finish_time, '%Y-%m-%d %H:%M:%S'
+                ).replace(tzinfo=dt_timezone.utc)
+            else:
+                # 毫秒时间戳
+                result['finish_time'] = datetime.fromtimestamp(
+                    int(finish_time) / 1000, tz=dt_timezone.utc
+                )
 
         # 发起人信息
         originator = instance_data.get('originator_userid', '')

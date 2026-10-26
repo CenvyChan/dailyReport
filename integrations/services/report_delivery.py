@@ -372,11 +372,16 @@ def _send_to_email_channels(
         is_active=True,
     )
 
-    # 过滤业务范围
+    # 过滤业务范围：新版用 content_types (JSONField)，兼容旧版 scope 字段
+    # 逻辑：快照的 scope 表示本快照包含的数据类型，收件组的 content_types
+    # 表示想接收的类型。当收件组的类型列表包含快照的类型时匹配。
     if snapshot.scope == "SALES":
-        mailing_lists = mailing_lists.filter(scope__in=["SALES", "BOTH"])
+        mailing_lists = [ml for ml in mailing_lists if "SALES" in (ml.content_types or [])]
     elif snapshot.scope == "PURCHASE":
-        mailing_lists = mailing_lists.filter(scope__in=["PURCHASE", "BOTH"])
+        mailing_lists = [ml for ml in mailing_lists if "PURCHASE" in (ml.content_types or [])]
+    else:  # BOTH
+        # 快照是 BOTH 时，只要收件组包含 SALES 或 PURCHASE 就匹配
+        mailing_lists = list(mailing_lists)
 
     if not send_now:
         # 检查发送时间
@@ -490,11 +495,14 @@ def _send_to_dingtalk_channels(
         is_active=True,
     ).select_related("app")
 
-    # 过滤业务范围
+    # 过滤业务范围：新版用 content_types (JSONField)
     if snapshot.scope == "SALES":
-        group_configs = group_configs.filter(scope__in=["SALES", "BOTH"])
+        group_configs = [gc for gc in group_configs if "SALES" in (gc.content_types or [])]
     elif snapshot.scope == "PURCHASE":
-        group_configs = group_configs.filter(scope__in=["PURCHASE", "BOTH"])
+        group_configs = [gc for gc in group_configs if "PURCHASE" in (gc.content_types or [])]
+    else:  # BOTH
+        # 快照是 BOTH 时，只要群配置包含 SALES 或 PURCHASE 就匹配
+        group_configs = list(group_configs)
 
     if not send_now:
         # 检查发送时间

@@ -144,9 +144,22 @@ class DingtalkAppAdmin(SecretMaskingAdmin):
 
 
 class DingtalkGroupConfigForm(forms.ModelForm):
+    content_types = forms.MultipleChoiceField(
+        label="推送内容",
+        choices=DingtalkGroupConfig.ContentType.choices,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="勾选要包含的数据类型",
+    )
+
     class Meta:
         model = DingtalkGroupConfig
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 从JSONField读取已有值
+        if self.instance.pk and self.instance.content_types:
+            self.fields["content_types"].initial = self.instance.content_types
 
     def clean(self):
         data = super().clean()
@@ -159,9 +172,16 @@ class DingtalkGroupConfigForm(forms.ModelForm):
 @admin.register(DingtalkGroupConfig)
 class DingtalkGroupConfigAdmin(AuditedAdmin):
     form = DingtalkGroupConfigForm
-    list_display = ("company", "name", "app", "scope", "send_at", "is_active")
-    list_filter = ("company", "scope", "is_active")
+    list_display = ("company", "name", "app", "content_types_display", "send_at", "is_active")
+    list_filter = ("company", "is_active")
     search_fields = ("name", "open_conversation_id")
+
+    @admin.display(description="推送内容")
+    def content_types_display(self, obj):
+        if not obj.content_types:
+            return "-"
+        labels = [dict(DingtalkGroupConfig.ContentType.choices).get(ct, ct) for ct in obj.content_types]
+        return "、".join(labels)
 
 
 @admin.register(ReportDelivery)

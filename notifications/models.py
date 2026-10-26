@@ -6,16 +6,20 @@ from django.db import models
 class MailingList(models.Model):
     """一个公司一份收件配置，决定每天把哪家公司的数据发给谁。"""
 
-    class Scope(models.TextChoices):
-        BOTH = "BOTH", "销售和采购"
-        SALES = "SALES", "仅销售"
-        PURCHASE = "PURCHASE", "仅采购"
+    class ContentType(models.TextChoices):
+        SALES = "SALES", "销售出库"
+        PURCHASE = "PURCHASE", "采购入库"
+        APPROVALS = "APPROVALS", "付款审批"
 
     company = models.ForeignKey(
         "core.Company", verbose_name="公司", on_delete=models.CASCADE, related_name="mailing_lists"
     )
     name = models.CharField("收件组名称", max_length=120)
-    scope = models.CharField("推送内容", max_length=10, choices=Scope.choices, default=Scope.BOTH)
+    content_types = models.JSONField(
+        "推送内容",
+        default=list,
+        help_text="勾选要包含的数据类型：销售、采购、审批",
+    )
     recipients = models.TextField("收件人", help_text="多个邮箱用英文逗号或换行分隔。")
     cc_recipients = models.TextField("抄送", blank=True, default="")
     send_at = models.TimeField("每日发送时间", help_text="按服务器所在时区（Asia/Shanghai）触发。")
@@ -54,11 +58,15 @@ class MailingList(models.Model):
 
     @property
     def includes_sales(self):
-        return self.scope in (self.Scope.BOTH, self.Scope.SALES)
+        return "SALES" in self.content_types
 
     @property
     def includes_purchase(self):
-        return self.scope in (self.Scope.BOTH, self.Scope.PURCHASE)
+        return "PURCHASE" in self.content_types
+
+    @property
+    def includes_approvals(self):
+        return "APPROVALS" in self.content_types
 
 
 class DeliveryLog(models.Model):
