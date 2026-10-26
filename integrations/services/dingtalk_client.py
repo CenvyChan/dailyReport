@@ -102,6 +102,25 @@ class DingtalkClient:
             raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
         return data
 
+    def get(self, path, params=None):
+        """调用新版开放平台 GET API（api.dingtalk.com）。
+
+        用于查询类接口，如列出机器人、查询审批模板等。
+        """
+        resp = _requests().get(
+            f"{NEW_API_BASE}{path}",
+            headers={"x-acs-dingtalk-access-token": self.token()},
+            params=params or {},
+            timeout=20,
+        )
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise DingtalkError(f"钉钉接口 {path} 返回非 JSON（HTTP {resp.status_code}）：{resp.text[:200]}") from exc
+        if data.get("errcode", 0) != 0:
+            raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
+        return data
+
     def upload_media(self, filename, content, media_type="file"):
         """上传机器人文件媒体，返回 media_id。
 
