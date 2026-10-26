@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>飞诺斯电子科技有限公司 经营日报 2026年8月10日</title>
+<style>
+  /* ===== 书册式·现代极简白 (对齐 dailyreportAure modern 主题) ===== */
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --page-bg: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-tertiary: #94a3b8;
+    --accent: #2563eb;
+    --card-bg: #f8fafc;
+    --card-border: #e2e8f0;
+    --divider: #e2e8f0;
+    --head-bg: #f1f5f9;
+    --sales: #2563eb;
+    --purchase: #16a34a;
+    --emerald: #059669;
+    --amber: #d97706;
+    --rose: #e11d48;
+  }
+  html, body {
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .page {
+    position: relative;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 16mm 15mm 14mm;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* 字体与通用 */
+  .mono { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; }
+  .serif { font-family: Georgia, "Noto Serif CJK SC", "Source Han Serif SC", serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ===== 分节页眉 ===== */
+  .sec-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 1px solid var(--divider);
+    padding-bottom: 10px; margin-bottom: 18px;
+  }
+  .sec-head .eyebrow {
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+    font-family: "SF Mono", Consolas, monospace; display: block; margin-bottom: 3px;
+  }
+  .sec-head h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .sec-head .meta { text-align: right; font-size: 10px; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; line-height: 1.6; }
+
+  /* 页脚 */
+  .page-foot {
+    margin-top: auto; padding-top: 10px; border-top: 1px solid var(--divider);
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--text-tertiary);
+    font-family: "SF Mono", Consolas, monospace;
+  }
+
+  /* ===== 封面 ===== */
+  .cover { justify-content: space-between; }
+  .cover-frame {
+    position: absolute; inset: 10mm;
+    border: 1px solid var(--card-border); border-radius: 10px; pointer-events: none;
+  }
+  .cover-top {
+    position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; font-family: "SF Mono", Consolas, monospace; color: var(--text-secondary);
+    padding-top: 6mm;
+  }
+  .cover-badge {
+    border: 1px solid rgba(5,150,105,0.3); color: var(--emerald);
+    background: rgba(5,150,105,0.08); border-radius: 5px; padding: 3px 9px;
+  }
+  .cover-hero { position: relative; z-index: 1; text-align: center; margin: auto; max-width: 150mm; }
+  .cover-emblem { width: 84px; height: 84px; margin: 0 auto 26px; }
+  .cover-company { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 14px; }
+  .cover-title { font-size: 46px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 16px; }
+  .cover-pill {
+    display: inline-flex; gap: 10px; align-items: center;
+    border: 1px solid var(--card-border); border-radius: 999px;
+    padding: 6px 16px; font-size: 12px; font-family: "SF Mono", Consolas, monospace;
+    color: var(--text-secondary); margin-bottom: 26px;
+  }
+  .cover-desc { font-size: 13px; line-height: 1.9; color: var(--text-secondary); max-width: 130mm; margin: 0 auto 30px; }
+  .cover-badges { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; max-width: 135mm; margin: 0 auto; text-align: left; }
+  .cover-badges .b {
+    border: 1px solid var(--card-border); background: var(--card-bg);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .cover-badges .b span { font-size: 10px; color: var(--text-tertiary); display: block; margin-bottom: 5px; }
+  .cover-badges .b strong { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cover-foot { position: relative; z-index: 1; text-align: center; font-size: 10px; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; padding-bottom: 6mm; }
+
+  /* ===== KPI 卡片 ===== */
+  .kpis { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 12px; padding: 16px 18px; break-inside: avoid; }
+  .kpi .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .kpi .top span { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .kpi .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .kpi strong { font-size: 25px; font-weight: 700; font-variant-numeric: tabular-nums; display: block; letter-spacing: -0.02em; }
+  .kpi .unit { font-size: 13px; font-weight: 500; color: var(--text-tertiary); }
+  .kpi small { font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 4px; }
+  .kpi.sales strong { color: var(--sales); }
+  .kpi.purchase strong { color: var(--purchase); }
+  .kpi.net strong { color: var(--emerald); }
+
+  /* ===== 经营纪要 ===== */
+  .commentary {
+    border: 1px solid var(--card-border); background: rgba(15,23,42,0.015);
+    border-radius: 12px; padding: 18px 20px; break-inside: avoid;
+  }
+  .commentary h4 {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: "SF Mono", Consolas, monospace; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px; color: var(--amber);
+  }
+  .commentary p { font-size: 13px; line-height: 1.95; color: var(--text-secondary); }
+  .commentary strong { color: var(--text-primary); font-weight: 700; }
+
+  /* ===== 柱状图(趋势) ===== */
+  .trend-note { font-size: 12px; line-height: 1.85; color: var(--text-secondary); margin-bottom: 18px; }
+  .trend-note strong { color: var(--text-primary); }
+  .bars-block { break-inside: avoid; margin-bottom: 22px; }
+  .bars-block h3 {
+    font-size: 13px; font-weight: 600; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px; color: var(--text-primary);
+  }
+  .bars-block h3 i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .bars {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    gap: 5px; align-items: end; height: 128px;
+    border-bottom: 1.5px solid var(--card-border); padding-bottom: 0;
+  }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar-val { font-size: 8.5px; font-variant-numeric: tabular-nums; color: var(--text-secondary); margin-bottom: 3px; white-space: nowrap; }
+  .bar {
+    width: 72%; max-width: 26px; border-radius: 4px 4px 0 0; min-height: 2px;
+  }
+  .bar.s { background: linear-gradient(180deg, #3b82f6, #2563eb); }
+  .bar.p { background: linear-gradient(180deg, #22c55e, #16a34a); }
+  .bar-labels {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin-top: 6px;
+  }
+  .bar-labels span { font-size: 8px; text-align: center; color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; }
+  .bars-legend { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
+
+  /* ===== 明细表(紧凑行高、去关联列) ===== */
+  .ledger-badge {
+    font-size: 11px; font-family: "SF Mono", Consolas, monospace;
+    background: rgba(37,99,235,0.08); color: var(--accent);
+    border: 1px solid rgba(37,99,235,0.2); border-radius: 5px; padding: 3px 10px;
+  }
+  .ledger-badge.p { background: rgba(22,163,74,0.08); color: var(--purchase); border-color: rgba(22,163,74,0.2); }
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.ledger thead th {
+    background: var(--head-bg); color: var(--text-secondary);
+    font-weight: 600; text-align: left; padding: 6px 10px;
+    border-bottom: 1.5px solid var(--card-border);
+    font-size: 10px; letter-spacing: 0.03em;
+  }
+  table.ledger thead th.num { text-align: right; }
+  table.ledger tbody td {
+    padding: 4px 10px; border-bottom: 1px solid #f1f5f9;
+    line-height: 1.3; color: var(--text-primary);
+  }
+  table.ledger tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.ledger tbody td.idx { color: var(--text-tertiary); font-family: "SF Mono", Consolas, monospace; font-size: 10px; }
+  table.ledger tbody tr:nth-child(even) td { background: #fafbfc; }
+  table.ledger tfoot td {
+    padding: 7px 10px; font-weight: 700; border-top: 1.5px solid var(--card-border);
+    font-variant-numeric: tabular-nums;
+  }
+  table.ledger tfoot td.num { text-align: right; }
+  .ledger-wrap { break-inside: auto; }
+
+  /* ===== 金蝶参考 ===== */
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ref-card { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 12px; padding: 18px 20px; break-inside: avoid; }
+  .ref-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .ref-card h3 .tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .ref-card h3 .tag.s { background: rgba(37,99,235,0.1); color: var(--sales); }
+  .ref-card h3 .tag.p { background: rgba(22,163,74,0.1); color: var(--purchase); }
+  .ref-row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+  .ref-row:last-child { border-bottom: none; }
+  .ref-row span { color: var(--text-secondary); }
+  .ref-row b { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+  .ref-row b.pos { color: var(--emerald); }
+  .ref-row b.neg { color: var(--rose); }
+  .ref-explain { margin-top: 14px; font-size: 11px; line-height: 1.8; color: var(--text-tertiary); }
+  .principle-note {
+    margin-top: 20px; padding: 14px 18px; border-radius: 10px;
+    background: rgba(37,99,235,0.04); border: 1px solid rgba(37,99,235,0.15);
+    font-size: 12px; line-height: 1.8; color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+
+
+<section class="page cover">
+  <div class="cover-frame"></div>
+  <div class="cover-top">
+    <span>FINOS OPERATING FOLIO · 2026-08</span>
+    <span class="cover-badge">内部资料 · 核验有效</span>
+  </div>
+  <div class="cover-hero">
+    <svg class="cover-emblem" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#2563eb" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+      <polygon points="50,12 85,30 85,70 50,88 15,70 15,30" fill="none" stroke="#2563eb" stroke-width="1.5" opacity="0.6"/>
+      <polygon points="50,22 76,36 76,64 50,78 24,64 24,36" fill="none" stroke="#2563eb" stroke-width="1" opacity="0.4"/>
+      <circle cx="50" cy="50" r="16" fill="#2563eb" fill-opacity="0.08" stroke="#2563eb" stroke-width="1.5"/>
+      <path d="M42 50 L50 42 L58 50 L50 58 Z" fill="#2563eb" opacity="0.85"/>
+    </svg>
+    <div class="cover-company">飞诺斯电子科技有限公司</div>
+    <h1 class="cover-title serif">经营日报</h1>
+    <div class="cover-pill">
+      <span>报告基准日：2026年08月10日</span>
+      <span>·</span>
+      <span>快照 #8</span>
+    </div>
+    <p class="cover-desc">手填日报为主口径，金蝶数据作为参考与对账依据。本公报汇编当日产销、原料采购账目、本月十五日动态走势与金蝶系统对账结论。</p>
+    <div class="cover-badges">
+      <div class="b"><span>当日销售出货</span><strong style="color:var(--sales)">471,669.52</strong></div>
+      <div class="b"><span>当日采购发生</span><strong style="color:var(--purchase)">127,340.88</strong></div>
+      <div class="b"><span>当日净差额</span><strong style="color:var(--emerald)">344,328.64</strong></div>
+    </div>
+  </div>
+  <div class="cover-foot">飞诺斯电子科技有限公司 · 经营日报 · 生成于 2026-10-07 08:20</div>
+</section>
+
+
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">EXECUTIVE OVERVIEW · SECTION 01</span>
+      <h2 class="serif">经营总览与关键指标</h2>
+    </div>
+    <div class="meta">快照 #8<br>2026-10-07 08:20</div>
+  </div>
+
+  <div class="kpis">
+    
+    <div class="kpi sales">
+      <div class="top"><span>销售日报金额</span><i class="dot" style="background:var(--sales)"></i></div>
+      <strong>¥471,669.52</strong>
+      <small>9 笔手填单据</small>
+    </div>
+    
+    
+    <div class="kpi purchase">
+      <div class="top"><span>采购日报金额</span><i class="dot" style="background:var(--purchase)"></i></div>
+      <strong>¥127,340.88</strong>
+      <small>9 笔手填单据</small>
+    </div>
+    
+    <div class="kpi net">
+      <div class="top"><span>当日经营净差额</span><i class="dot" style="background:var(--emerald)"></i></div>
+      <strong>¥344,328.64</strong>
+      <small>销售出货 − 采购发生</small>
+    </div>
+  </div>
+
+  <div class="commentary">
+    <h4>⬢ 经营纪要与管理层建议</h4>
+    <p>
+      今日实现销售出货手填金额 <strong>¥471,669.52</strong>，
+      采购发生额 <strong>¥127,340.88</strong>，
+      本日经营活动现金流入净差额 <strong>¥344,328.64</strong>。
+      当日共录入销售日报 9 笔、采购日报 9 笔，
+      数据以手工填报口径为准，金蝶系统数据作为后续对账与稽核的参考依据。
+    </p>
+  </div>
+
+  <div class="page-foot"><span>飞诺斯电子科技有限公司 · 经营日报</span><span>第 1 节 · 经营总览</span></div>
+</section>
+
+
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">TRENDS & CHART NOTES · SECTION 02</span>
+      <h2 class="serif">趋势对比与图表观察</h2>
+    </div>
+    <div class="meta">本月日报金额动态走势<br>近 15 日 · 单位：万元</div>
+  </div>
+
+  <p class="trend-note">
+    下图按日报业务日期汇总近 15 日销售出货与采购发生的手填金额走势，<strong>金额单位为万元（保留两位小数）</strong>。
+    销售与采购各自独立归一，柱高反映组内相对强弱，便于快速识别当月的交付高峰与采购结算节点。
+  </p>
+
+  <div class="bars-block">
+    <h3><i style="background:var(--sales)"></i>销售出货金额走势（万元）</h3>
+    <div class="bars">
+      <div class="bar-col"><div class="bar-val">25.00</div><div class="bar s" style="height:50.0%"></div></div><div class="bar-col"><div class="bar-val">0.00</div><div class="bar s" style="height:0.0%"></div></div><div class="bar-col"><div class="bar-val">47.73</div><div class="bar s" style="height:95.47%"></div></div><div class="bar-col"><div class="bar-val">28.53</div><div class="bar s" style="height:57.06%"></div></div><div class="bar-col"><div class="bar-val">43.92</div><div class="bar s" style="height:87.84%"></div></div><div class="bar-col"><div class="bar-val">48.97</div><div class="bar s" style="height:97.95%"></div></div><div class="bar-col"><div class="bar-val">31.99</div><div class="bar s" style="height:63.97%"></div></div><div class="bar-col"><div class="bar-val">41.42</div><div class="bar s" style="height:82.85%"></div></div><div class="bar-col"><div class="bar-val">0.00</div><div class="bar s" style="height:0.0%"></div></div><div class="bar-col"><div class="bar-val">35.30</div><div class="bar s" style="height:70.61%"></div></div><div class="bar-col"><div class="bar-val">38.60</div><div class="bar s" style="height:77.2%"></div></div><div class="bar-col"><div class="bar-val">50.00</div><div class="bar s" style="height:100.0%"></div></div><div class="bar-col"><div class="bar-val">38.41</div><div class="bar s" style="height:76.83%"></div></div><div class="bar-col"><div class="bar-val">35.50</div><div class="bar s" style="height:71.01%"></div></div><div class="bar-col"><div class="bar-val">49.77</div><div class="bar s" style="height:99.53%"></div></div>
+    </div>
+    <div class="bar-labels"><span>08-01</span><span>08-02</span><span>08-03</span><span>08-04</span><span>08-05</span><span>08-06</span><span>08-07</span><span>08-08</span><span>08-09</span><span>08-10</span><span>08-11</span><span>08-12</span><span>08-13</span><span>08-14</span><span>08-15</span></div>
+  </div>
+
+  <div class="bars-block">
+    <h3><i style="background:var(--purchase)"></i>采购发生金额走势（万元）</h3>
+    <div class="bars">
+      <div class="bar-col"><div class="bar-val">10.00</div><div class="bar p" style="height:50.0%"></div></div><div class="bar-col"><div class="bar-val">0.00</div><div class="bar p" style="height:0.0%"></div></div><div class="bar-col"><div class="bar-val">19.09</div><div class="bar p" style="height:95.47%"></div></div><div class="bar-col"><div class="bar-val">11.41</div><div class="bar p" style="height:57.06%"></div></div><div class="bar-col"><div class="bar-val">17.57</div><div class="bar p" style="height:87.84%"></div></div><div class="bar-col"><div class="bar-val">19.59</div><div class="bar p" style="height:97.95%"></div></div><div class="bar-col"><div class="bar-val">12.79</div><div class="bar p" style="height:63.97%"></div></div><div class="bar-col"><div class="bar-val">16.57</div><div class="bar p" style="height:82.85%"></div></div><div class="bar-col"><div class="bar-val">0.00</div><div class="bar p" style="height:0.0%"></div></div><div class="bar-col"><div class="bar-val">14.12</div><div class="bar p" style="height:70.61%"></div></div><div class="bar-col"><div class="bar-val">15.44</div><div class="bar p" style="height:77.2%"></div></div><div class="bar-col"><div class="bar-val">20.00</div><div class="bar p" style="height:100.0%"></div></div><div class="bar-col"><div class="bar-val">15.37</div><div class="bar p" style="height:76.83%"></div></div><div class="bar-col"><div class="bar-val">14.20</div><div class="bar p" style="height:71.01%"></div></div><div class="bar-col"><div class="bar-val">19.91</div><div class="bar p" style="height:99.53%"></div></div>
+    </div>
+    <div class="bar-labels"><span>08-01</span><span>08-02</span><span>08-03</span><span>08-04</span><span>08-05</span><span>08-06</span><span>08-07</span><span>08-08</span><span>08-09</span><span>08-10</span><span>08-11</span><span>08-12</span><span>08-13</span><span>08-14</span><span>08-15</span></div>
+  </div>
+
+  <div class="page-foot"><span>飞诺斯电子科技有限公司 · 经营日报</span><span>第 2 节 · 趋势走势</span></div>
+</section>
+
+
+
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">MANUAL SALES LEDGER · SECTION 03</span>
+      <h2 class="serif">销售日报明细账簿</h2>
+    </div>
+    <span class="ledger-badge">共 9 笔 · ¥471,669.52</span>
+  </div>
+  <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th style="width:40px">#</th><th>客户名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <tbody>
+        
+        <tr><td class="idx">1</td><td>昕诺飞厦门</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">258,580.15</td></tr>
+        
+        <tr><td class="idx">2</td><td>东莞台达</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">50,477.93</td></tr>
+        
+        <tr><td class="idx">3</td><td>美加堂</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">45,386.21</td></tr>
+        
+        <tr><td class="idx">4</td><td>赛诺</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">36,337.35</td></tr>
+        
+        <tr><td class="idx">5</td><td>和而泰</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">26,161.09</td></tr>
+        
+        <tr><td class="idx">6</td><td>三星医疗</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">24,162.42</td></tr>
+        
+        <tr><td class="idx">7</td><td>昕诺飞荷兰</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">22,963.97</td></tr>
+        
+        <tr><td class="idx">8</td><td>虹锐电工</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">5,120.40</td></tr>
+        
+        <tr><td class="idx">9</td><td>三花</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">2,480.00</td></tr>
+        
+      </tbody>
+      <tfoot><tr><td colspan="3">合计</td><td class="num">471,669.52</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="page-foot"><span>飞诺斯电子科技有限公司 · 经营日报</span><span>第 3 节 · 销售明细</span></div>
+</section>
+
+
+
+
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">MANUAL PURCHASE LEDGER · SECTION 04</span>
+      <h2 class="serif">采购日报明细账簿</h2>
+    </div>
+    <span class="ledger-badge p">共 9 笔 · ¥127,340.88</span>
+  </div>
+  <div class="ledger-wrap">
+    <table class="ledger">
+      <thead><tr><th style="width:40px">#</th><th>供应商名称</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
+      <tbody>
+        
+        <tr><td class="idx">1</td><td>宁波三赢化工</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">31,460.00</td></tr>
+        
+        <tr><td class="idx">2</td><td>瑞年新材料</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">21,775.00</td></tr>
+        
+        <tr><td class="idx">3</td><td>宁波卢米电子</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">18,415.80</td></tr>
+        
+        <tr><td class="idx">4</td><td>嘉兴宏越模具</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">13,860.00</td></tr>
+        
+        <tr><td class="idx">5</td><td>慈溪桥城五金</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">8,972.88</td></tr>
+        
+        <tr><td class="idx">6</td><td>昆山铂信橡塑</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">8,400.00</td></tr>
+        
+        <tr><td class="idx">7</td><td>中铭新材料</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">5,860.16</td></tr>
+        
+        <tr><td class="idx">8</td><td>某电子元件</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">4,200.00</td></tr>
+        
+        <tr><td class="idx">9</td><td>某包装</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">2026-08-10</td><td class="num">2,100.00</td></tr>
+        
+      </tbody>
+      <tfoot><tr><td colspan="3">合计</td><td class="num">127,340.88</td></tr></tfoot>
+    </table>
+  </div>
+  <div class="page-foot"><span>飞诺斯电子科技有限公司 · 经营日报</span><span>第 4 节 · 采购明细</span></div>
+</section>
+
+
+
+<section class="page">
+  <div class="sec-head">
+    <div>
+      <span class="eyebrow">KINGDEE REFERENCE · SECTION 05</span>
+      <h2 class="serif">金蝶系统参考数据</h2>
+    </div>
+    <div class="meta">本月累计 · 对账参考<br>2026年08月</div>
+  </div>
+  <div class="ref-grid">
+    
+    <div class="ref-card">
+      <h3>销售对账 <span class="tag s">SALES</span></h3>
+      <div class="ref-row"><span>本月手填累计</span><b>¥4,716,695.20</b></div>
+      <div class="ref-row"><span>本月金蝶累计</span><b>¥4,680,000.00</b></div>
+      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="pos">¥36,695.20</b></div>
+      <div class="ref-row"><span>差异率</span><b>0.78%</b></div>
+      <div class="ref-explain">手填日报为经营口径的主数据，金蝶金额因结账归集、凭证生成存在时间差，差额将随次日金蝶入账逐步收敛。</div>
+    </div>
+    
+    
+    <div class="ref-card">
+      <h3>采购对账 <span class="tag p">PURCHASE</span></h3>
+      <div class="ref-row"><span>本月手填累计</span><b>¥1,273,408.80</b></div>
+      <div class="ref-row"><span>本月金蝶累计</span><b>¥1,310,000.00</b></div>
+      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="neg">¥-36,591.20</b></div>
+      <div class="ref-row"><span>差异率</span><b>-2.79%</b></div>
+      <div class="ref-explain">采购发生额以手填日报为准，金蝶入库凭证按实际收料与结算节奏生成，月末对账差额通常回归合理区间。</div>
+    </div>
+    
+  </div>
+  <div class="principle-note">
+    <strong>口径说明：</strong>本报告一律以手工填报日报为经营主口径，金蝶系统数据仅作参考与对账依据。两者差异反映的是单据流转与系统入账之间的时间差，不代表经营数据错误。
+  </div>
+  <div class="page-foot"><span>飞诺斯电子科技有限公司 · 经营日报</span><span>第 5 节 · 金蝶参考</span></div>
+</section>
+
+</body>
+</html>

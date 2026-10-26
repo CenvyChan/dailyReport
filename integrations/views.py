@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.management import call_command
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from core.responses import forbidden_page
 from core.services.audit import record_audit
@@ -257,3 +259,60 @@ def party_mapping_view(request):
             "is_admin": admin,
         },
     )
+
+
+@login_required
+@require_POST
+def sync_current_month(request):
+    """手动触发当月付款审批数据同步(管理员专用)。"""
+    if not is_administrator(request.user):
+        return JsonResponse({'success': False, 'error': '需要管理员权限'}, status=403)
+
+    try:
+        # 调用管理命令,同步当前公司的当月数据
+        from io import StringIO
+        out = StringIO()
+        call_command(
+            'sync_payment_approvals',
+            company=request.company.code,
+            current_month=True,
+            stdout=out,
+        )
+        return JsonResponse({
+            'success': True,
+            'message': f'当月数据同步完成: {request.company.name}',
+            'output': out.getvalue(),
+        })
+    except Exception as exc:
+        return JsonResponse({
+            'success': False,
+            'error': str(exc),
+        }, status=500)
+
+
+@login_required
+@require_POST
+def sync_running_approvals(request):
+    """手动触发未完结审批同步(管理员专用)。"""
+    if not is_administrator(request.user):
+        return JsonResponse({'success': False, 'error': '需要管理员权限'}, status=403)
+
+    try:
+        from io import StringIO
+        out = StringIO()
+        call_command(
+            'sync_running_approvals',
+            company=request.company.code,
+            stdout=out,
+        )
+        return JsonResponse({
+            'success': True,
+            'message': f'未完结审批同步完成: {request.company.name}',
+            'output': out.getvalue(),
+        })
+    except Exception as exc:
+        return JsonResponse({
+            'success': False,
+            'error': str(exc),
+        }, status=500)
+

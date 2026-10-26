@@ -5,6 +5,16 @@
     <h1>钉钉付款申请</h1>
     <p class="sub">K3 之外的费用 · 用于应付/已付区分 · 共 {{ page.paginator.count }} 条</p>
   </div>
+  {% if request.user.is_staff %}
+  <div style="display: flex; gap: 0.5rem;">
+    <button type="button" onclick="syncCurrentMonth()" class="btn-primary">
+      <i data-lucide="download"></i>同步当月数据
+    </button>
+    <button type="button" onclick="syncRunning()" class="btn-secondary">
+      <i data-lucide="refresh-cw"></i>更新未完结
+    </button>
+  </div>
+  {% endif %}
 </div>
 
 <form class="filter-card" method="get">
@@ -47,4 +57,75 @@
 </div>
 
 {% include "integrations/_pagination.html" %}
+
+<script>
+function getCsrfToken() {
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'csrftoken') return value;
+  }
+  return '';
+}
+
+async function syncCurrentMonth() {
+  if (!confirm('同步当月数据可能需要1-2分钟,确定继续?')) return;
+
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader"></i>同步中...';
+  lucide.createIcons();
+
+  try {
+    const resp = await fetch('{% url "integrations:sync_current_month" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      alert('同步成功!\n' + data.message);
+      location.reload();
+    } else {
+      alert('同步失败: ' + data.error);
+    }
+  } catch (err) {
+    alert('网络错误: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="download"></i>同步当月数据';
+    lucide.createIcons();
+  }
+}
+
+async function syncRunning() {
+  if (!confirm('更新未完结审批,确定继续?')) return;
+
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader"></i>更新中...';
+  lucide.createIcons();
+
+  try {
+    const resp = await fetch('{% url "integrations:sync_running" %}', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      alert('更新成功!\n' + data.message);
+      location.reload();
+    } else {
+      alert('更新失败: ' + data.error);
+    }
+  } catch (err) {
+    alert('网络错误: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="refresh-cw"></i>更新未完结';
+    lucide.createIcons();
+  }
+}
+</script>
 {% endblock %}

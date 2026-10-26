@@ -35,6 +35,16 @@ class Command(BaseCommand):
             help="指定审批模板Code,缺省同步所有启用的模板"
         )
         parser.add_argument(
+            '--full-sync',
+            action='store_true',
+            help="全量同步:从2024年1月1日至今的所有数据(首次部署时使用)"
+        )
+        parser.add_argument(
+            '--current-month',
+            action='store_true',
+            help="同步当前月份:从本月1号至今(用于手动触发当月报表)"
+        )
+        parser.add_argument(
             '--force',
             action='store_true',
             help="强制重新同步,忽略当天已同步判断"
@@ -145,27 +155,47 @@ class Command(BaseCommand):
         for config in process_configs:
             self.stdout.write(f"\n处理模板: {config.name} ({config.process_code})")
 
-            # 计算时间范围：上个月的完整月份
+            # 计算时间范围
             today = timezone.now().date()
-            # 上个月的第一天
-            first_day_of_current_month = today.replace(day=1)
-            last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
-            first_day_of_last_month = last_day_of_last_month.replace(day=1)
+            now = timezone.now()
 
-            # 转为datetime并设置时区
-            start_time = timezone.make_aware(
-                timezone.datetime.combine(first_day_of_last_month, timezone.datetime.min.time())
-            )
-            end_time = timezone.make_aware(
-                timezone.datetime.combine(last_day_of_last_month, timezone.datetime.max.time())
-            )
+            if options.get('full_sync'):
+                # 全量同步:从2024-01-01至今
+                start_time = timezone.make_aware(
+                    timezone.datetime(2024, 1, 1, 0, 0, 0)
+                )
+                end_time = now
+                time_desc = "全量同步(2024-01-01至今)"
+
+            elif options.get('current_month'):
+                # 当月同步:从本月1号至今
+                first_day_of_current_month = today.replace(day=1)
+                start_time = timezone.make_aware(
+                    timezone.datetime.combine(first_day_of_current_month, timezone.datetime.min.time())
+                )
+                end_time = now
+                time_desc = "当月数据(本月1号至今)"
+
+            else:
+                # 默认:上个月的完整月份
+                first_day_of_current_month = today.replace(day=1)
+                last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
+                first_day_of_last_month = last_day_of_last_month.replace(day=1)
+
+                start_time = timezone.make_aware(
+                    timezone.datetime.combine(first_day_of_last_month, timezone.datetime.min.time())
+                )
+                end_time = timezone.make_aware(
+                    timezone.datetime.combine(last_day_of_last_month, timezone.datetime.max.time())
+                )
+                time_desc = "上个月完整月份"
 
             start_ms = int(start_time.timestamp() * 1000)
             end_ms = int(end_time.timestamp() * 1000)
 
             self.stdout.write(
                 f"  时间范围: {start_time.strftime('%Y-%m-%d')} "
-                f"至 {end_time.strftime('%Y-%m-%d')} (上个月完整月份)"
+                f"至 {end_time.strftime('%Y-%m-%d')} ({time_desc})"
             )
 
             try:
