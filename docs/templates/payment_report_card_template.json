@@ -1,0 +1,193 @@
+{
+  "type": "template",
+  "config": {
+    "wide_screen_mode": true,
+    "enable_forward": true
+  },
+  "header": {
+    "title": {
+      "content": "{{title}}",
+      "tag": "plain_text"
+    },
+    "subtitle": {
+      "content": "{{dateRange}}",
+      "tag": "plain_text"
+    },
+    "template": "blue",
+    "ud_icon": {
+      "token": "money_bag"
+    }
+  },
+  "i18n_elements": {
+    "zh_CN": [
+      {
+        "tag": "column_set",
+        "flex_mode": "none",
+        "background_style": "default",
+        "columns": [
+          {
+            "tag": "column",
+            "width": "weighted",
+            "weight": 1,
+            "vertical_align": "top",
+            "elements": [
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[0].icon}}",
+                  "tag": "plain_text"
+                },
+                "extra": {
+                  "tag": "plain_text",
+                  "content": ""
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "**{{stats[0].value}}** {{stats[0].unit}}",
+                  "tag": "lark_md"
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[0].label}}",
+                  "tag": "plain_text"
+                }
+              }
+            ]
+          },
+          {
+            "tag": "column",
+            "width": "weighted",
+            "weight": 1,
+            "vertical_align": "top",
+            "elements": [
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[1].icon}}",
+                  "tag": "plain_text"
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "**{{stats[1].value}}**",
+                  "tag": "lark_md"
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[1].label}}",
+                  "tag": "plain_text"
+                }
+              }
+            ]
+          },
+          {
+            "tag": "column",
+            "width": "weighted",
+            "weight": 1,
+            "vertical_align": "top",
+            "elements": [
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[2].icon}}",
+                  "tag": "plain_text"
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "**{{stats[2].value}}** {{stats[2].unit}}",
+                  "tag": "lark_md"
+                }
+              },
+              {
+                "tag": "div",
+                "text": {
+                  "content": "{{stats[2].label}}",
+                  "tag": "plain_text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tag": "hr"
+      },
+      {
+        "tag": "div",
+        "text": {
+          "content": "🏆 **Top 5 收款人**",
+          "tag": "lark_md"
+        }
+      },
+      {
+        "tag": "list",
+        "items": "{{topRecipients}}",
+        "item_template": {
+          "tag": "div",
+          "padding": "8px 12px",
+          "background_style": "grey",
+          "elements": [
+            {
+              "tag": "div",
+              "text": {
+                "content": "**{{item.rank}}. {{item.name}}**",
+                "tag": "lark_md"
+              }
+            },
+            {
+              "tag": "div",
+              "text": {
+                "content": "{{item.count}}条 | {{item.amount}}",
+                "tag": "plain_text"
+              }
+            },
+            {
+              "tag": "condition",
+              "condition": "{{item.latest}}",
+              "true_elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "content": "[最新] {{item.latest.date}} {{item.latest.amount}} <font color='{{item.latest.status_color}}'>{{item.latest.status_text}}</font>",
+                    "tag": "lark_md"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "tag": "condition",
+        "condition": "{{remainingRecipients}} > 0",
+        "true_elements": [
+          {
+            "tag": "div",
+            "text": {
+              "content": "...还有 {{remainingRecipients}} 个收款人，详见Excel报表",
+              "tag": "plain_text"
+            }
+          }
+        ]
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {
+            "tag": "plain_text",
+            "content": "📎 详细数据已生成Excel报表"
+          }
+        ]
+      }
+    ]
+  }
+}

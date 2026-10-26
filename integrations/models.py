@@ -288,6 +288,10 @@ class DingtalkApp(TimeStampedModel):
         "机器人Code", max_length=128, blank=True, default="",
         help_text="群消息机器人的 robotCode，用于发送群消息"
     )
+    card_template_id = models.CharField(
+        "互动卡片模板ID", max_length=128, blank=True, default="",
+        help_text="付款申请周报互动卡片的模板ID，配置后将使用卡片发送，否则使用文本消息"
+    )
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:

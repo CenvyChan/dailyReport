@@ -73,6 +73,11 @@ class Command(BaseCommand):
             nargs='+',
             help="要@的用户ID列表(空格分隔)"
         )
+        parser.add_argument(
+            '--no-card',
+            action='store_true',
+            help="强制使用文本消息,不使用互动卡片"
+        )
 
     def handle(self, *args, **options):
         report_type = options['report_type']
@@ -213,15 +218,6 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"  发送到钉钉群: {group_id}")
 
-                # 构建消息
-                mention_userids = options.get('mention') or []
-                message = build_payment_report_message(
-                    data,
-                    period_info,
-                    report_type,
-                    mention_userids
-                )
-
                 # 上传Excel
                 client = DingtalkClient(dingtalk_app)
                 with open(excel_path, 'rb') as f:
@@ -230,23 +226,62 @@ class Command(BaseCommand):
                 media_id = client.upload_media(excel_filename, excel_content)
                 self.stdout.write(f"  Excel已上传, media_id: {media_id}")
 
-                # 发送群消息(包含文件和文本)
-                # 钉钉机器人群消息API: POST /v1.0/robot/groupMessages/send
-                payload = {
-                    'msgKey': 'sampleText',  # 文本消息
-                    'msgParam': json.dumps({'content': message}, ensure_ascii=False),
-                    'openConversationId': group_id,
-                    'robotCode': dingtalk_app.robot_code,
-                }
+                # 判断使用卡片还是文本消息
+                use_card = bool(dingtalk_app.card_template_id) and not options.get('no_card')
 
-                # 如果需要@用户
-                if mention_userids:
-                    payload['atUsers'] = [{'userId': uid} for uid in mention_userids]
+                if use_card:
+                    self.stdout.write("  使用互动卡片发送")
+                    from integrations.services.payment_card import (
+                        build_payment_card_data,
+                        send_interactive_card,
+                    )
 
-                result = client.post('/v1.0/robot/groupMessages/send', payload)
-                self.stdout.write(f"  文本消息已发送: {result}")
+                    # 生成卡片数据
+                    card_data = build_payment_card_data(data, period_info, report_type)
 
-                # 发送文件消息
+                    # 发送卡片
+                    try:
+                        card_result = send_interactive_card(
+                            client,
+                            group_id,
+                            card_data,
+                            dingtalk_app.card_template_id
+                        )
+                        self.stdout.write(f"  互动卡片已发送: {card_result}")
+                    except Exception as exc:
+                        self.stdout.write(self.style.WARNING(
+                            f"  卡片发送失败({exc}),降级为文本消息"
+                        ))
+                        use_card = False
+
+                # 使用文本消息(降级方案或默认方案)
+                if not use_card:
+                    self.stdout.write("  使用文本消息发送")
+                    # 构建文本消息
+                    mention_userids = options.get('mention') or []
+                    message = build_payment_report_message(
+                        data,
+                        period_info,
+                        report_type,
+                        mention_userids
+                    )
+
+                    # 发送文本消息
+                    payload = {
+                        'msgKey': 'sampleText',
+                        'msgParam': json.dumps({'content': message}, ensure_ascii=False),
+                        'openConversationId': group_id,
+                        'robotCode': dingtalk_app.robot_code,
+                    }
+
+                    # 如果需要@用户
+                    if mention_userids:
+                        payload['atUsers'] = [{'userId': uid} for uid in mention_userids]
+
+                    result = client.post('/v1.0/robot/groupMessages/send', payload)
+                    self.stdout.write(f"  文本消息已发送: {result}")
+
+                # 发送文件消息(无论卡片还是文本,都发送Excel附件)
                 file_payload = {
                     'msgKey': 'sampleFile',
                     'msgParam': json.dumps({
