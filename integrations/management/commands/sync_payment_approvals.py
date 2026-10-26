@@ -218,8 +218,8 @@ class Command(BaseCommand):
                 # 获取详情
                 instance_data = client.get_instance(instance_id)
 
-                # 提取字段
-                extracted = self._extract_instance_data(company, config, instance_data)
+                # 提取字段（传入instance_id以补充可能缺失的字段）
+                extracted = self._extract_instance_data(company, config, instance_data, instance_id)
 
                 if dry_run:
                     # Dry-run模式,只统计
@@ -285,7 +285,7 @@ class Command(BaseCommand):
             'amount_changed': amount_changed,
         }
 
-    def _extract_instance_data(self, company, config, instance_data):
+    def _extract_instance_data(self, company, config, instance_data, instance_id):
         """从钉钉API响应提取字段。"""
         from decimal import Decimal
 
@@ -294,7 +294,7 @@ class Command(BaseCommand):
             'company': company,
             'process_code': config.process_code,
             'process_name': instance_data.get('title', ''),
-            'process_instance_id': instance_data['process_instance_id'],
+            'process_instance_id': instance_data.get('process_instance_id') or instance_id,  # 优先从数据取，否则用传入的ID
             'title': instance_data.get('title', ''),
             'status': instance_data.get('status', ''),
             'result': instance_data.get('result', ''),
