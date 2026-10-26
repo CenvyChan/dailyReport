@@ -1,7 +1,7 @@
-"""增强钉钉付款申请同步命令。
+"""钉钉付款申请同步命令。
 
 功能特性:
-1. 增量同步:按lookback_days从当前向前追溯
+1. 时间范围:默认同步上个月的完整月份数据
 2. 状态跟踪:记录审批状态变更(RUNNING→COMPLETED等)
 3. 金额校正:记录金额变化(审批可能被修改)
 4. 变更通知:生成变更报告供报表使用
@@ -23,17 +23,12 @@ logger = logging.getLogger("integrations")
 
 
 class Command(BaseCommand):
-    help = "同步钉钉付款申请审批实例,支持增量更新和变更追踪"
+    help = "同步钉钉付款申请审批实例(默认同步上个月数据),支持增量更新和变更追踪"
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--company',
             help="仅同步指定公司代码,缺省同步全部"
-        )
-        parser.add_argument(
-            '--lookback-days',
-            type=int,
-            help="回看天数,覆盖模板配置中的默认值"
         )
         parser.add_argument(
             '--process-code',
@@ -150,17 +145,27 @@ class Command(BaseCommand):
         for config in process_configs:
             self.stdout.write(f"\n处理模板: {config.name} ({config.process_code})")
 
-            # 计算时间范围
-            lookback_days = options.get('lookback_days') or config.lookback_days
-            end_time = timezone.now()
-            start_time = end_time - timedelta(days=lookback_days)
+            # 计算时间范围：上个月的完整月份
+            today = timezone.now().date()
+            # 上个月的第一天
+            first_day_of_current_month = today.replace(day=1)
+            last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
+            first_day_of_last_month = last_day_of_last_month.replace(day=1)
+
+            # 转为datetime并设置时区
+            start_time = timezone.make_aware(
+                timezone.datetime.combine(first_day_of_last_month, timezone.datetime.min.time())
+            )
+            end_time = timezone.make_aware(
+                timezone.datetime.combine(last_day_of_last_month, timezone.datetime.max.time())
+            )
 
             start_ms = int(start_time.timestamp() * 1000)
             end_ms = int(end_time.timestamp() * 1000)
 
             self.stdout.write(
                 f"  时间范围: {start_time.strftime('%Y-%m-%d')} "
-                f"至 {end_time.strftime('%Y-%m-%d')} (回看{lookback_days}天)"
+                f"至 {end_time.strftime('%Y-%m-%d')} (上个月完整月份)"
             )
 
             try:
