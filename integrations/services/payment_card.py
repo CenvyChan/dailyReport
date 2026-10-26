@@ -9,6 +9,7 @@
 - 示例仓库: https://github.com/open-dingtalk/dingtalk-card-examples
 """
 
+import json
 import logging
 from decimal import Decimal
 from typing import Dict, List, Any
@@ -293,7 +294,7 @@ def build_payment_card_template_v1() -> Dict[str, Any]:
 
 
 def send_interactive_card(client, group_id: str, card_data: Dict[str, Any],
-                         template_id: str = None) -> Dict[str, Any]:
+                         template_id: str = None, robot_code: str = None) -> Dict[str, Any]:
     """发送互动卡片到钉钉群。
 
     Args:
@@ -301,40 +302,51 @@ def send_interactive_card(client, group_id: str, card_data: Dict[str, Any],
         group_id: 群 openConversationId
         card_data: 卡片数据（由 build_payment_card_data 生成）
         template_id: 卡片模板ID（在钉钉开放平台创建后获得）
+        robot_code: 机器人Code
 
     Returns:
         dict: 发送结果
 
     Raises:
-        ValueError: 如果未提供 template_id
+        ValueError: 如果未提供 template_id 或 robot_code
     """
     if not template_id:
         raise ValueError("必须提供 template_id，请先在钉钉开放平台创建卡片模板")
+    if not robot_code:
+        raise ValueError("必须提供 robot_code")
 
     # 生成唯一追踪ID
     import time
     out_track_id = f"payment_report_{int(time.time() * 1000)}"
 
-    # 构建卡片发送请求（参考钉钉官方文档）
+    # 构建互动卡片消息（通过群机器人发送）
+    # 参考：https://open.dingtalk.com/document/orgapp/message-card-sending-and-updating
     payload = {
-        "cardTemplateId": template_id,
-        "outTrackId": out_track_id,
-        "conversationType": "2",  # 字符串类型: "2"表示群聊
-        "conversationId": group_id,
-        "cardData": {
-            "cardParamMap": card_data,  # 填充模板变量
-        },
-        "callbackType": "STREAM",  # 回调方式
+        "msgKey": "sampleInteractiveCard",  # 互动卡片消息类型
+        "msgParam": json.dumps({
+            "cardTemplateId": template_id,
+            "outTrackId": out_track_id,
+            "cardData": {
+                "cardParamMap": card_data,
+            },
+        }, ensure_ascii=False),
+        "openConversationId": group_id,
+        "robotCode": robot_code,
     }
 
     # 调试日志
     logger.info(f"发送互动卡片到群 {group_id}")
+    logger.info(f"模板ID: {template_id}, RobotCode: {robot_code}")
+    logger.info(f"追踪ID: {out_track_id}")
     logger.debug(f"卡片数据字段: {list(card_data.keys())}")
-    logger.debug(f"模板ID: {template_id}")
-    logger.debug(f"追踪ID: {out_track_id}")
 
-    # 调用卡片发送接口
-    result = client.post('/v1.0/card/instances', payload)
+    # 检查卡片数据中的空值
+    empty_fields = [k for k, v in card_data.items() if not v and v != 0]
+    if empty_fields:
+        logger.warning(f"卡片数据中有空字段: {empty_fields}")
+
+    # 调用群机器人消息发送接口
+    result = client.post('/v1.0/robot/groupMessages/send', payload)
     logger.info(f"互动卡片发送结果: {result}")
 
     return result

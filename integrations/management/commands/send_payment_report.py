@@ -245,7 +245,8 @@ class Command(BaseCommand):
                             client,
                             group_id,
                             card_data,
-                            dingtalk_app.card_template_id
+                            dingtalk_app.card_template_id,
+                            dingtalk_app.robot_code  # 添加 robot_code
                         )
                         self.stdout.write(f"  互动卡片已发送: {card_result}")
                     except Exception as exc:
