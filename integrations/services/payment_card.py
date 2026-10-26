@@ -50,7 +50,9 @@ def _format_status(status):
 
 def build_payment_card_data(data: Dict[str, Any], period_info: Dict[str, Any],
                            report_type: str = 'week') -> Dict[str, Any]:
-    """构建付款申请报表的卡片数据。
+    """构建付款申请报表的卡片数据（审批卡片样式）。
+
+    参考钉钉审批卡片设计，使用状态标签、循环列表等组件。
 
     Args:
         data: analyze_payment_applications 返回的数据
@@ -65,36 +67,47 @@ def build_payment_card_data(data: Dict[str, Any], period_info: Dict[str, Any],
     # 计算进行中占比
     total = summary['total_count']
     running_count = summary['by_status'].get('RUNNING', 0)
+    completed_count = summary['by_status'].get('COMPLETED', 0)
+    terminated_count = summary['by_status'].get('TERMINATED', 0)
     running_percent = int(running_count / total * 100) if total > 0 else 0
 
-    # 卡片标题和时间范围
-    title = '付款申请周报' if report_type == 'week' else '付款申请月报'
-    date_range = f"{period_info['start_date'].strftime('%Y-%m-%d')} 至 {period_info['end_date'].strftime('%Y-%m-%d')}"
+    # 卡片标题和时间范围（审批卡片样式）
+    card_title = f"💰 付款申请{'周报' if report_type == 'week' else '月报'}"
+    period_text = (
+        f"{period_info['label']} "
+        f"({period_info['start_date'].strftime('%m-%d')} 至 "
+        f"{period_info['end_date'].strftime('%m-%d')})"
+    )
 
-    # 统计概览(三个指标卡片)
-    stats = [
+    # 状态列表（审批卡片的状态展示）
+    status_list = [
         {
-            'label': '总申请',
-            'value': str(summary['total_count']),
-            'unit': '条',
-            'icon': '📋',
+            "status_icon": "✅",
+            "status_text": "已完成",
+            "count": completed_count,
+            "amount": _format_money(summary.get('completed_amount', 0)),
+            "color": "#52C41A"
         },
         {
-            'label': '总金额',
-            'value': _format_money(summary['total_amount'], compact=True),
-            'unit': '',
-            'icon': '💰',
+            "status_icon": "🔄",
+            "status_text": "进行中",
+            "count": running_count,
+            "amount": _format_money(summary.get('running_amount', 0)),
+            "color": "#1890FF"
         },
         {
-            'label': '进行中',
-            'value': f"{running_percent}%",
-            'unit': f"({running_count}条)",
-            'icon': '🔄',
+            "status_icon": "❌",
+            "status_text": "已终止",
+            "count": terminated_count,
+            "amount": _format_money(summary.get('terminated_amount', 0)),
+            "color": "#FF4D4F"
         },
     ]
 
-    # Top 5 收款人
-    top_recipients = []
+    # Top 5 收款人（审批卡片的列表项样式）
+    rank_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+    top_payees = []
+
     for idx, recipient_data in enumerate(data['by_recipient'][:5], start=1):
         recipient = recipient_data['recipient']
         count = recipient_data['count']
@@ -102,47 +115,58 @@ def build_payment_card_data(data: Dict[str, Any], period_info: Dict[str, Any],
 
         # 获取最新一条申请
         latest_detail = recipient_data['details'][0] if recipient_data['details'] else None
-        latest_info = None
+
         if latest_detail:
             status_info = _format_status(latest_detail['status'])
-            latest_info = {
-                'date': latest_detail['create_date'],
-                'amount': _format_money(latest_detail['amount']),
-                'status_text': status_info['text'],
-                'status_color': status_info['color'],
-                'reason': latest_detail['reason'][:30] + '...' if len(latest_detail['reason']) > 30 else latest_detail['reason'],
-            }
+            latest_date = latest_detail['create_date']  # 格式: "10-22"
+            latest_amount = _format_money(latest_detail['amount'])
+            status_icon = {
+                '已完成': '✅',
+                '进行中': '🔄',
+                '已终止': '❌',
+                '新建': '📝'
+            }.get(status_info['text'], '❓')
+            status_text = status_info['text']
+        else:
+            latest_date = ''
+            latest_amount = ''
+            status_icon = ''
+            status_text = ''
 
-        top_recipients.append({
-            'rank': idx,
-            'name': recipient,
-            'count': count,
-            'amount': amount,
-            'latest': latest_info,
+        top_payees.append({
+            "rank": idx,
+            "rank_emoji": rank_emojis[idx-1],
+            "payee_name": recipient,
+            "count": count,
+            "amount": amount,
+            "latest_date": latest_date,
+            "latest_amount": latest_amount,
+            "status_icon": status_icon,
+            "status_text": status_text
         })
 
-    # 状态分布(用于饼图或进度条)
-    status_distribution = []
-    for status_key, status_count in summary['by_status'].items():
-        if status_count > 0:
-            status_info = _format_status(status_key)
-            percent = int(status_count / total * 100) if total > 0 else 0
-            status_distribution.append({
-                'status': status_info['text'],
-                'count': status_count,
-                'percent': percent,
-                'color': status_info['color'],
-            })
-
-    # 返回卡片数据
+    # 返回卡片数据（符合审批卡片字段命名）
     return {
-        'title': title,
-        'dateRange': date_range,
-        'stats': stats,
-        'topRecipients': top_recipients,
-        'statusDistribution': status_distribution,
-        'hasData': total > 0,
-        'remainingRecipients': max(0, len(data['by_recipient']) - 5),
+        # 卡片头部
+        "card_title": card_title,
+        "period": period_text,
+
+        # 统计概览
+        "total_count": total,
+        "total_amount": _format_money(summary['total_amount']),
+        "progress_percent": f"{running_percent}%",
+        "progress_detail": f"({running_count}/{total})",
+
+        # 状态列表
+        "status_list": status_list,
+
+        # Top 5 收款人
+        "top_payees": top_payees,
+        "remaining_count": max(0, len(data['by_recipient']) - 5),
+
+        # 按钮链接（占位符，需要配置真实链接）
+        "excel_download_url": "dingtalk://dingtalkclient/page/link?url=https://example.com/download",
+        "detail_page_url": "https://example.com/payment-report/detail"
     }
 
 
