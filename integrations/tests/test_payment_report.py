@@ -50,10 +50,10 @@ class PaymentReportTest(TestCase):
         base_date = datetime(2026, 10, 26).date()
         period = get_last_week_range(base_date)
 
-        # 上周一应该是10-20
-        self.assertEqual(period['start_date'].day, 13)
-        # 上周日应该是10-26
-        self.assertEqual(period['end_date'].day, 19)
+        # 上周一应该是10-19
+        self.assertEqual(period['start_date'].day, 19)
+        # 上周日应该是10-25
+        self.assertEqual(period['end_date'].day, 25)
         # 标签应该包含周数
         self.assertIn('2026年', period['label'])
 

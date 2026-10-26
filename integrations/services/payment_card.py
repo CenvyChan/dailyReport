@@ -319,34 +319,46 @@ def send_interactive_card(client, group_id: str, card_data: Dict[str, Any],
     import time
     out_track_id = f"payment_report_{int(time.time() * 1000)}"
 
-    # 构建互动卡片消息（通过群机器人发送）
-    # 参考：https://open.dingtalk.com/document/orgapp/message-card-sending-and-updating
+    # 卡片模板使用卡片实例接口，不能当作普通机器人消息的 msgParam 发送。
+    # cardParamMap 的值必须为字符串；列表、对象及数字等按 JSON 编码。
+    # 参考：https://open.dingtalk.com/document/orgapp/create-and-deliver-cards
+    card_params = {
+        key: value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        for key, value in card_data.items()
+    }
     payload = {
-        "msgKey": "sampleInteractiveCard",  # 互动卡片消息类型
-        "msgParam": json.dumps({
-            "cardTemplateId": template_id,
-            "outTrackId": out_track_id,
-            "cardData": {
-                "cardParamMap": card_data,
-            },
-        }, ensure_ascii=False),
-        "openConversationId": group_id,
-        "robotCode": robot_code,
+        "cardTemplateId": template_id,
+        "outTrackId": out_track_id,
+        "cardData": {"cardParamMap": card_params},
+        "imGroupOpenSpaceModel": {"supportForward": True},
+        "openSpaceId": f"dtv1.card//IM_GROUP.{group_id}",
+        "imGroupOpenDeliverModel": {"robotCode": robot_code},
+        "userIdType": 1,
     }
 
     # 调试日志
     logger.info(f"发送互动卡片到群 {group_id}")
     logger.info(f"模板ID: {template_id}, RobotCode: {robot_code}")
     logger.info(f"追踪ID: {out_track_id}")
-    logger.debug(f"卡片数据字段: {list(card_data.keys())}")
+    logger.info(f"卡片数据字段: {list(card_data.keys())}")
+
+    # 打印完整payload用于调试
+    logger.info(f"完整payload: {json.dumps(payload, ensure_ascii=False, indent=2)}")
 
     # 检查卡片数据中的空值
     empty_fields = [k for k, v in card_data.items() if not v and v != 0]
     if empty_fields:
         logger.warning(f"卡片数据中有空字段: {empty_fields}")
 
-    # 调用群机器人消息发送接口
-    result = client.post('/v1.0/robot/groupMessages/send', payload)
+    # 同时确认接口成功和群聊投放成功，避免将业务错误记录为“已发送”。
+    from integrations.services.dingtalk_client import DingtalkError
+
+    result = client.post('/v1.0/card/instances/createAndDeliver', payload)
+    deliveries = (result.get("result") or {}).get("deliverResults") or []
+    if result.get("success") is not True or not deliveries or any(
+        delivery.get("success") is not True for delivery in deliveries
+    ):
+        raise DingtalkError(f"互动卡片投放失败：{result}")
     logger.info(f"互动卡片发送结果: {result}")
 
     return result

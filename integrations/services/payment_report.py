@@ -7,6 +7,9 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from django.conf import settings
+from django.utils import timezone
+
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
 
@@ -29,7 +32,7 @@ def get_last_week_range(base_date=None):
         }
     """
     if base_date is None:
-        base_date = datetime.now().date()
+        base_date = timezone.localdate() if settings.USE_TZ else datetime.now().date()
 
     # 获取当前是周几(0=周一, 6=周日)
     weekday = base_date.weekday()
@@ -41,6 +44,10 @@ def get_last_week_range(base_date=None):
 
     start = datetime.combine(last_monday, datetime.min.time())
     end = datetime.combine(last_sunday, datetime.max.time())
+    if settings.USE_TZ:
+        tz = timezone.get_current_timezone()
+        start = timezone.make_aware(start, tz)
+        end = timezone.make_aware(end, tz)
 
     # 获取周数
     week_num = last_monday.isocalendar()[1]
@@ -69,7 +76,7 @@ def get_last_month_range(base_date=None):
         }
     """
     if base_date is None:
-        base_date = datetime.now().date()
+        base_date = timezone.localdate() if settings.USE_TZ else datetime.now().date()
 
     # 上月第一天
     if base_date.month == 1:
@@ -86,6 +93,10 @@ def get_last_month_range(base_date=None):
 
     start = datetime.combine(first_day, datetime.min.time())
     end = datetime.combine(last_day, datetime.max.time())
+    if settings.USE_TZ:
+        tz = timezone.get_current_timezone()
+        start = timezone.make_aware(start, tz)
+        end = timezone.make_aware(end, tz)
 
     label = f"{first_day.year}年{first_day.month}月"
 

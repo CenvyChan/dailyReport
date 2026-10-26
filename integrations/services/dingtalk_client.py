@@ -86,7 +86,7 @@ class DingtalkClient:
         """调用新版开放平台 API（api.dingtalk.com），path 形如 /v1.0/robot/groupMessages/send。
 
         新版接口 access_token 放请求头 x-acs-dingtalk-access-token；
-        返回体 errcode 缺省为 0 表示成功，非 0 抛 DingtalkError。
+        同时检查 HTTP 状态、旧版 errcode 和新版 code / success 错误。
         """
         resp = _requests().post(
             f"{NEW_API_BASE}{path}",
@@ -98,8 +98,13 @@ class DingtalkClient:
             data = resp.json()
         except ValueError as exc:
             raise DingtalkError(f"钉钉接口 {path} 返回非 JSON（HTTP {resp.status_code}）：{resp.text[:200]}") from exc
-        if data.get("errcode", 0) != 0:
-            raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
+        if (
+            resp.status_code >= 400
+            or data.get("errcode", 0) != 0
+            or data.get("code") not in (None, "", 0, "0", "OK", "ok", "Success", "success")
+            or data.get("success") is False
+        ):
+            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}")
         return data
 
     def get(self, path, params=None):
@@ -117,8 +122,13 @@ class DingtalkClient:
             data = resp.json()
         except ValueError as exc:
             raise DingtalkError(f"钉钉接口 {path} 返回非 JSON（HTTP {resp.status_code}）：{resp.text[:200]}") from exc
-        if data.get("errcode", 0) != 0:
-            raise DingtalkError(f"钉钉接口 {path} 失败：{data}")
+        if (
+            resp.status_code >= 400
+            or data.get("errcode", 0) != 0
+            or data.get("code") not in (None, "", 0, "0", "OK", "ok", "Success", "success")
+            or data.get("success") is False
+        ):
+            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}")
         return data
 
     def upload_media(self, filename, content, media_type="file"):
