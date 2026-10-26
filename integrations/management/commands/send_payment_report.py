@@ -204,6 +204,13 @@ class Command(BaseCommand):
                     ))
                     continue
 
+                # 检查机器人配置
+                if not dingtalk_app.robot_code:
+                    self.stdout.write(self.style.WARNING(
+                        f"  跳过发送: 未配置机器人Code,请在Django Admin中配置 DingtalkApp.robot_code"
+                    ))
+                    continue
+
                 self.stdout.write(f"  发送到钉钉群: {group_id}")
 
                 # 构建消息
@@ -229,7 +236,7 @@ class Command(BaseCommand):
                     'msgKey': 'sampleText',  # 文本消息
                     'msgParam': json.dumps({'content': message}, ensure_ascii=False),
                     'openConversationId': group_id,
-                    'robotCode': dingtalk_app.agent_id,  # 需要配置机器人code
+                    'robotCode': dingtalk_app.robot_code,
                 }
 
                 # 如果需要@用户
@@ -248,7 +255,7 @@ class Command(BaseCommand):
                         'mediaId': media_id,
                     }, ensure_ascii=False),
                     'openConversationId': group_id,
-                    'robotCode': dingtalk_app.agent_id,
+                    'robotCode': dingtalk_app.robot_code,
                 }
 
                 file_result = client.post('/v1.0/robot/groupMessages/send', file_payload)

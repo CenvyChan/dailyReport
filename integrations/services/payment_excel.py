@@ -163,11 +163,13 @@ def generate_payment_excel(data, period_info, filename):
     raw_sheet = workbook.create_sheet('原始数据')
     raw_sheet.column_dimensions['A'].width = 120
 
-    # 将数据转为JSON字符串(处理Decimal类型)
-    def decimal_default(obj):
+    # 将数据转为JSON字符串(处理Decimal和datetime类型)
+    def json_default(obj):
         if isinstance(obj, Decimal):
             return float(obj)
-        raise TypeError
+        if hasattr(obj, 'isoformat'):  # datetime, date, time
+            return obj.isoformat()
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
     json_str = json.dumps(
         {
@@ -176,7 +178,7 @@ def generate_payment_excel(data, period_info, filename):
         },
         ensure_ascii=False,
         indent=2,
-        default=decimal_default,
+        default=json_default,
     )
     raw_sheet['A1'] = json_str
 

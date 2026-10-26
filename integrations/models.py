@@ -284,6 +284,10 @@ class DingtalkApp(TimeStampedModel):
     app_secret = models.CharField("AppSecret", max_length=255)
     corp_id = models.CharField("CorpId", max_length=128, blank=True, default="")
     agent_id = models.CharField("AgentId", max_length=64, blank=True, default="")
+    robot_code = models.CharField(
+        "机器人Code", max_length=128, blank=True, default="",
+        help_text="群消息机器人的 robotCode，用于发送群消息"
+    )
     is_active = models.BooleanField("启用", default=True)
 
     class Meta:
