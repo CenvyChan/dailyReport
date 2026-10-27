@@ -342,7 +342,7 @@ class Command(BaseCommand):
                 # 字符串格式：'2026-10-26 11:08:50'
                 result['create_time'] = datetime.strptime(
                     create_time, '%Y-%m-%d %H:%M:%S'
-                ).replace(tzinfo=dt_timezone.utc)
+                ).replace(tzinfo=timezone.get_current_timezone())
             else:
                 # 毫秒时间戳
                 result['create_time'] = datetime.fromtimestamp(
@@ -355,7 +355,7 @@ class Command(BaseCommand):
                 # 字符串格式：'2026-10-26 11:08:50'
                 result['finish_time'] = datetime.strptime(
                     finish_time, '%Y-%m-%d %H:%M:%S'
-                ).replace(tzinfo=dt_timezone.utc)
+                ).replace(tzinfo=timezone.get_current_timezone())
             else:
                 # 毫秒时间戳
                 result['finish_time'] = datetime.fromtimestamp(

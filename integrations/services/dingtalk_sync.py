@@ -47,8 +47,11 @@ def _flatten_form(instance):
     return values
 
 
-def _upsert_instance(company, process, instance, run):
-    pid = instance.get("business_id") or instance.get("process_instance_id") or instance.get("id")
+def _upsert_instance(company, process, instance, run, instance_id=None):
+    # The list endpoint returns the canonical DingTalk process instance ID.
+    # business_id is a separate business number and must not be used as the
+    # database idempotency key.
+    pid = instance_id or instance.get("process_instance_id") or instance.get("id") or instance.get("business_id")
     if not pid:
         return False
     form_values = _flatten_form(instance)
@@ -107,7 +110,7 @@ def sync_dingtalk(as_of=None, company=None, dry_run=False, client_factory=Dingta
                 ids = client.list_instance_ids(process.process_code, start_ms, end_ms)
                 for pid in ids:
                     instance = client.get_instance(pid)
-                    if not dry_run and _upsert_instance(app.company, process, instance, run):
+                    if not dry_run and _upsert_instance(app.company, process, instance, run, instance_id=pid):
                         upserted += 1
                 if dry_run:
                     upserted += len(ids)
