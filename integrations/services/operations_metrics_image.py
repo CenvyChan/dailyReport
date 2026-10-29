@@ -11,17 +11,16 @@ TEMPLATE = """<!doctype html>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ margin: 0; background: transparent; }}
   .card {{
-    width: 900px; padding: 20px 24px; border-radius: 14px;
+    width: 620px; padding: 16px 18px; border-radius: 12px;
     background: {background}; color: {text};
     font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-    display: grid; grid-template-columns: 132px repeat({columns}, 1fr);
-    gap: 10px 16px; align-items: stretch;
+    display: grid; grid-template-columns: 96px repeat({columns}, 1fr);
+    gap: 8px 10px; align-items: stretch;
   }}
-  .head {{ font-size: 15px; color: {muted}; padding: 0 2px 2px; }}
+  .head {{ font-size: 14px; color: {muted}; padding: 0 2px 2px; }}
   .row-label {{ font-size: 17px; font-weight: 700; display: flex; align-items: center; }}
-  .metric {{ background: {surface}; border-radius: 10px; padding: 11px 14px; }}
-  .label {{ font-size: 13px; color: {muted}; }}
-  .value {{ font-size: 22px; font-weight: 700; margin-top: 3px; white-space: nowrap; }}
+  .metric {{ background: {surface}; border-radius: 8px; padding: 10px 12px; }}
+  .value {{ font-size: 30px; font-weight: 700; white-space: nowrap; }}
 </style></head><body>
 <div class="card" id="metrics-card">
 {content}
