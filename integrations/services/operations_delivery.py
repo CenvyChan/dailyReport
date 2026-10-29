@@ -37,10 +37,18 @@ def _upload_metrics_image(client, snapshot):
     return uploaded
 
 
+TEMPLATE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "docs/templates/operations_daily_report.a2ui.json"
+)
+
+
 def _fingerprint(snapshot):
+    """模板哈希参与指纹：改了卡片结构后，同一天的旧卡片缓存必须失效。"""
     body = {"company": snapshot.company_id, "scope": snapshot.scope,
             "date": snapshot.report_date.isoformat(), "data": snapshot.data,
-            "is_complete": snapshot.is_complete, "sync_warnings": snapshot.sync_warnings}
+            "is_complete": snapshot.is_complete, "sync_warnings": snapshot.sync_warnings,
+            "template": hashlib.sha256(TEMPLATE_PATH.read_bytes()).hexdigest()}
     return hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":")).encode()).hexdigest()
 
