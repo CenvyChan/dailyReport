@@ -155,6 +155,8 @@ def calculate_daily_coverage(
             "date": getattr(report, date_field).isoformat(),
             "party_name": party.name if party else "",
             "reporter": reporter_name,
+            "quantity": str(report.quantity),
+            "unit": "未记录单位",
             "amount": float(amount),
             "allocated_amount": float(allocated),
             "capped_allocated": float(capped_allocated),

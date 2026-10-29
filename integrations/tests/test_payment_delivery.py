@@ -17,7 +17,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from core.models import Company
-from integrations.models import DingtalkApp, DingtalkApprovalInstance
+from integrations.models import DingtalkApp, DingtalkApprovalInstance, DingtalkCompanyMapping
 from integrations.services.dingtalk_client import DingtalkClient, DingtalkError
 from integrations.services.payment_card import send_interactive_card
 from integrations.services.payment_report import (
@@ -50,6 +50,14 @@ class DingtalkResponseTests(SimpleTestCase):
                 with self.subTest(method=method, status=status, body=body):
                     with self.assertRaises(DingtalkError):
                         self.request(method, body, status)
+
+    def test_new_api_error_preserves_template_error_code(self):
+        body = {"code": "param.templateUnpublished", "message": "param.templateUnpublished"}
+        for method in ("post", "get"):
+            with self.subTest(method=method):
+                with self.assertRaises(DingtalkError) as raised:
+                    self.request(method, body, status=400)
+                self.assertEqual(raised.exception.code, "param.templateUnpublished")
 
     def test_success_responses_remain_compatible(self):
         for method in ("post", "get"):
@@ -96,6 +104,22 @@ class PaymentCardDeliveryTests(SimpleTestCase):
         self.assertEqual(json.loads(params["config"]), data["config"])
         self.assertIsInstance(data["items"], list)
         self.assertEqual(data["total"], 0)
+
+    def test_unpublished_template_explains_how_to_publish(self):
+        self.client = DingtalkClient(SimpleNamespace())
+        body = {"code": "param.templateUnpublished", "message": "param.templateUnpublished"}
+        response = Mock(status_code=400, text=json.dumps(body))
+        response.json.return_value = body
+        with patch.object(self.client, "token", return_value="test-token"), patch(
+            "integrations.services.dingtalk_client._requests"
+        ) as requests:
+            requests.return_value.post.return_value = response
+            with self.assertRaises(DingtalkError) as raised:
+                self.send()
+        self.assertIn("template.schema", str(raised.exception))
+        self.assertIn("未发布", str(raised.exception))
+        self.assertIn("https://open-dev.dingtalk.com/fe/card", str(raised.exception))
+        self.assertIn("param.templateUnpublished", str(raised.exception))
 
     def test_rejected_or_unconfirmed_delivery_raises(self):
         for response in (
@@ -146,6 +170,10 @@ class PaymentPeriodTimezoneTests(TestCase):
             data = analyze_payment_applications(company, period["start"], period["end"], "PAYMENT")
         self.assertEqual(data["summary"]["total_count"], 2)
         self.assertEqual(data["summary"]["total_amount"], Decimal("20"))
+        self.assertEqual(
+            sorted(detail["create_date"] for row in data["by_recipient"] for detail in row["details"]),
+            ["2026-10-19", "2026-10-25"],
+        )
 
     @override_settings(USE_TZ=False)
     def test_timezone_disabled_keeps_naive_boundaries(self):
@@ -157,58 +185,132 @@ class PaymentPeriodTimezoneTests(TestCase):
 
 class PaymentCommandDeliveryTests(TestCase):
     def setUp(self):
-        self.company = Company.objects.create(code="SEND-TEST", name="发送测试公司")
-        DingtalkApp.objects.create(
+        self.company = Company.objects.create(code="FNS", name="飞诺斯电子科技有限公司")
+        self.app = DingtalkApp.objects.create(
             company=self.company, app_key="key", app_secret="secret",
-            robot_code="robot-code", card_template_id="template.schema",
+            robot_code="robot-code", card_template_id="unpublished.schema",
+        )
+        DingtalkCompanyMapping.objects.create(
+            app=self.app,
+            application_company="慈溪飞诺斯电子科技有限公司",
+            company=self.company,
+        )
+        DingtalkApprovalInstance.objects.create(
+            company=self.company, process_instance_id="SEND-A2UI", process_code="PAYMENT",
+            status="RUNNING", amount=Decimal("123.45"),
+            create_time=timezone.make_aware(datetime(2026, 10, 19)),
+            form_values=[
+                {"name": "申请公司", "value": "慈溪飞诺斯电子科技有限公司"},
+                {"name": "收款人", "value": "测试供应商"},
+            ],
         )
 
-    def run_report(self, client):
+    def run_report(self, client, a2ui=None, **options):
         output = StringIO()
         client.upload_media.return_value = "test-media-id"
+        a2ui = a2ui or Mock()
+        a2ui.send_card.return_value = {"outTrackId": "native-card-test", "flowStatus": "FINISH", "createResult": {"outTrackId": "native-card-test"}}
+        self.a2ui = a2ui
         module = "integrations.management.commands.send_payment_report"
         with TemporaryDirectory() as directory, ExitStack() as stack:
-            stack.enter_context(patch(f"{module}.DingtalkClient", return_value=client))
+            self.client_factory = stack.enter_context(patch(f"{module}.DingtalkClient", return_value=client))
+            self.a2ui_factory = stack.enter_context(patch(f"{module}.DingtalkA2UIClient", return_value=a2ui))
             stack.enter_context(patch(
                 f"{module}.generate_payment_excel",
                 side_effect=lambda data, period, path: Path(path).write_bytes(b"test-excel"),
             ))
             stack.enter_context(patch(f"{module}.build_payment_report_message", return_value="付款周报文本"))
-            stack.enter_context(patch(
-                "integrations.services.payment_card.build_payment_card_data", return_value={"title": "付款周报"}
-            ))
             try:
                 call_command(
-                    "send_payment_report", "week", company=self.company.code, group_id="cid-test",
-                    process_code="PAYMENT", base_date="2026-10-26", output_dir=directory, stdout=output,
+                    "send_payment_report", "week", company=self.company.code,
+                    group_id="cid-test", process_code="PAYMENT", base_date="2026-10-26",
+                    output_dir=directory, stdout=output, **options,
                 )
+                paths = list(Path(directory).glob("*.a2ui.json"))
+                self.exported = json.loads(paths[0].read_text(encoding="utf-8")) if paths else None
             except CommandError as exc:
                 exc.command_output = output.getvalue()
                 exc.args = (f"{exc}\n{output.getvalue()}",)
                 raise
         return output.getvalue()
 
-    def test_card_error_falls_back_to_text_without_false_card_success(self):
+    def test_card_error_fails_without_falling_back_to_text(self):
         client = Mock()
-        client.post.side_effect = [
-            DingtalkError("MissingStringValue: StringValue is mandatory for this action."),
-            {"processQueryKey": "text-key"}, {"processQueryKey": "file-key"},
-        ]
+        a2ui = Mock()
+        a2ui.send_card.side_effect = DingtalkError("A2UI authentication failed")
+        with self.assertRaises(CommandError) as raised:
+            self.run_report(client, a2ui)
+        output = raised.exception.command_output
+        self.assertIn("A2UI 卡片发送失败", output)
+        self.assertIn("0 成功, 1 失败", output)
+        self.assertNotIn("文本消息已发送", output)
+        self.assertNotIn("文件消息已发送", output)
+        self.assertNotIn("✓ 发送成功", output)
+        a2ui.send_card.assert_called_once()
+        client.post.assert_not_called()
+
+    def test_card_success_sends_file_and_counts_as_success(self):
+        client = Mock()
+        client.post.return_value = {"processQueryKey": "file-key"}
         output = self.run_report(client)
-        self.assertNotIn("互动卡片已发送", output)
-        self.assertIn("卡片发送失败", output)
-        self.assertIn("降级为文本消息", output)
-        self.assertIn("文本消息已发送", output)
+        self.client_factory.assert_called_once_with(self.app)
+        self.a2ui_factory.assert_called_once_with(client)
+        self.assertIn("A2UI 卡片已发送并完结", output)
+        self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
-        self.assertEqual([call.args[1].get("msgKey") for call in client.post.call_args_list], [None, "sampleText", "sampleFile"])
+        client.post.assert_called_once()
+        self.assertEqual(client.post.call_args.args[1]["msgKey"], "sampleFile")
+        frames = self.a2ui.send_card.call_args.args[1]
+        self.assertEqual(frames, self.exported)
+        self.assertEqual(frames[1]["updateDataModel"]["value"]["summary"]["totalAmountText"], "¥123.45")
+
+    def test_no_template_still_uses_a2ui(self):
+        self.app.card_template_id = ""
+        self.app.save(update_fields=["card_template_id"])
+        client = Mock()
+        client.post.return_value = {"processQueryKey": "file-key"}
+        self.run_report(client)
+        self.a2ui.send_card.assert_called_once()
+        self.assertEqual(client.post.call_args.args[1]["msgKey"], "sampleFile")
+
+    def test_no_card_explicitly_sends_text_and_file(self):
+        client = Mock()
+        client.post.side_effect = [{"processQueryKey": "text-key"}, {"processQueryKey": "file-key"}]
+        output = self.run_report(client, no_card=True)
+        self.assertIn("文本消息已发送", output)
+        self.assertIn("文件消息已发送", output)
+        self.assertIn("1 成功, 0 失败", output)
+        self.a2ui.send_card.assert_not_called()
+        self.a2ui.check_available.assert_not_called()
+        self.assertEqual(
+            [call.args[1].get("msgKey") for call in client.post.call_args_list],
+            ["sampleText", "sampleFile"],
+        )
 
     def test_file_failure_is_counted_as_failure(self):
         client = Mock()
-        client.post.side_effect = [
-            {"success": True, "result": {"deliverResults": [{"success": True}]}},
-            DingtalkError("file upload failed"),
-        ]
+        client.post.side_effect = DingtalkError("file upload failed")
         with self.assertRaises(CommandError) as raised:
             self.run_report(client)
         self.assertIn("0 成功, 1 失败", raised.exception.command_output)
         self.assertNotIn("✓ 发送成功", raised.exception.command_output)
+
+    def test_dry_run_exports_live_json_without_any_network_client(self):
+        client = Mock()
+        output = self.run_report(client, dry_run=True)
+        self.assertIn("生成A2UI:", output)
+        self.assertEqual(self.exported[1]["updateDataModel"]["value"]["summary"]["totalCount"], 1)
+        self.assertEqual(self.exported[1]["updateDataModel"]["value"]["reportMeta"]["dataMode"], "live")
+        client.upload_media.assert_not_called()
+        client.post.assert_not_called()
+        self.a2ui.check_available.assert_not_called()
+        self.a2ui.send_card.assert_not_called()
+
+    def test_missing_robot_code_stops_before_upload(self):
+        client = Mock()
+        a2ui = Mock()
+        a2ui.check_available.side_effect = DingtalkError("未配置 robot_code")
+        with self.assertRaisesMessage(CommandError, "未配置 robot_code"):
+            self.run_report(client, a2ui)
+        client.upload_media.assert_not_called()
+        a2ui.send_card.assert_not_called()

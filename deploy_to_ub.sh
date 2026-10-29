@@ -4,6 +4,10 @@
 
 set -e
 
+# 固定生产目录，避免从其他项目目录执行。
+cd "$HOME/deploy/daily-report"
+test -f manage.py && test -f docker-compose.yml
+
 echo "=================================="
 echo "K3Cloud 日报关联功能部署"
 echo "=================================="

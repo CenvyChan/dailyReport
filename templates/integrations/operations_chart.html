@@ -1,0 +1,8 @@
+{% load l10n %}
+<div class="legend">{% for series in chart.series %}<span><i style="background:{{ series.color }}"></i>{{ series.label }}</span>{% endfor %}</div>
+{% if chart.has_data %}<svg viewBox="0 0 700 192" role="img" aria-label="{{ chart_label }}，单位万元；横轴日期省略">
+<text x="24" y="14">{{ chart.high|floatformat:2 }}</text><text x="24" y="187">{{ chart.low|floatformat:2 }}</text>
+<line x1="24" x2="676" y1="28" y2="28" stroke="#edf1f7"/><line x1="24" x2="676" y1="98" y2="98" stroke="#edf1f7"/>
+<line x1="24" x2="676" y1="{{ chart.zero_y|unlocalize }}" y2="{{ chart.zero_y|unlocalize }}" stroke="#bdc9d8"/>
+{% for series in chart.series %}<polyline points="{{ series.points }}" stroke="{{ series.color }}" fill="none" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>{% endfor %}</svg>
+{% else %}<p class="empty">暂无金蝶逐日数据；请确认同步窗口并重新生成快照。</p>{% endif %}

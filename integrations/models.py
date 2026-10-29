@@ -670,6 +670,7 @@ class ReportDelivery(models.Model):
     status = models.CharField("发送状态", max_length=20, choices=Status.choices, default=Status.PENDING)
     attempt_count = models.PositiveSmallIntegerField("尝试次数", default=0)
     last_error = models.TextField("最近错误", blank=True, default="")
+    delivery_state = models.JSONField("分步投递状态", default=dict, blank=True)
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     sent_at = models.DateTimeField("发送时间", null=True, blank=True)
 
@@ -709,11 +710,22 @@ class DingtalkGroupConfig(models.Model):
         PURCHASE = "PURCHASE", "采购入库"
         APPROVALS = "APPROVALS", "付款审批"
 
+    # 兼容旧数据；新配置请使用 companies 多选，应用和群可复用到多个公司。
     company = models.ForeignKey(
         "core.Company",
-        verbose_name="公司",
+        verbose_name="旧版公司",
         on_delete=models.CASCADE,
+        related_name="legacy_dingtalk_groups",
+        null=True,
+        blank=True,
+        help_text="仅兼容历史配置；新建群配置请在“推送公司”中多选。",
+    )
+    companies = models.ManyToManyField(
+        "core.Company",
+        verbose_name="推送公司",
         related_name="dingtalk_groups",
+        blank=True,
+        help_text="同一个群配置可多选公司；只推送勾选的公司。",
     )
     app = models.ForeignKey(
         DingtalkApp,
@@ -732,6 +744,7 @@ class DingtalkGroupConfig(models.Model):
         default=list,
         help_text="勾选要包含的数据类型：销售、采购、审批",
     )
+    payment_report_types = models.JSONField("付款报表周期", default=list, blank=True, help_text="day=日报，week=周报（周一），month=月报（每月1日）；与原有业务日报分开推送")
     send_at = models.TimeField("每日发送时间", help_text="按服务器所在时区（Asia/Shanghai）触发")
     is_active = models.BooleanField("启用", default=True)
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
@@ -749,7 +762,11 @@ class DingtalkGroupConfig(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.company} - {self.name}"
+        companies = list(self.companies.all()) if self.pk else []
+        if not companies and self.company_id:
+            companies = [self.company]
+        company_label = "、".join(str(company) for company in companies) or "未选择公司"
+        return f"{company_label} - {self.name}"
 
     @property
     def includes_sales(self):
@@ -762,3 +779,34 @@ class DingtalkGroupConfig(models.Model):
     @property
     def includes_approvals(self):
         return "APPROVALS" in self.content_types
+
+
+class DingtalkCompanyMapping(models.Model):
+    """同一钉钉应用内，审批表单「申请公司」到项目组织的明确映射。"""
+
+    app = models.ForeignKey(DingtalkApp, on_delete=models.CASCADE, related_name="company_mappings", verbose_name="来源钉钉应用")
+    application_company = models.CharField("申请公司（表单原值）", max_length=120)
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="dingtalk_company_mappings", verbose_name="项目组织")
+
+    class Meta:
+        verbose_name = "钉钉申请公司映射"
+        verbose_name_plural = verbose_name
+        constraints = [models.UniqueConstraint(fields=["app", "application_company"], name="uniq_dt_application_company")]
+
+    def __str__(self):
+        return f"{self.application_company} → {self.company}"
+
+
+class PaymentReportDispatch(models.Model):
+    """每个群、周期及发送日只自动投递一次；不确定的发送状态留待人工核对。"""
+
+    group = models.ForeignKey(DingtalkGroupConfig, on_delete=models.CASCADE, related_name="payment_dispatches")
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="payment_report_dispatches")
+    report_type = models.CharField(max_length=10)
+    delivery_date = models.DateField()
+    status = models.CharField(max_length=12, default="RUNNING")
+    error = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["group", "company", "report_type", "delivery_date"], name="uniq_payment_dispatch")]

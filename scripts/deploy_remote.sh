@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# 通过 SSH 把项目部署到远端 Docker 主机（重复执行即为重新部署）。
+# 通过 SSH 把「已提交的代码」部署到远端 Docker 主机，在服务器上构建镜像。
 #
 # 用法：  bash scripts/deploy_remote.sh [ssh-host] [宿主机端口]
-# 默认：  bash scripts/deploy_remote.sh mesdevserver 8001
+# 回滚：  ROLLBACK_TAG=20261029-1830-1a2b3c4 bash scripts/deploy_remote.sh
+#         跳过传输和构建，直接用服务器上已有的镜像标签重建容器。
+#         查看可回滚标签：ssh mesdevserver 'docker images daily-report'
 #
-# 目标主机只需要有 docker，不需要 compose 插件，也不会安装任何系统级依赖。
-# 源码用 tar over ssh 传输，本机不需要 rsync（Git Bash 下没有 rsync）。
-# data/ 不传输，服务器上的数据库不会被本地库覆盖。
+# 源码取自 git HEAD（git archive），未提交的改动不会上线，线上版本始终对应某个提交。
+# 每个版本解压到 ~/deploy/daily-report/.releases/<标签>/ 单独构建，删掉的旧文件不会残留。
+# data/、backups/、.env 留在 ~/deploy/daily-report/，不传输、不覆盖。
 set -euo pipefail
 
 SSH_HOST="${1:-mesdevserver}"
 HOST_PORT="${2:-8001}"
 APP_NAME="daily-report"
-IMAGE="${APP_NAME}:latest"
 WEB="${APP_NAME}-web"
 MAILER="${APP_NAME}-mailer"
 BACKUP="${APP_NAME}-backup"
@@ -21,14 +22,25 @@ SCHEDULER="${APP_NAME}-scheduler"
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "==> 目标 ${SSH_HOST}，对外端口 ${HOST_PORT}"
-ssh "$SSH_HOST" 'mkdir -p ~/deploy/'"${APP_NAME}"'/data ~/deploy/'"${APP_NAME}"'/backups'
+if [ -n "${ROLLBACK_TAG:-}" ]; then
+  TAG="$ROLLBACK_TAG"
+else
+  TAG="$(date +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"
+fi
+IMAGE="${APP_NAME}:${TAG}"
+# ssh 登录后位于 $HOME，用相对路径避免 ~ 在引号里不展开。
+RELEASE="deploy/${APP_NAME}/.releases/${TAG}"
 
-echo "==> 传输源码"
-tar -czf - --exclude='__pycache__' --exclude='*.pyc' \
-  Dockerfile .dockerignore requirements.txt manage.py \
-  config core sales purchase reports notifications integrations scripts static templates docs \
-  | ssh "$SSH_HOST" 'tar -xzf - -C ~/deploy/'"${APP_NAME}"
+echo "==> 目标 ${SSH_HOST}，对外端口 ${HOST_PORT}，镜像 ${IMAGE}"
+ssh "$SSH_HOST" "mkdir -p deploy/${APP_NAME}/data deploy/${APP_NAME}/backups"
+
+if [ -z "${ROLLBACK_TAG:-}" ]; then
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "!! 注意：工作区有未提交改动，这些改动不会被部署（只部署 HEAD $(git rev-parse --short HEAD)）"
+  fi
+  echo "==> 传输源码：git archive HEAD → ~/${RELEASE}"
+  git archive --format=tar.gz HEAD | ssh "$SSH_HOST" "mkdir -p ${RELEASE} && tar -xzf - -C ${RELEASE}"
+fi
 
 echo "==> 生成 .env（已存在则保留，不覆盖已配好的邮箱口令）"
 ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
@@ -66,8 +78,14 @@ if ! grep -q '^FIELD_ENCRYPTION_KEY=' .env; then
 fi
 REMOTE
 
-echo "==> 构建镜像"
-ssh "$SSH_HOST" 'cd ~/deploy/'"${APP_NAME}"' && docker build -t '"${IMAGE}"' .'
+if [ -z "${ROLLBACK_TAG:-}" ]; then
+  echo "==> 在服务器上构建镜像 ${IMAGE}"
+  ssh "$SSH_HOST" "cd ${RELEASE} && docker build -t ${IMAGE} -t ${APP_NAME}:latest ."
+else
+  echo "==> 回滚模式：跳过构建，使用已有镜像 ${IMAGE}"
+  ssh "$SSH_HOST" "docker image inspect ${IMAGE} >/dev/null" \
+    || { echo "!! 服务器上没有镜像 ${IMAGE}"; exit 1; }
+fi
 
 echo "==> 重建容器"
 ssh "$SSH_HOST" "APP_NAME='${APP_NAME}' IMAGE='${IMAGE}' WEB='${WEB}' MAILER='${MAILER}' BACKUP='${BACKUP}' SYNC='${SYNC}' SCHEDULER='${SCHEDULER}' HOST_PORT='${HOST_PORT}' bash -s" <<'REMOTE'
@@ -114,7 +132,8 @@ docker run -d --name "$SYNC" --restart unless-stopped \
   sh -c 'while true; do if [ "$(date +%H)" -ge 20 ]; then python manage.py sync_kingdee >> /app/data/logs/sync.log 2>&1 || true; python manage.py sync_dingtalk >> /app/data/logs/sync.log 2>&1 || true; fi; sleep 1800; done' >/dev/null
 
 # 日报调度 sidecar：每 10 分钟一轮，先补当月近期金蝶数据（命令内部按小时幂等），
-# 再生成前一自然日快照并推送到到点的渠道（钉钉群 / 邮件收件组）。
+# 再生成前一自然日快照并推送到到点的渠道（钉钉群 / 邮件收件组），
+# 最后按群配置推送到期的付款周报/月报（命令内部按回执防重复）。
 # 这个容器此前只存在于 docker-compose.yml 和手工 docker run，而这台机器走的是
 # plain docker run：部署脚本不管它 → 重新部署后它仍挂在旧镜像层上（代码更新不
 # 生效），被 docker rm 掉也不会重建，定时投递会静默消失。故纳入脚本统一管理。
@@ -123,7 +142,7 @@ docker run -d --name "$SCHEDULER" --restart unless-stopped \
   --env-file .env \
   -v "$PWD/data:/app/data" \
   "$IMAGE" \
-  sh -c 'sleep 90; while true; do python manage.py sync_kingdee_recent --hour $(date +%H) >> /app/data/logs/scheduler.log 2>&1 || true; python manage.py generate_and_send_report >> /app/data/logs/scheduler.log 2>&1 || true; sleep 600; done' >/dev/null
+  sh -c 'sleep 90; while true; do python manage.py sync_kingdee_recent --hour $(date +%H) >> /app/data/logs/scheduler.log 2>&1 || true; python manage.py generate_and_send_report >> /app/data/logs/scheduler.log 2>&1 || true; python manage.py send_scheduled_payment_reports >> /app/data/logs/scheduler.log 2>&1 || true; sleep 600; done' >/dev/null
 
 ready=""
 for _ in $(seq 1 20); do

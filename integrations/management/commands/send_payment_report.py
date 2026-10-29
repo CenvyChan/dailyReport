@@ -9,39 +9,48 @@
 import json
 import logging
 import os
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
 from django.utils import timezone
 
 from core.models import Company
-from integrations.models import DingtalkApp, DingtalkProcessConfig
+from integrations.models import DingtalkApp, DingtalkProcessConfig, DingtalkGroupConfig
+from integrations.services.payment_organizations import (
+    PAYMENT_REPORT_COMPANY_APPLICATION_NAMES,
+    PAYMENT_REPORT_COMPANY_CODES,
+    payment_app_for_company,
+)
 from integrations.services.dingtalk_client import DingtalkClient
+from integrations.services.payment_a2ui import DingtalkA2UIClient, build_payment_a2ui_messages
 from integrations.services.payment_excel import generate_payment_excel
 from integrations.services.payment_message import build_payment_report_message
 from integrations.services.payment_report import (
     analyze_payment_applications,
     get_last_month_range,
     get_last_week_range,
+    get_previous_day_range,
 )
 
 logger = logging.getLogger("integrations")
 
 
 class Command(BaseCommand):
-    help = "发送钉钉付款申请周报/月报到指定群"
+    help = "按申请公司发送钉钉付款日报/周报/月报到对应群"
 
     def add_arguments(self, parser):
         parser.add_argument(
             'report_type',
-            choices=['week', 'month'],
-            help="报表类型: week(周报) 或 month(月报)"
+            choices=['day', 'week', 'month'],
+            help="报表类型: day(日报)、week(周报) 或 month(月报)"
         )
+        parser.add_argument("--app-id", type=int, help="来源钉钉应用ID，共享应用时用于明确选择")
         parser.add_argument(
             '--company',
-            help="公司代码,默认发送所有启用钉钉的公司"
+            help="公司代码（仅支持 FNS/NBHH）；默认发送已启用的目标公司"
         )
         parser.add_argument(
             '--group-id',
@@ -61,12 +70,12 @@ class Command(BaseCommand):
         parser.add_argument(
             '--output-dir',
             dest='output_dir',
-            help="Excel输出目录,默认为临时目录"
+            help="报表输出目录,默认为 data/payment_reports（Excel、A2UI JSON 和回执）"
         )
         parser.add_argument(
             '--dry-run',
             action='store_true',
-            help="仅生成Excel不发送"
+            help="仅生成报表文件（Excel 和 A2UI JSON）,不发送消息"
         )
         parser.add_argument(
             '--mention',
@@ -76,7 +85,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--no-card',
             action='store_true',
-            help="强制使用文本消息,不使用互动卡片"
+            help="强制使用文本消息,不使用 A2UI 卡片"
         )
 
     def handle(self, *args, **options):
@@ -91,7 +100,10 @@ class Command(BaseCommand):
                 raise CommandError(f"日期格式应为 YYYY-MM-DD: {exc}") from exc
 
         # 获取时间范围
-        if report_type == 'week':
+        if report_type == 'day':
+            period_info = get_previous_day_range(base_date)
+            self.stdout.write(f"生成日报: {period_info['label']}")
+        elif report_type == 'week':
             period_info = get_last_week_range(base_date)
             self.stdout.write(f"生成周报: {period_info['label']}")
         else:
@@ -100,18 +112,31 @@ class Command(BaseCommand):
 
         # 确定要处理的公司
         if options['company']:
+            if options['company'] not in PAYMENT_REPORT_COMPANY_CODES:
+                allowed = "、".join(
+                    f"{code}（{name}）"
+                    for code, name in PAYMENT_REPORT_COMPANY_APPLICATION_NAMES.items()
+                )
+                raise CommandError(f"付款申请报表仅支持以下公司：{allowed}")
             try:
-                companies = [Company.objects.get(code=options['company'])]
+                companies = [Company.objects.get(code=options['company'], is_active=True)]
             except Company.DoesNotExist as exc:
                 raise CommandError(f"找不到公司代码: {options['company']}") from exc
         else:
             # 获取所有启用钉钉应用的公司
             companies = Company.objects.filter(
-                dingtalk_app__is_active=True
+                is_active=True,
+                code__in=PAYMENT_REPORT_COMPANY_CODES,
+            ).filter(
+                Q(dingtalk_app__is_active=True, dingtalk_app__company_mappings__isnull=True)
+                | Q(dingtalk_company_mappings__app__is_active=True)
             ).distinct()
 
+        if options.get("app_id") and not options.get("company"):
+            companies = companies.filter(Q(dingtalk_app__pk=options["app_id"]) | Q(dingtalk_company_mappings__app_id=options["app_id"])).distinct()
+
         if not companies:
-            self.stdout.write(self.style.WARNING("没有启用钉钉应用的公司"))
+            self.stdout.write(self.style.WARNING("没有已启用钉钉应用的目标报表公司（FNS/NBHH）"))
             return
 
         # 准备输出目录
@@ -119,7 +144,7 @@ class Command(BaseCommand):
             output_dir = Path(options['output_dir'])
             output_dir.mkdir(parents=True, exist_ok=True)
         else:
-            output_dir = Path(tempfile.gettempdir()) / 'payment_reports'
+            output_dir = Path(settings.BASE_DIR) / 'data' / 'payment_reports'
             output_dir.mkdir(parents=True, exist_ok=True)
 
         success_count = 0
@@ -128,41 +153,27 @@ class Command(BaseCommand):
         # 逐公司处理
         for company in companies:
             try:
-                self.stdout.write(f"\n处理公司: {company.name} ({company.code})")
+                report_company_name = PAYMENT_REPORT_COMPANY_APPLICATION_NAMES.get(company.code, company.name)
+                self.stdout.write(f"\n处理公司: {report_company_name} ({company.code})")
 
                 # 获取钉钉应用
                 try:
-                    dingtalk_app = company.dingtalk_app
-                except DingtalkApp.DoesNotExist:
-                    self.stdout.write(self.style.WARNING(f"  跳过: 未配置钉钉应用"))
-                    continue
+                    dingtalk_app = payment_app_for_company(company, options.get("app_id"))
+                except ValueError as exc:
+                    raise CommandError(str(exc)) from exc
 
                 if not dingtalk_app.is_active:
-                    self.stdout.write(self.style.WARNING(f"  跳过: 钉钉应用未启用"))
-                    continue
+                    raise CommandError("钉钉应用未启用")
 
                 # 获取审批模板
                 process_code = options.get('process_code')
                 if not process_code:
-                    try:
-                        # 查找名为"付款申请"的模板
-                        process_config = DingtalkProcessConfig.objects.filter(
-                            app=dingtalk_app,
-                            is_active=True,
-                            name__icontains='付款申请'
-                        ).first()
-                        if process_config:
-                            process_code = process_config.process_code
-                        else:
-                            self.stdout.write(self.style.WARNING(
-                                f"  跳过: 未配置付款申请审批模板,请使用 --process-code 指定"
-                            ))
-                            continue
-                    except Exception as exc:
-                        self.stdout.write(self.style.WARNING(
-                            f"  跳过: 查询审批模板失败: {exc}"
-                        ))
-                        continue
+                    process_configs = list(DingtalkProcessConfig.objects.filter(
+                        app=dingtalk_app, is_active=True, name__icontains='付款申请',
+                    ))
+                    if len(process_configs) != 1:
+                        raise CommandError("需明确一个付款申请模板，请用 --process-code 指定")
+                    process_code = process_configs[0].process_code
 
                 self.stdout.write(f"  审批模板: {process_code}")
 
@@ -182,10 +193,12 @@ class Command(BaseCommand):
                     f"总金额 ¥{float(total_amount):,.2f}"
                 )
 
+                data['company_name'] = report_company_name
+
                 # 生成Excel
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 excel_filename = (
-                    f"付款申请{'周报' if report_type == 'week' else '月报'}_"
+                    f"付款申请{dict(day='日报', week='周报', month='月报')[report_type]}_"
                     f"{company.code}_{timestamp}.xlsx"
                 )
                 excel_path = output_dir / excel_filename
@@ -193,69 +206,99 @@ class Command(BaseCommand):
                 self.stdout.write(f"  生成Excel: {excel_path}")
                 generate_payment_excel(data, period_info, str(excel_path))
 
+                use_card = not options.get('no_card')
+                if use_card:
+                    a2ui_messages = build_payment_a2ui_messages(
+                        data, period_info, report_company_name, report_type,
+                    )
+                    a2ui_path = excel_path.with_suffix('.a2ui.json')
+                    a2ui_path.write_text(
+                        json.dumps(a2ui_messages, ensure_ascii=False, indent=2) + '\n',
+                        encoding='utf-8',
+                    )
+                    self.stdout.write(f"  生成A2UI: {a2ui_path}")
+
                 if options['dry_run']:
                     self.stdout.write(self.style.SUCCESS(
-                        f"  ✓ Dry-run模式,Excel已生成,未发送消息"
+                        f"  ✓ Dry-run模式,报表文件已生成,未发送消息"
                     ))
                     success_count += 1
                     continue
 
-                # 发送到钉钉群
-                group_id = options.get('group_id')
+                # 发送到钉钉群；显式群 ID 也必须属于当前公司的多选配置。
+                group_id = options.get("group_id")
+                targets = list(
+                    DingtalkGroupConfig.objects.filter(
+                        app=dingtalk_app,
+                        is_active=True,
+                    )
+                    .filter(Q(companies=company) | Q(companies__isnull=True, company=company))
+                    .distinct()
+                )
+                targets = [
+                    group
+                    for group in targets
+                    if report_type in (group.payment_report_types or [])
+                ]
+
+                if group_id:
+                    configured_targets = targets
+                    targets = [
+                        group
+                        for group in configured_targets
+                        if group.open_conversation_id == group_id
+                    ]
+                    configured_group = DingtalkGroupConfig.objects.filter(
+                        app=dingtalk_app, open_conversation_id=group_id,
+                    ).exists()
+                    if (configured_targets or configured_group) and not targets:
+                        raise CommandError(
+                            "指定群未在该公司的钉钉群推送配置中勾选，拒绝发送"
+                        )
+                elif len(targets) == 1:
+                    group_id = targets[0].open_conversation_id
+                elif len(targets) > 1:
+                    raise CommandError(
+                        "组织存在多个付款推送群，请用 --group-id 明确目标"
+                    )
+
                 if not group_id:
-                    # 从配置读取(这里暂时需要手动配置,后续可扩展模型)
-                    self.stdout.write(self.style.WARNING(
-                        f"  跳过发送: 未指定群ID,请使用 --group-id 参数"
-                    ))
-                    continue
+                    raise CommandError(
+                        "未指定组织推送群，请配置群或使用 --group-id"
+                    )
 
                 # 检查机器人配置
                 if not dingtalk_app.robot_code:
-                    self.stdout.write(self.style.WARNING(
-                        f"  跳过发送: 未配置机器人Code,请在Django Admin中配置 DingtalkApp.robot_code"
-                    ))
-                    continue
+                    raise CommandError("未配置机器人Code，请在 Django Admin 中配置 DingtalkApp.robot_code")
 
                 self.stdout.write(f"  发送到钉钉群: {group_id}")
 
-                # 上传Excel
                 client = DingtalkClient(dingtalk_app)
+                if use_card:
+                    a2ui_client = DingtalkA2UIClient(client)
+                    a2ui_client.check_available()
+
+                # 上传Excel
                 with open(excel_path, 'rb') as f:
                     excel_content = f.read()
 
                 media_id = client.upload_media(excel_filename, excel_content)
                 self.stdout.write(f"  Excel已上传, media_id: {media_id}")
 
-                # 判断使用卡片还是文本消息
-                use_card = bool(dingtalk_app.card_template_id) and not options.get('no_card')
-
+                # 默认使用 A2UI；旧 card_template_id 不参与该通道。
                 if use_card:
-                    self.stdout.write("  使用互动卡片发送")
-                    from integrations.services.payment_card import (
-                        build_payment_card_data,
-                        send_interactive_card,
-                    )
-
-                    # 生成卡片数据
-                    card_data = build_payment_card_data(data, period_info, report_type)
-
-                    # 发送卡片
+                    self.stdout.write("  使用 A2UI 卡片发送")
+                    receipt_path = excel_path.with_suffix('.a2ui.receipt.json')
                     try:
-                        card_result = send_interactive_card(
-                            client,
-                            group_id,
-                            card_data,
-                            dingtalk_app.card_template_id,
-                            dingtalk_app.robot_code  # 添加 robot_code
+                        card_result = a2ui_client.send_card(group_id, a2ui_messages, receipt_path)
+                        self.stdout.write(
+                            f"  A2UI 卡片已发送并完结: outTrackId={card_result['outTrackId']}"
                         )
-                        self.stdout.write(f"  互动卡片已发送: {card_result}")
+                        self.stdout.write(f"  卡片回执: {receipt_path}")
                     except Exception as exc:
-                        self.stdout.write(self.style.WARNING(
-                            f"  卡片发送失败({exc}),降级为文本消息"
-                        ))
-                        use_card = False
+                        raise CommandError(f"A2UI 卡片发送失败：{exc}") from exc
 
-                # 使用文本消息(降级方案或默认方案)
+                # 仅显式指定 --no-card 时发送文本消息
                 if not use_card:
                     self.stdout.write("  使用文本消息发送")
                     # 构建文本消息

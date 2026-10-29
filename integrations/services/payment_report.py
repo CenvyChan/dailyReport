@@ -112,9 +112,11 @@ def get_last_month_range(base_date=None):
 def _extract_form_value(form_values, *keys):
     """从表单值字典中提取字段值。
 
-    钉钉审批表单值是 list[dict],每个dict有name/value键。
+    兼容同步历史中的字段字典及 name/value 组件数组。
     按优先级尝试多个可能的字段名。
     """
+    if isinstance(form_values, dict):
+        return next((form_values[key] for key in keys if form_values.get(key) not in (None, "")), None)
     if not form_values or not isinstance(form_values, list):
         return None
 
@@ -172,7 +174,29 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
 
     # 按收款人分组
     recipients = {}
+    from integrations.services.payment_organizations import (
+        PAYMENT_REPORT_COMPANY_APPLICATION_NAMES,
+        application_company_name,
+        payment_app_for_company,
+        resolve_company,
+    )
+    try:
+        source_app = payment_app_for_company(company)
+    except ValueError:
+        source_app = None
+    requires_company = bool(source_app and source_app.company_mappings.exists())
     for instance in queryset.select_related('company'):
+        form_company = application_company_name(instance.form_values)
+        expected_company = PAYMENT_REPORT_COMPANY_APPLICATION_NAMES.get(company.code)
+        if expected_company and form_company != expected_company:
+            raise ValueError(
+                f"审批申请公司「{form_company or '未填写'}」不在付款报表范围，"
+                f"项目组织 {company.code} 仅接收「{expected_company}」"
+            )
+        if requires_company or form_company:
+            app = source_app or payment_app_for_company(company)
+            if resolve_company(app, instance.form_values).pk != company.pk:
+                raise ValueError("审批申请公司与项目组织不一致，请先运行 reconcile_payment_organizations")
         # 从表单值提取收款人(尝试多个可能的字段名)
         recipient = _extract_form_value(
             instance.form_values,
@@ -204,7 +228,7 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
         recipients[recipient]['amount'] += instance.amount or Decimal('0')
 
         # 构建深链接
-        corp_id = company.dingtalk_app.corp_id if hasattr(company, 'dingtalk_app') else ''
+        corp_id = source_app.corp_id if source_app else ''
         deep_link = (
             f"dingtalk://dingtalkclient/page/link?url="
             f"https://aflow.dingtalk.com/dingtalk/mobile/homepage.htm?"
@@ -212,10 +236,14 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
             f"#/approval/detail?procInsId={instance.process_instance_id}"
         ) if corp_id else ''
 
+        create_time = instance.create_time
+        if create_time and timezone.is_aware(create_time):
+            create_time = timezone.localtime(create_time)
+
         # 添加明细
         recipients[recipient]['details'].append({
             'process_instance_id': instance.process_instance_id,
-            'create_date': instance.create_time.strftime('%Y-%m-%d') if instance.create_time else '',
+            'create_date': create_time.strftime('%Y-%m-%d') if create_time else '',
             'amount': instance.amount or Decimal('0'),
             'reason': payment_reason[:100],  # 限制长度
             'expected_date': expected_date,
@@ -241,3 +269,13 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
         },
         'by_recipient': by_recipient,
     }
+
+
+def get_previous_day_range(base_date=None):
+    """按项目时区统计前一自然日。"""
+    base_date = base_date or (timezone.localdate() if settings.USE_TZ else datetime.now().date())
+    day = base_date - timedelta(days=1)
+    start, end = datetime.combine(day, datetime.min.time()), datetime.combine(day, datetime.max.time())
+    if settings.USE_TZ:
+        start, end = timezone.make_aware(start), timezone.make_aware(end)
+    return {"start": start, "end": end, "label": day.isoformat(), "start_date": day, "end_date": day}

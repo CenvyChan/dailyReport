@@ -239,151 +239,23 @@ class Command(BaseCommand):
         }
 
     def _sync_instances(self, company, config, client, instance_ids, dry_run, track_changes):
-        """同步审批实例列表。"""
-        created = 0
-        updated = 0
-        status_changed = 0
-        amount_changed = 0
+        from integrations.services.payment_organizations import approval_scope, instance_defaults, save_approval
 
-        for idx, instance_id in enumerate(instance_ids, 1):
-            if idx % 10 == 0:
-                self.stdout.write(f"  进度: {idx}/{len(instance_ids)}")
-
-            try:
-                # 获取详情
-                instance_data = client.get_instance(instance_id)
-
-                # 提取字段（传入instance_id以补充可能缺失的字段）
-                extracted = self._extract_instance_data(company, config, instance_data, instance_id)
-
-                if dry_run:
-                    # Dry-run模式,只统计
-                    if DingtalkApprovalInstance.objects.filter(
-                        company=company,
-                        process_instance_id=instance_id,
-                    ).exists():
-                        updated += 1
-                    else:
-                        created += 1
-                    continue
-
-                # 查找已存在的实例
-                existing = DingtalkApprovalInstance.objects.filter(
-                    company=company,
-                    process_instance_id=instance_id,
-                ).first()
-
-                if existing:
-                    # 检查变更
-                    has_changes = False
-                    changed_fields = []
-
-                    if existing.status != extracted['status']:
-                        changed_fields.append(
-                            f"状态:{existing.status}→{extracted['status']}"
-                        )
-                        status_changed += 1
-                        has_changes = True
-
-                    if existing.amount != extracted['amount']:
-                        changed_fields.append(
-                            f"金额:{existing.amount}→{extracted['amount']}"
-                        )
-                        amount_changed += 1
-                        has_changes = True
-
-                    if has_changes:
-                        # 更新记录
-                        for key, value in extracted.items():
-                            setattr(existing, key, value)
-                        existing.save()
-
-                        if track_changes and changed_fields:
-                            logger.info(
-                                f"审批实例 {instance_id} 变更: {', '.join(changed_fields)}"
-                            )
-
-                        updated += 1
-                else:
-                    # 新建记录
-                    DingtalkApprovalInstance.objects.create(**extracted)
-                    created += 1
-
-            except Exception as exc:
-                logger.warning(f"处理审批实例 {instance_id} 失败: {exc}")
+        counts = dict(created=0, updated=0, status_changed=0, amount_changed=0)
+        for instance_id in instance_ids:
+            raw = client.get_instance(instance_id)
+            if dry_run:
+                instance_defaults(config.app, config, raw, instance_id)
+                exists = approval_scope(config.app, config.process_code).filter(process_instance_id=instance_id).exists()
+                counts["updated" if exists else "created"] += 1
                 continue
+            row, created, previous = save_approval(config.app, config, raw, instance_id)
+            counts["created" if created else "updated"] += 1
+            if track_changes and not created:
+                counts["status_changed"] += previous["status"] != row.status
+                counts["amount_changed"] += previous["amount"] != row.amount
+        return counts
 
-        return {
-            'created': created,
-            'updated': updated,
-            'status_changed': status_changed,
-            'amount_changed': amount_changed,
-        }
-
-    def _extract_instance_data(self, company, config, instance_data, instance_id):
-        """从钉钉API响应提取字段。"""
-        from decimal import Decimal
-
-        # 基本信息
-        result = {
-            'company': company,
-            'process_code': config.process_code,
-            'process_name': instance_data.get('title', ''),
-            'process_instance_id': instance_id,  # 使用传入的instance_id（这就是钉钉的process_instance_id）
-            'title': instance_data.get('title', ''),
-            'status': instance_data.get('status', ''),
-            'result': instance_data.get('result', ''),
-        }
-
-        # 时间字段 - 支持两种格式：毫秒时间戳（整数）和字符串格式（'2026-10-26 11:08:50'）
-        create_time = instance_data.get('create_time')
-        if create_time:
-            if isinstance(create_time, str):
-                # 字符串格式：'2026-10-26 11:08:50'
-                result['create_time'] = datetime.strptime(
-                    create_time, '%Y-%m-%d %H:%M:%S'
-                ).replace(tzinfo=timezone.get_current_timezone())
-            else:
-                # 毫秒时间戳
-                result['create_time'] = datetime.fromtimestamp(
-                    int(create_time) / 1000, tz=dt_timezone.utc
-                )
-
-        finish_time = instance_data.get('finish_time')
-        if finish_time:
-            if isinstance(finish_time, str):
-                # 字符串格式：'2026-10-26 11:08:50'
-                result['finish_time'] = datetime.strptime(
-                    finish_time, '%Y-%m-%d %H:%M:%S'
-                ).replace(tzinfo=timezone.get_current_timezone())
-            else:
-                # 毫秒时间戳
-                result['finish_time'] = datetime.fromtimestamp(
-                    int(finish_time) / 1000, tz=dt_timezone.utc
-                )
-
-        # 发起人信息
-        originator = instance_data.get('originator_userid', '')
-        result['originator_userid'] = originator
-        result['originator_name'] = instance_data.get('originator_name', '')
-        result['dept_name'] = instance_data.get('dept_name', '')
-
-        # 表单值
-        form_values = instance_data.get('form_component_values', []) or []
-        result['form_values'] = form_values
-
-        # 提取金额
-        amount = None
-        if config.amount_component and form_values:
-            for item in form_values:
-                if item.get('name') == config.amount_component:
-                    try:
-                        amount = Decimal(str(item.get('value', 0)))
-                    except (ValueError, TypeError):
-                        amount = None
-                    break
-
-        result['amount'] = amount
-        result['raw'] = instance_data
-
-        return result
+    def _extract_instance_data(self, company, config, instance_data, instance_id=None):
+        from integrations.services.payment_organizations import instance_defaults
+        return instance_defaults(config.app, config, instance_data, instance_id or instance_data.get("process_instance_id"))

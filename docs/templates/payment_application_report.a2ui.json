@@ -1,0 +1,926 @@
+[
+  {
+    "version": "v1.0",
+    "createSurface": {
+      "surfaceId": "payment-application-report-2026w43-demo",
+      "catalogId": "https://dingtalk.com/card/a2ui/catalogs/public/catalog.json"
+    }
+  },
+  {
+    "version": "v1.0",
+    "updateDataModel": {
+      "surfaceId": "payment-application-report-2026w43-demo",
+      "path": "/",
+      "value": {
+        "companyName": "飞诺斯电子科技有限公司（演示数据）",
+        "reportTitle": "付款申请周报",
+        "period": "2026.10.19—10.25",
+        "periodLabel": "统计周期：2026.10.19—10.25",
+        "dataLabel": "演示数据",
+        "reportMeta": {
+          "dataMode": "demo",
+          "currency": "CNY",
+          "amountUnit": "元",
+          "chartAmountUnit": "万元",
+          "periodStart": "2026-10-19",
+          "periodEnd": "2026-10-25",
+          "previousPeriodStart": "2026-10-12",
+          "previousPeriodEnd": "2026-10-18"
+        },
+        "summary": {
+          "totalAmount": 1286540,
+          "totalAmountText": "¥1,286,540.00",
+          "totalCount": 75,
+          "totalCountText": "75 笔",
+          "recipientCount": 18,
+          "recipientCountText": "18 家",
+          "averageAmount": 17153.87,
+          "averageAmountText": "¥17,153.87",
+          "completedCount": 42,
+          "completedAmount": 726480,
+          "completedAmountText": "¥726,480.00",
+          "completionRate": 56,
+          "completionRateText": "56.0%",
+          "runningCount": 30,
+          "runningAmount": 516060,
+          "runningAmountText": "¥516,060.00",
+          "terminatedCount": 3,
+          "terminatedAmount": 44000,
+          "previousAmount": 1180000,
+          "amountChangePercent": 9,
+          "amountChangeText": "较上周 +9.0%（上周 ¥1,180,000.00）",
+          "top5Amount": 935000,
+          "top5Share": 72.7,
+          "top5SummaryText": "前 5 名合计 ¥935,000.00，占申请总额 72.7%。"
+        },
+        "statusBreakdown": [
+          {
+            "status": "COMPLETED",
+            "label": "✅ 已完成审批",
+            "count": 42,
+            "amount": 726480,
+            "countText": "42 笔",
+            "amountText": "¥726,480.00",
+            "detailText": "42 笔 · ¥726,480.00"
+          },
+          {
+            "status": "RUNNING",
+            "label": "🔄 审批中",
+            "count": 30,
+            "amount": 516060,
+            "countText": "30 笔",
+            "amountText": "¥516,060.00",
+            "detailText": "30 笔 · ¥516,060.00"
+          },
+          {
+            "status": "TERMINATED",
+            "label": "❌ 已终止",
+            "count": 3,
+            "amount": 44000,
+            "countText": "3 笔",
+            "amountText": "¥44,000.00",
+            "detailText": "3 笔 · ¥44,000.00"
+          }
+        ],
+        "dailyApplications": [
+          {
+            "date": "2026-10-19",
+            "label": "10-19",
+            "count": 8,
+            "amount": 148320
+          },
+          {
+            "date": "2026-10-20",
+            "label": "10-20",
+            "count": 12,
+            "amount": 206450
+          },
+          {
+            "date": "2026-10-21",
+            "label": "10-21",
+            "count": 10,
+            "amount": 167890
+          },
+          {
+            "date": "2026-10-22",
+            "label": "10-22",
+            "count": 16,
+            "amount": 284600
+          },
+          {
+            "date": "2026-10-23",
+            "label": "10-23",
+            "count": 9,
+            "amount": 154800
+          },
+          {
+            "date": "2026-10-24",
+            "label": "10-24",
+            "count": 11,
+            "amount": 197360
+          },
+          {
+            "date": "2026-10-25",
+            "label": "10-25",
+            "count": 9,
+            "amount": 127120
+          }
+        ],
+        "payeeApplications": [
+          {
+            "name": "示例供应商 A",
+            "label": "供应商 A",
+            "count": 12,
+            "amount": 320000
+          },
+          {
+            "name": "示例供应商 B",
+            "label": "供应商 B",
+            "count": 10,
+            "amount": 240000
+          },
+          {
+            "name": "示例供应商 C",
+            "label": "供应商 C",
+            "count": 8,
+            "amount": 160000
+          },
+          {
+            "name": "示例供应商 D",
+            "label": "供应商 D",
+            "count": 7,
+            "amount": 135000
+          },
+          {
+            "name": "示例供应商 E",
+            "label": "供应商 E",
+            "count": 6,
+            "amount": 80000
+          },
+          {
+            "name": "其他 13 家收款人",
+            "label": "其他",
+            "count": 32,
+            "amount": 351540
+          }
+        ],
+        "charts": {
+          "dailyAmount": {
+            "type": "lineChart",
+            "data": [
+              {
+                "x": "10-19",
+                "y": 14.832
+              },
+              {
+                "x": "10-20",
+                "y": 20.645
+              },
+              {
+                "x": "10-21",
+                "y": 16.789
+              },
+              {
+                "x": "10-22",
+                "y": 28.46
+              },
+              {
+                "x": "10-23",
+                "y": 15.48
+              },
+              {
+                "x": "10-24",
+                "y": 19.736
+              },
+              {
+                "x": "10-25",
+                "y": 12.712
+              }
+            ]
+          },
+          "payeeAmount": {
+            "type": "histogram",
+            "data": [
+              {
+                "x": "供应商 A",
+                "y": 32
+              },
+              {
+                "x": "供应商 B",
+                "y": 24
+              },
+              {
+                "x": "供应商 C",
+                "y": 16
+              },
+              {
+                "x": "供应商 D",
+                "y": 13.5
+              },
+              {
+                "x": "供应商 E",
+                "y": 8
+              },
+              {
+                "x": "其他",
+                "y": 35.154
+              }
+            ]
+          }
+        },
+        "focusItems": [
+          {
+            "title": "审批中：30 笔 · ¥516,060.00",
+            "desc": "占申请总额 40.1%，可结合审批进度核对后续付款计划。"
+          },
+          {
+            "title": "10-22 申请金额最高",
+            "desc": "当日 16 笔，合计 ¥284,600.00，占全周 22.1%。"
+          },
+          {
+            "title": "前 5 名收款人占比 72.7%",
+            "desc": "合计 ¥935,000.00；其余 13 家收款人合计 ¥351,540.00。"
+          }
+        ],
+        "chartUnitNote": "图表金额单位：万元；卡片明细金额单位：人民币元。",
+        "scopeNote": "口径：按付款申请创建日期汇总，包含已完成审批、审批中和已终止的申请。审批完成不代表实际付款。",
+        "demoNote": "演示数据，仅用于卡片效果预览。"
+      }
+    }
+  },
+  {
+    "version": "v1.0",
+    "updateComponents": {
+      "surfaceId": "payment-application-report-2026w43-demo",
+      "components": [
+        {
+          "id": "root",
+          "component": "Column",
+          "children": [
+            "header",
+            "summary-card",
+            "metrics-content",
+            "status-card",
+            "trend-card",
+            "payees-card",
+            "focus-content",
+            "footer"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "title",
+          "component": "Text",
+          "text": {
+            "path": "/reportTitle"
+          },
+          "bold": true,
+          "colorToken": "common_level2_base_color",
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "demo-tag",
+          "component": "Tag",
+          "text": {
+            "path": "/dataLabel"
+          },
+          "theme": "blue"
+        },
+        {
+          "id": "title-row",
+          "component": "Row",
+          "children": [
+            "title",
+            "demo-tag"
+          ],
+          "gap": 12,
+          "align": "center"
+        },
+        {
+          "id": "company",
+          "component": "Text",
+          "text": {
+            "path": "/companyName"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h2_text_style__font_size"
+        },
+        {
+          "id": "period",
+          "component": "Text",
+          "text": {
+            "path": "/periodLabel"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "header",
+          "component": "Column",
+          "children": [
+            "title-row",
+            "company",
+            "period"
+          ],
+          "gap": 4
+        },
+        {
+          "id": "amount-label",
+          "component": "Text",
+          "text": "申请总金额",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "amount",
+          "component": "Text",
+          "text": {
+            "path": "/summary/totalAmountText"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h1_text_style__font_size"
+        },
+        {
+          "id": "amount-change",
+          "component": "Text",
+          "text": {
+            "path": "/summary/amountChangeText"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "summary-divider",
+          "component": "Divider",
+          "borderColorToken": "common_line_light_color"
+        },
+        {
+          "id": "count-label",
+          "component": "Text",
+          "text": "本期发起流程数",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "count-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/totalCountText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "count",
+          "component": "Column",
+          "children": [
+            "count-label",
+            "count-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "average-label",
+          "component": "Text",
+          "text": "单笔平均金额",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "average-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/averageAmountText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "average",
+          "component": "Column",
+          "children": [
+            "average-label",
+            "average-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "count-average-row",
+          "component": "Row",
+          "children": [
+            "count",
+            "average"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "running-label",
+          "component": "Text",
+          "text": "审批中金额",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "running-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/runningAmountText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "running",
+          "component": "Column",
+          "children": [
+            "running-label",
+            "running-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "completed-label",
+          "component": "Text",
+          "text": "审批完成金额",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "completed-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/completedAmountText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "completed",
+          "component": "Column",
+          "children": [
+            "completed-label",
+            "completed-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "approval-amount-row",
+          "component": "Row",
+          "children": [
+            "running",
+            "completed"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "recipients-label",
+          "component": "Text",
+          "text": "收款人数量",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "recipients-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/recipientCountText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "recipients",
+          "component": "Column",
+          "children": [
+            "recipients-label",
+            "recipients-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "completion-rate-label",
+          "component": "Text",
+          "text": "审批完成率（按笔数）",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "completion-rate-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/completionRateText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "completion-rate",
+          "component": "Column",
+          "children": [
+            "completion-rate-label",
+            "completion-rate-value"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "recipient-rate-row",
+          "component": "Row",
+          "children": [
+            "recipients",
+            "completion-rate"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "summary-content",
+          "component": "Column",
+          "children": [
+            "amount-label",
+            "amount",
+            "amount-change",
+            "summary-divider",
+            "count-average-row"
+          ],
+          "gap": 10
+        },
+        {
+          "id": "summary-card",
+          "component": "Card",
+          "child": "summary-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "metrics-title",
+          "component": "Text",
+          "text": "付款申请指标",
+          "bold": true,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "metrics-content",
+          "component": "Column",
+          "children": [
+            "metrics-title",
+            "approval-amount-row",
+            "recipient-rate-row"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "status-label",
+          "component": "Text",
+          "text": {
+            "path": "label"
+          },
+          "weight": 1,
+          "maxLine": 2
+        },
+        {
+          "id": "status-detail",
+          "component": "Text",
+          "text": {
+            "path": "detailText"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "status-row",
+          "component": "Row",
+          "children": [
+            "status-label",
+            "status-detail"
+          ],
+          "gap": 12,
+          "align": "center"
+        },
+        {
+          "id": "status-title",
+          "component": "Text",
+          "text": "审批状态分布",
+          "bold": true,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "status-loop",
+          "component": "Loop",
+          "children": {
+            "componentId": "status-row",
+            "path": "/statusBreakdown"
+          }
+        },
+        {
+          "id": "status-content",
+          "component": "Column",
+          "children": [
+            "status-title",
+            "status-loop"
+          ],
+          "gap": 10
+        },
+        {
+          "id": "status-card",
+          "component": "Card",
+          "child": "status-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "trend-title",
+          "component": "Text",
+          "text": "每日申请金额趋势",
+          "bold": true,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "trend-caption",
+          "component": "Text",
+          "text": "折线图 · 单位：万元 · 按申请创建日期汇总",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "trend-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/dailyAmount"
+          },
+          "height": 180,
+          "visible": {
+            "call": "gt",
+            "args": {
+              "a": {
+                "call": "getLength",
+                "args": {
+                  "value": {
+                    "path": "/charts/dailyAmount/data"
+                  }
+                }
+              },
+              "b": 0
+            }
+          },
+          "fallbackMarkdown": "当前客户端暂不支持显示此图表。"
+        },
+        {
+          "id": "trend-empty",
+          "component": "Text",
+          "text": "本期暂无付款申请趋势数据。",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color",
+          "visible": {
+            "call": "eq",
+            "args": {
+              "a": {
+                "call": "getLength",
+                "args": {
+                  "value": {
+                    "path": "/charts/dailyAmount/data"
+                  }
+                }
+              },
+              "b": 0
+            }
+          }
+        },
+        {
+          "id": "trend-content",
+          "component": "Column",
+          "children": [
+            "trend-title",
+            "trend-caption",
+            "trend-chart",
+            "trend-empty"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "trend-card",
+          "component": "Card",
+          "child": "trend-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "payees-title",
+          "component": "Text",
+          "text": "收款人申请金额分布（万元）",
+          "bold": true,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "payees-caption",
+          "component": "Text",
+          "text": {
+            "path": "/summary/top5SummaryText"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "payees-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/payeeAmount"
+          },
+          "height": 180,
+          "visible": {
+            "call": "gt",
+            "args": {
+              "a": {
+                "call": "getLength",
+                "args": {
+                  "value": {
+                    "path": "/charts/payeeAmount/data"
+                  }
+                }
+              },
+              "b": 0
+            }
+          },
+          "fallbackMarkdown": "当前客户端暂不支持显示此图表。"
+        },
+        {
+          "id": "payees-empty",
+          "component": "Text",
+          "text": "本期暂无收款人申请金额数据。",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color",
+          "visible": {
+            "call": "eq",
+            "args": {
+              "a": {
+                "call": "getLength",
+                "args": {
+                  "value": {
+                    "path": "/charts/payeeAmount/data"
+                  }
+                }
+              },
+              "b": 0
+            }
+          }
+        },
+        {
+          "id": "payees-content",
+          "component": "Column",
+          "children": [
+            "payees-title",
+            "payees-caption",
+            "payees-chart",
+            "payees-empty"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "payees-card",
+          "component": "Card",
+          "child": "payees-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "focus-title",
+          "component": "Text",
+          "text": {
+            "path": "title"
+          },
+          "bold": true,
+          "maxLine": 2
+        },
+        {
+          "id": "focus-desc",
+          "component": "Text",
+          "text": {
+            "path": "desc"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "focus-item-content",
+          "component": "Column",
+          "children": [
+            "focus-title",
+            "focus-desc"
+          ],
+          "gap": 4
+        },
+        {
+          "id": "focus-item",
+          "component": "Card",
+          "child": "focus-item-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "focus-heading",
+          "component": "Text",
+          "text": "本周关注",
+          "bold": true,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "focus-loop",
+          "component": "Loop",
+          "children": {
+            "componentId": "focus-item",
+            "path": "/focusItems"
+          }
+        },
+        {
+          "id": "focus-empty",
+          "component": "Text",
+          "text": "暂无需关注事项。",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color",
+          "visible": {
+            "call": "eq",
+            "args": {
+              "a": {
+                "call": "getLength",
+                "args": {
+                  "value": {
+                    "path": "/focusItems"
+                  }
+                }
+              },
+              "b": 0
+            }
+          }
+        },
+        {
+          "id": "focus-content",
+          "component": "Column",
+          "children": [
+            "focus-heading",
+            "focus-loop",
+            "focus-empty"
+          ],
+          "gap": 10
+        },
+        {
+          "id": "unit-note",
+          "component": "Text",
+          "text": {
+            "path": "/chartUnitNote"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "scope-note",
+          "component": "Text",
+          "text": {
+            "path": "/scopeNote"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "demo-note",
+          "component": "Text",
+          "text": {
+            "path": "/demoNote"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "footer",
+          "component": "Column",
+          "children": [
+            "unit-note",
+            "scope-note",
+            "demo-note"
+          ],
+          "gap": 4
+        }
+      ]
+    }
+  }
+]

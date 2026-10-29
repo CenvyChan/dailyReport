@@ -14,7 +14,9 @@ NEW_API_BASE = "https://api.dingtalk.com"
 
 
 class DingtalkError(RuntimeError):
-    pass
+    def __init__(self, message, *, code=None):
+        super().__init__(message)
+        self.code = code
 
 
 def _requests():
@@ -104,7 +106,7 @@ class DingtalkClient:
             or data.get("code") not in (None, "", 0, "0", "OK", "ok", "Success", "success")
             or data.get("success") is False
         ):
-            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}")
+            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}", code=data.get("code"))
         return data
 
     def get(self, path, params=None):
@@ -128,7 +130,7 @@ class DingtalkClient:
             or data.get("code") not in (None, "", 0, "0", "OK", "ok", "Success", "success")
             or data.get("success") is False
         ):
-            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}")
+            raise DingtalkError(f"钉钉接口 {path} 失败（HTTP {resp.status_code}）：{data}", code=data.get("code"))
         return data
 
     def upload_media(self, filename, content, media_type="file"):

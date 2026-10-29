@@ -353,7 +353,17 @@ def send_interactive_card(client, group_id: str, card_data: Dict[str, Any],
     # 同时确认接口成功和群聊投放成功，避免将业务错误记录为“已发送”。
     from integrations.services.dingtalk_client import DingtalkError
 
-    result = client.post('/v1.0/card/instances/createAndDeliver', payload)
+    try:
+        result = client.post('/v1.0/card/instances/createAndDeliver', payload)
+    except DingtalkError as exc:
+        if exc.code == 'param.templateUnpublished':
+            raise DingtalkError(
+                f"互动卡片模板 {template_id} 未发布。请在钉钉卡片搭建器 "
+                "https://open-dev.dingtalk.com/fe/card 发布上线，"
+                f"或配置已发布模板 ID 后重试。原始错误：{exc}",
+                code=exc.code,
+            ) from exc
+        raise
     deliveries = (result.get("result") or {}).get("deliverResults") or []
     if result.get("success") is not True or not deliveries or any(
         delivery.get("success") is not True for delivery in deliveries

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>{{ snapshot.company.name }} 经营日报 {{ snapshot.report_date }}</title>
+<title>{{ snapshot.company.name }} 采销汇总日报 {{ snapshot.report_date }}</title>
 <style>
   /* ===== 书册式·现代极简白 (对齐 dailyreportAure modern 主题) ===== */
   @page { size: A4 portrait; margin: 0; }
@@ -204,16 +204,38 @@
     background: rgba(37,99,235,0.04); border: 1px solid rgba(37,99,235,0.15);
     font-size: 12px; line-height: 1.8; color: var(--text-secondary);
   }
-</style>
-</head>
-<body>
 
-{# ============ 第 1 页：封面 ============ #}
+ .detail-note {font-size:12px;line-height:1.9;color:var(--text-secondary);margin:12px 0 20px;}
+ .detail-summary {margin:18px 0 24px;}
+ .detail-summary h3 {font-size:15px;margin-bottom:12px;}
+ .empty-row {text-align:center;color:var(--text-tertiary);padding:22px 8px!important;}
+ table.ledger {table-layout:fixed;}
+ table.ledger td {overflow-wrap:anywhere;}
+ table.ledger tr {break-inside:avoid;}
+ table.ledger td.idx {white-space:nowrap;}
+ .kingdee-ledger th,.kingdee-ledger td {padding:6px 5px;}
+ .kingdee-ledger td:nth-child(-n+4) {white-space:nowrap;}
+ .kingdee-ledger td:nth-child(4) {font-size:9px;letter-spacing:-.2px;}
+ .kingdee-ledger{font-size:10px;}
+ .kingdee-ledger td.num{white-space:nowrap;}
+ .quantity-note{font-size:10px;line-height:1.7;color:var(--text-secondary);margin:10px 0;}
+ table.ledger thead {display:table-header-group;}
+ .folio-chart {border:1px solid var(--card-border);border-radius:10px;padding:16px;margin:16px 0;break-inside:avoid;}
+ .folio-chart h3 {font-size:15px;margin-bottom:6px;}
+ .folio-chart p {font-size:11px;color:var(--text-secondary);}
+ .folio-chart .legend {display:flex;gap:20px;font-size:11px;margin:12px 0;}
+ .folio-chart i {display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px;}
+ .folio-chart svg {display:block;width:100%;height:200px;}
+ .folio-chart text {font-size:10px;fill:var(--text-secondary);}
+ .data-warning {font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;margin:12px 0;}
+ @media screen {body{background:#e9eef4}.page{background:#fff;margin:20px auto;box-shadow:0 4px 24px #16243b18}}
+ @media print {.page{min-height:296.8mm}.cover{height:296.8mm}.page-foot{break-inside:avoid}}
+</style></head><body>
 <section class="page cover">
   <div class="cover-frame"></div>
   <div class="cover-top">
     <span>FINOS OPERATING FOLIO · {{ snapshot.report_date|date:"Y-m" }}</span>
-    <span class="cover-badge">内部资料 · 核验有效</span>
+    <span class="cover-badge">内部资料 · 数据分源展示</span>
   </div>
   <div class="cover-hero">
     <svg class="cover-emblem" viewBox="0 0 100 100">
@@ -224,188 +246,61 @@
       <path d="M42 50 L50 42 L58 50 L50 58 Z" fill="#2563eb" opacity="0.85"/>
     </svg>
     <div class="cover-company">{{ snapshot.company.name }}</div>
-    <h1 class="cover-title serif">经营日报</h1>
+    <h1 class="cover-title serif">采销汇总日报</h1>
     <div class="cover-pill">
       <span>报告基准日：{{ snapshot.report_date|date:"Y年m月d日" }}</span>
       <span>·</span>
       <span>快照 #{{ snapshot.id }}</span>
     </div>
-    <p class="cover-desc">手填日报为主口径，金蝶数据作为参考与对账依据。本公报汇编当日产销、原料采购账目、本月十五日动态走势与金蝶系统对账结论。</p>
+    <p class="cover-desc">保留日报提交明细账簿，展示金蝶实际单据。金蝶汇总与趋势、人员日报提交分别列示，不混用数据来源。</p>
     <div class="cover-badges">
-      {% if snapshot.data.sales %}<div class="b"><span>当日销售出货</span><strong style="color:var(--sales)">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong></div>{% endif %}
-      {% if snapshot.data.purchase %}<div class="b"><span>当日采购发生</span><strong style="color:var(--purchase)">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong></div>{% endif %}
-      <div class="b"><span>当日净差额</span><strong style="color:var(--emerald)">{{ net_margin|money }}</strong></div>
+      {% for metric in summary_metrics %}<div class="b"><span>{{ metric.label }}</span><strong>{% if metric.value == None %}—{% elif metric.money %}¥{{ metric.value|money }}{% else %}{{ metric.value|floatformat:2 }}%{% endif %}</strong></div>{% endfor %}
     </div>
   </div>
   <div class="cover-foot">{{ snapshot.company.name }} · 经营日报 · 生成于 {{ snapshot.generated_at|date:"Y-m-d H:i" }}</div>
 </section>
 
-{# ============ 第 2 页：经营总览 + 关键指标 + 经营纪要 ============ #}
+
 <section class="page">
-  <div class="sec-head">
-    <div>
-      <span class="eyebrow">EXECUTIVE OVERVIEW · SECTION 01</span>
-      <h2 class="serif">经营总览与关键指标</h2>
-    </div>
-    <div class="meta">快照 #{{ snapshot.id }}<br>{{ snapshot.generated_at|date:"Y-m-d H:i" }}</div>
-  </div>
-
-  <div class="kpis">
-    {% if snapshot.data.sales %}
-    <div class="kpi sales">
-      <div class="top"><span>销售日报金额</span><i class="dot" style="background:var(--sales)"></i></div>
-      <strong>¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong>
-      <small>{{ snapshot.data.sales.daily_coverage.total_reports }} 笔手填单据</small>
-    </div>
-    {% endif %}
-    {% if snapshot.data.purchase %}
-    <div class="kpi purchase">
-      <div class="top"><span>采购日报金额</span><i class="dot" style="background:var(--purchase)"></i></div>
-      <strong>¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong>
-      <small>{{ snapshot.data.purchase.daily_coverage.total_reports }} 笔手填单据</small>
-    </div>
-    {% endif %}
-    <div class="kpi net">
-      <div class="top"><span>当日经营净差额</span><i class="dot" style="background:var(--emerald)"></i></div>
-      <strong>¥{{ net_margin|money }}</strong>
-      <small>销售出货 − 采购发生</small>
-    </div>
-  </div>
-
-  <div class="commentary">
-    <h4>⬢ 经营纪要与管理层建议</h4>
-    <p>
-      今日实现销售出货手填金额 <strong>¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</strong>，
-      采购发生额 <strong>¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</strong>，
-      本日经营活动现金流入净差额 <strong>¥{{ net_margin|money }}</strong>。
-      当日共录入销售日报 {{ snapshot.data.sales.daily_coverage.total_reports }} 笔、采购日报 {{ snapshot.data.purchase.daily_coverage.total_reports }} 笔，
-      数据以手工填报口径为准，金蝶系统数据作为后续对账与稽核的参考依据。
-    </p>
-  </div>
-
-  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 1 节 · 经营总览</span></div>
+  <div class="sec-head"><div><span class="eyebrow">EXECUTIVE OVERVIEW · SECTION 01</span><h2 class="serif">经营总览与关键指标</h2></div><div class="meta">快照 #{{ snapshot.id }}<br>{{ snapshot.report_date|date:"Y-m-d" }}</div></div>
+  {% if snapshot.sync_warnings %}<div class="data-warning">{{ snapshot.sync_warnings|join:"；" }}</div>{% endif %}
+  <p class="detail-note">金蝶统计期间：{{ operations.period_start }}—{{ operations.period_end }}。汇总与图表取有效金蝶单据，退货保留负数。</p>
+  <div class="kpis">{% for metric in summary_metrics %}<div class="kpi"><div class="top"><span>{{ metric.label }}</span></div><strong>{% if metric.value == None %}—{% elif metric.money %}¥{{ metric.value|money }}{% else %}{{ metric.value|floatformat:2 }}<span class="unit">%</span>{% endif %}</strong></div>{% endfor %}</div>
+  <div class="detail-summary"><h3>当日金蝶实际金额</h3><table class="ledger"><thead><tr><th>业务</th><th class="num">有效单据数</th><th class="num">金额（元）</th></tr></thead><tbody>{% for item in daily_metrics %}<tr><td>{{ item.label }}</td><td class="num">{{ item.count }}</td><td class="num">{% if item.value == None %}—{% else %}{{ item.value|money }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <div class="detail-summary"><h3>当日日报提交情况</h3><table class="ledger"><thead><tr><th>业务</th><th class="num">提交笔数</th><th class="num">日报金额（元）</th><th>提交状态</th></tr></thead><tbody>{% for ledger in manual_ledgers %}<tr><td>{{ ledger.label }}日报</td><td class="num">{{ ledger.count }}</td><td class="num">{{ ledger.total|money }}</td><td>{% if ledger.count %}已录入{% else %}暂无提交记录{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <div class="commentary"><h4>数据口径说明</h4><p>人员日报与金蝶单据分源展示：没有提交记录，不代表金蝶没有发生业务；不得将金蝶数据当作人员提报。合计占比 = 当月采购 ÷ 当月销售，不代表利润率。日报明细保留原版客户／供应商、提报人、日期、金额字段。Excel 的月度对比表另取现有手工录入／历史导入口径。</p></div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>经营总览</span></div>
 </section>
-
-{# ============ 第 3 页：趋势对比与图表观察(柱状图·万元) ============ #}
 <section class="page">
-  <div class="sec-head">
-    <div>
-      <span class="eyebrow">TRENDS & CHART NOTES · SECTION 02</span>
-      <h2 class="serif">趋势对比与图表观察</h2>
-    </div>
-    <div class="meta">本月日报金额动态走势<br>近 15 日 · 单位：万元</div>
-  </div>
-
-  <p class="trend-note">
-    下图按日报业务日期汇总近 15 日销售出货与采购发生的手填金额走势，<strong>金额单位为万元（保留两位小数）</strong>。
-    销售与采购各自独立归一，柱高反映组内相对强弱，便于快速识别当月的交付高峰与采购结算节点。
-  </p>
-
-  <div class="bars-block">
-    <h3><i style="background:var(--sales)"></i>销售出货金额走势（万元）</h3>
-    <div class="bars">
-      {% for p in sales_trend %}<div class="bar-col"><div class="bar-val">{{ p.wan_text }}</div><div class="bar s" style="height:{{ p.ratio }}%"></div></div>{% endfor %}
-    </div>
-    <div class="bar-labels">{% for p in sales_trend %}<span>{{ p.date|slice:"5:" }}</span>{% endfor %}</div>
-  </div>
-
-  <div class="bars-block">
-    <h3><i style="background:var(--purchase)"></i>采购发生金额走势（万元）</h3>
-    <div class="bars">
-      {% for p in purchase_trend %}<div class="bar-col"><div class="bar-val">{{ p.wan_text }}</div><div class="bar p" style="height:{{ p.ratio }}%"></div></div>{% endfor %}
-    </div>
-    <div class="bar-labels">{% for p in purchase_trend %}<span>{{ p.date|slice:"5:" }}</span>{% endfor %}</div>
-  </div>
-
-  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 2 节 · 趋势走势</span></div>
+  <div class="sec-head"><div><span class="eyebrow">TRENDS & CHART NOTES · SECTION 02</span><h2 class="serif">趋势对比与图表观察</h2></div><div class="meta">金蝶 K3Cloud<br>金额单位：万元</div></div>
+  <p class="detail-note">采购与销售在同一张图中对比，按业务日期顺序排列；无单据日补 0。以下图表均来自金蝶，不以人员日报替代。</p>
+  <div class="folio-chart"><h3>近 15 天金蝶日报金额趋势</h3><p>{{ operations.trend_start }}—{{ snapshot.report_date|date:"Y-m-d" }}</p>{% include "integrations/operations_chart.html" with chart=trend_chart %}</div>
+  <div class="folio-chart"><h3>当月采销对比折线图</h3><p>{{ operations.period_start }}—{{ operations.period_end }} · 横轴按日期顺序排列</p>{% include "integrations/operations_chart.html" with chart=month_chart %}</div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>金蝶趋势对比</span></div>
 </section>
-
-{# ============ 第 4 页：销售日报明细 ============ #}
-{% if snapshot.data.sales %}
+{% for ledger in manual_pages %}
 <section class="page">
-  <div class="sec-head">
-    <div>
-      <span class="eyebrow">MANUAL SALES LEDGER · SECTION 03</span>
-      <h2 class="serif">销售日报明细账簿</h2>
-    </div>
-    <span class="ledger-badge">共 {{ snapshot.data.sales.daily_coverage.total_reports }} 笔 · ¥{{ snapshot.data.sales.daily_coverage.total_amount|money }}</span>
-  </div>
-  <div class="ledger-wrap">
-    <table class="ledger">
-      <thead><tr><th style="width:40px">#</th><th>客户名称</th><th style="width:84px">提报人</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
-      <tbody>
-        {% for row in snapshot.data.sales.daily_coverage.details %}
-        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
-        {% endfor %}
-      </tbody>
-      <tfoot><tr><td colspan="4">合计</td><td class="num">{{ snapshot.data.sales.daily_coverage.total_amount|money }}</td></tr></tfoot>
-    </table>
-  </div>
-  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 3 节 · 销售明细</span></div>
+  <div class="sec-head"><div><span class="eyebrow">MANUAL DAILY LEDGER · SECTION 03</span><h2 class="serif">{{ ledger.label }}日报明细账簿{% if ledger.continuation %} · 明细续页{% endif %}</h2></div><span class="ledger-badge">共 {{ ledger.count }} 笔 · ¥{{ ledger.total|money }}</span></div>
+  <p class="detail-note">{{ snapshot.report_date|date:"Y-m-d" }} · 人员填报／历史导入记录，非金蝶单据。无提交时仍保留全部列。数量按源记录求和，单位未记录时不作实物单位推断。</p>
+  <div class="ledger-wrap"><table class="ledger">
+    <thead><tr><th style="width:30px">#</th><th>{{ ledger.party_label }}</th><th style="width:70px">提报人</th><th style="width:78px">日期</th><th class="num" style="width:68px">数量</th><th style="width:64px">单位</th><th class="num" style="width:95px">金额（元）</th></tr></thead>
+    <tbody>{% for row in ledger.rows %}<tr><td class="idx">{{ forloop.counter|add:ledger.offset }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td>{{ row.unit }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="7" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
+    {% if ledger.last %}<tfoot><tr><td colspan="4">{{ ledger.label }}日报合计</td><td class="num">{{ ledger.quantity_total_text }}</td><td>{{ ledger.quantity_unit }}</td><td class="num">{{ ledger.total|money }}</td></tr></tfoot>{% endif %}
+  </table></div>
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>{{ ledger.label }}日报提交明细{% if ledger.continuation %} · 续{% endif %}</span></div>
 </section>
-{% endif %}
-
-{# ============ 第 5 页：采购日报明细 ============ #}
-{% if snapshot.data.purchase %}
+{% endfor %}
+{% for detail_page in kingdee_pages %}
 <section class="page">
-  <div class="sec-head">
-    <div>
-      <span class="eyebrow">MANUAL PURCHASE LEDGER · SECTION 04</span>
-      <h2 class="serif">采购日报明细账簿</h2>
-    </div>
-    <span class="ledger-badge p">共 {{ snapshot.data.purchase.daily_coverage.total_reports }} 笔 · ¥{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</span>
-  </div>
-  <div class="ledger-wrap">
-    <table class="ledger">
-      <thead><tr><th style="width:40px">#</th><th>供应商名称</th><th style="width:84px">提报人</th><th style="width:90px">日期</th><th class="num" style="width:130px">金额(¥)</th></tr></thead>
-      <tbody>
-        {% for row in snapshot.data.purchase.daily_coverage.details %}
-        <tr><td class="idx">{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td class="mono" style="font-size:10px;color:var(--text-tertiary)">{{ row.date }}</td><td class="num">{{ row.amount|money }}</td></tr>
-        {% endfor %}
-      </tbody>
-      <tfoot><tr><td colspan="4">合计</td><td class="num">{{ snapshot.data.purchase.daily_coverage.total_amount|money }}</td></tr></tfoot>
-    </table>
-  </div>
-  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 4 节 · 采购明细</span></div>
+  <div class="sec-head"><div><span class="eyebrow">KINGDEE DOCUMENT LEDGER · SECTION 04</span><h2 class="serif">当日金蝶实际单据明细{% if detail_page.continuation %} · 明细续页{% endif %}</h2></div><div class="meta">{{ snapshot.report_date|date:"Y-m-d" }}<br>共 {{ kingdee_documents|length }} 笔</div></div>
+  <p class="detail-note">金蝶 K3Cloud 有效业务单据，按单据数量、金额全量列示，退货保留源记录符号。此处不代表人员已提交日报。</p>
+  <div class="ledger-wrap"><table class="ledger kingdee-ledger">
+    <thead><tr><th style="width:26px">#</th><th style="width:32px">业务</th><th style="width:73px">业务日期</th><th style="width:170px">单据编号</th><th>客户／供应商</th><th class="num" style="width:72px">数量</th><th style="width:44px">单位</th><th class="num" style="width:94px">金额（元）</th></tr></thead>
+    <tbody>{% for row in detail_page.rows %}<tr><td class="idx">{{ forloop.counter|add:detail_page.offset }}</td><td>{{ row.business_label }}</td><td>{{ row.date }}</td><td class="mono">{{ row.bill_no }}</td><td>{{ row.party_name|default:"—" }}</td><td class="num">{{ row.quantity_text }}</td><td>{{ row.unit }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="8" class="empty-row">{% if kingdee_details_missing %}历史快照未冻结金蝶单据明细，请重新生成{% else %}当日暂无金蝶单据{% endif %}</td></tr>{% endfor %}</tbody>
+    {% if detail_page.last %}<tfoot><tr><td colspan="5">当日金蝶单据合计（数量／金额）</td><td class="num">{% if kingdee_details_missing %}—{% else %}{{ kingdee_quantity_total_text }}{% endif %}</td><td>{% if kingdee_quantity_unit == "混合单位（未折算）" %}混合{% else %}{{ kingdee_quantity_unit }}{% endif %}</td><td class="num">{% if kingdee_details_missing %}—{% else %}{{ kingdee_document_total|money }}{% endif %}</td></tr></tfoot>{% endif %}
+  </table></div>
+  {% if detail_page.last %}<p class="quantity-note">数量合计：{{ kingdee_quantity_total_text }}；金额合计：{% if kingdee_details_missing %}—{% else %}{{ kingdee_document_total|money }} 元{% endif %}。数量为源记录算术求和；混合单位未折算，不代表统一实物数量。</p>{% endif %}
+  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>金蝶实际单据明细{% if detail_page.continuation %} · 续{% endif %}</span></div>
 </section>
-{% endif %}
-
-{# ============ 第 6 页：金蝶参考 ============ #}
-<section class="page">
-  <div class="sec-head">
-    <div>
-      <span class="eyebrow">KINGDEE REFERENCE · SECTION 05</span>
-      <h2 class="serif">金蝶系统参考数据</h2>
-    </div>
-    <div class="meta">本月累计 · 对账参考<br>{{ snapshot.report_date|date:"Y年m月" }}</div>
-  </div>
-  <div class="ref-grid">
-    {% if snapshot.data.sales %}
-    <div class="ref-card">
-      <h3>销售对账 <span class="tag s">SALES</span></h3>
-      <div class="ref-row"><span>本月手填累计</span><b>¥{{ snapshot.data.sales.month_diff.system_amount|money }}</b></div>
-      <div class="ref-row"><span>本月金蝶累计</span><b>¥{{ snapshot.data.sales.month_diff.k3_amount|money }}</b></div>
-      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="{% if snapshot.data.sales.month_diff.diff_amount >= 0 %}pos{% else %}neg{% endif %}">¥{{ snapshot.data.sales.month_diff.diff_amount|money }}</b></div>
-      {% if snapshot.data.sales.month_diff.diff_rate != None %}<div class="ref-row"><span>差异率</span><b>{{ snapshot.data.sales.month_diff.diff_rate|floatformat:2 }}%</b></div>{% endif %}
-      <div class="ref-explain">手填日报为经营口径的主数据，金蝶金额因结账归集、凭证生成存在时间差，差额将随次日金蝶入账逐步收敛。</div>
-    </div>
-    {% endif %}
-    {% if snapshot.data.purchase %}
-    <div class="ref-card">
-      <h3>采购对账 <span class="tag p">PURCHASE</span></h3>
-      <div class="ref-row"><span>本月手填累计</span><b>¥{{ snapshot.data.purchase.month_diff.system_amount|money }}</b></div>
-      <div class="ref-row"><span>本月金蝶累计</span><b>¥{{ snapshot.data.purchase.month_diff.k3_amount|money }}</b></div>
-      <div class="ref-row"><span>差额（手填 − 金蝶）</span><b class="{% if snapshot.data.purchase.month_diff.diff_amount >= 0 %}pos{% else %}neg{% endif %}">¥{{ snapshot.data.purchase.month_diff.diff_amount|money }}</b></div>
-      {% if snapshot.data.purchase.month_diff.diff_rate != None %}<div class="ref-row"><span>差异率</span><b>{{ snapshot.data.purchase.month_diff.diff_rate|floatformat:2 }}%</b></div>{% endif %}
-      <div class="ref-explain">采购发生额以手填日报为准，金蝶入库凭证按实际收料与结算节奏生成，月末对账差额通常回归合理区间。</div>
-    </div>
-    {% endif %}
-  </div>
-  <div class="principle-note">
-    <strong>口径说明：</strong>本报告一律以手工填报日报为经营主口径，金蝶系统数据仅作参考与对账依据。两者差异反映的是单据流转与系统入账之间的时间差，不代表经营数据错误。
-  </div>
-  <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>第 5 节 · 金蝶参考</span></div>
-</section>
-
-</body>
-</html>
+{% endfor %}
+</body></html>

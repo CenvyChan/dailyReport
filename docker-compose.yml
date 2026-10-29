@@ -102,6 +102,7 @@ services:
 
         python manage.py sync_kingdee_recent --hour $$CURRENT_HOUR >> /app/logs/scheduler.log 2>&1 || true;
         python manage.py generate_and_send_report >> /app/logs/scheduler.log 2>&1 || true;
+        python manage.py send_scheduled_payment_reports >> /app/logs/scheduler.log 2>&1 || true;
 
         sleep 600;
       done"

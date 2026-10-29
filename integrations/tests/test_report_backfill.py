@@ -41,7 +41,7 @@ class BackfillTests(TestCase):
             app=self.app,
             name="经营群",
             open_conversation_id="cid-test",
-            scope=DingtalkGroupConfig.Scope.BOTH,
+            content_types=["SALES", "PURCHASE"],
             # 故意设成深夜，确保被补发的快照不是靠「窗口已到」才发出去的
             send_at=time(23, 59),
         )
@@ -52,7 +52,7 @@ class BackfillTests(TestCase):
             company=self.company,
             report_date=report_date,
             scope="BOTH",
-            data={},
+            data={"sales": {}, "purchase": {}},
         )
 
     def _run(self, days=3):
@@ -60,8 +60,8 @@ class BackfillTests(TestCase):
             "integrations.services.dingtalk_client.build_client",
             side_effect=lambda app: FakeClient(app),
         ), patch(
-            "integrations.services.report_delivery.render_snapshot_pdf",
-            return_value=b"%PDF-fake",
+            "integrations.services.operations_delivery.deliver_operations_report",
+            return_value=None,
         ):
             return backfill_missed_deliveries(
                 company=self.company,
@@ -114,3 +114,67 @@ class BackfillTests(TestCase):
         result = self._run(days=3)
 
         self.assertEqual(result, [])
+
+
+class ScheduledResendTests(TestCase):
+    """手动提前发过的日报，到定时窗口仍须按时再发一次，且只补这一次。"""
+
+    def setUp(self):
+        self.company = company_a()
+        app = DingtalkApp.objects.create(company=self.company, app_key="k", app_secret="s")
+        self.group = DingtalkGroupConfig.objects.create(
+            company=self.company, app=app, name="经营群", open_conversation_id="cid-test",
+            content_types=["SALES", "PURCHASE"], send_at=time(0, 0),
+        )
+        self.snapshot = ReportSnapshot.objects.create(
+            company=self.company, report_date=date(2026, 10, 27), scope="BOTH",
+            data={"sales": {}, "purchase": {}},
+        )
+
+    def _sent_at(self, sent_at):
+        from django.utils import timezone
+        from datetime import datetime
+        return ReportDelivery.objects.create(
+            snapshot=self.snapshot, channel=ReportDelivery.Channel.DINGTALK,
+            target_identifier=str(self.group.id), status=ReportDelivery.Status.SENT,
+            attempt_count=1, sent_at=timezone.make_aware(datetime(*sent_at)),
+        )
+
+    def _send(self, send_now=False):
+        from integrations.services.report_delivery import send_report_to_all_channels
+        with patch("integrations.services.dingtalk_client.build_client",
+                   side_effect=lambda app: FakeClient(app)), \
+             patch("integrations.services.operations_delivery.deliver_operations_report",
+                   return_value=None) as deliver:
+            results = send_report_to_all_channels(self.snapshot, send_now=send_now)
+        return results, deliver
+
+    def test_manual_send_before_window_is_resent_by_schedule(self):
+        delivery = self._sent_at((2026, 10, 27, 23, 30))  # 早于 10-28 00:00 窗口
+
+        results, deliver = self._send()
+
+        self.assertEqual(deliver.call_count, 1)
+        self.assertIn(("钉钉", "SENT", "经营群"), results)
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.status, ReportDelivery.Status.SENT)
+        self.assertGreater(delivery.sent_at.year, 2026 - 1)
+
+        # 定时发出后 sent_at 已在窗口之后，下一轮不得再发
+        _, deliver_again = self._send()
+        self.assertEqual(deliver_again.call_count, 0)
+
+    def test_scheduled_send_is_not_repeated(self):
+        self._sent_at((2026, 10, 28, 0, 5))  # 窗口之后发的，即定时发送
+
+        results, deliver = self._send()
+
+        self.assertEqual(deliver.call_count, 0)
+        self.assertIn(("钉钉", "SKIPPED", "经营群 已发送"), results)
+
+    def test_manual_now_does_not_trigger_resend(self):
+        self._sent_at((2026, 10, 27, 23, 30))
+
+        _, deliver = self._send(send_now=True)
+
+        self.assertEqual(deliver.call_count, 0)

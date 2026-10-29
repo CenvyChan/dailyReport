@@ -86,3 +86,17 @@ Thumbs.db
 .codegraph/
 *.bak
 bi-snapshot-current.png
+
+# dws 登录状态与本地加密密钥
+data/dws/
+data/payment_reports/
+
+# 内网构建缓存的官方 dws 安装包
+scripts/install_dws-*.tar.gz
+
+# 由 scripts/build_report_push_kit.py 生成的交接包，可随时重建
+handoff/
+
+# 本地一次性调试/旧部署脚本（服务器目录不是 git 仓库，git pull 式部署已失效）
+debug_card_payload.py
+deploy_card_fix.sh

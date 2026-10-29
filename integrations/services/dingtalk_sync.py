@@ -48,33 +48,12 @@ def _flatten_form(instance):
 
 
 def _upsert_instance(company, process, instance, run, instance_id=None):
-    # The list endpoint returns the canonical DingTalk process instance ID.
-    # business_id is a separate business number and must not be used as the
-    # database idempotency key.
-    pid = instance_id or instance.get("process_instance_id") or instance.get("id") or instance.get("business_id")
+    from integrations.services.payment_organizations import save_approval
+
+    pid = instance_id or instance.get("process_instance_id") or instance.get("id")
     if not pid:
         return False
-    form_values = _flatten_form(instance)
-    DingtalkApprovalInstance.objects.update_or_create(
-        company=company,
-        process_instance_id=str(pid),
-        defaults={
-            "process_code": process.process_code,
-            "process_name": process.name,
-            "title": instance.get("title") or "",
-            "originator_userid": instance.get("originator_userid") or "",
-            "originator_name": instance.get("originator_name") or "",
-            "dept_name": instance.get("originator_dept_name") or "",
-            "status": instance.get("status") or "",
-            "result": instance.get("result") or "",
-            "amount": _amount_from_form(form_values, process.amount_component),
-            "create_time": _parse_dt(instance.get("create_time")),
-            "finish_time": _parse_dt(instance.get("finish_time")),
-            "form_values": form_values,
-            "raw": instance,
-            "sync_run": run,
-        },
-    )
+    save_approval(process.app, process, instance, pid, run=run)
     return True
 
 

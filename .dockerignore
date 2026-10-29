@@ -20,3 +20,7 @@ tools/xls_reverse
 daily_dump.txt
 format_dump.txt
 *.bat
+
+# dws OAuth 配置与密钥只保留在挂载卷，不进入镜像。
+data/dws
+data/payment_reports

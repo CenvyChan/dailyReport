@@ -19,6 +19,7 @@ def make_list(company, **overrides):
         "name": "管理层日报",
         "recipients": "boss@example.com, cfo@example.com",
         "send_at": time(18, 0),
+        "content_types": ["SALES", "PURCHASE"],
     }
     payload.update(overrides)
     return MailingList.objects.create(**payload)
@@ -102,7 +103,7 @@ class SendDailyReportTests(TestCase):
         self.assertEqual(mail.outbox[0].attachments, [])
 
     def test_purchase_only_scope_leaves_sales_out_of_the_email(self):
-        mailing_list = make_list(self.company, scope=MailingList.Scope.PURCHASE)
+        mailing_list = make_list(self.company, content_types=["PURCHASE"])
 
         ok, detail = send_daily_report(mailing_list, date(2026, 8, 21))
 

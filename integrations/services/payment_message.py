@@ -60,7 +60,7 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     Returns:
         str: Markdown格式的消息内容
     """
-    title = '付款申请周报' if report_type == 'week' else '付款申请月报'
+    title = '付款申请' + dict(day='日报', week='周报', month='月报')[report_type]
 
     # 消息头部
     lines = [
@@ -148,7 +148,7 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     if mention_userids:
         # 钉钉群消息的@格式: @userId
         mentions = ' '.join(f"@{uid}" for uid in mention_userids)
-        lines.append(f"💬 {mentions} 请查收本{'周' if report_type == 'week' else '月'}付款汇总")
+        lines.append(f"💬 {mentions} 请查收本{dict(day='日', week='周', month='月')[report_type]}付款汇总")
 
     return '\n'.join(lines)
 
@@ -164,7 +164,7 @@ def build_simple_message(data, period_info, report_type='week'):
     Returns:
         str: 简化的消息内容
     """
-    title = '付款申请周报' if report_type == 'week' else '付款申请月报'
+    title = '付款申请' + dict(day='日报', week='周报', month='月报')[report_type]
     summary = data['summary']
 
     lines = [

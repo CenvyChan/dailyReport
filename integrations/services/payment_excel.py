@@ -87,6 +87,9 @@ def generate_payment_excel(data, period_info, filename):
         ['新建', data['summary']['by_status']['NEW']],
     ]
 
+    if data.get('company_name'):
+        summary_rows.insert(0, ['申请公司', data['company_name']])
+
     for idx, row in enumerate(summary_rows, start=2):
         summary_sheet[f'A{idx}'] = row[0]
         summary_sheet[f'B{idx}'] = row[1]

@@ -8,6 +8,8 @@ from .crypto import encrypt
 
 from .models import (
     DingtalkApp,
+    DingtalkCompanyMapping,
+    PaymentReportDispatch,
     DingtalkApprovalInstance,
     DingtalkGroupConfig,
     DingtalkProcessConfig,
@@ -138,15 +140,27 @@ class DingtalkAppAdmin(SecretMaskingAdmin):
     list_filter = ("is_active",)
     search_fields = ("company__name", "name", "app_key")
     field_help_texts = {
-        "app_key": "钉钉企业内部应用 AppKey。",
-        "app_secret": "钉钉企业内部应用 AppSecret，仅本表保存。",
+        "app_key": "钉钉企业内部应用 AppKey；同一应用可复用到多个公司，无需重复配置。",
+        "app_secret": "钉钉企业内部应用 AppSecret，仅本表保存；同一应用可复用到多个公司。",
     }
 
 
 class DingtalkGroupConfigForm(forms.ModelForm):
+    companies = forms.ModelMultipleChoiceField(
+        label="推送公司（可多选）",
+        queryset=DingtalkGroupConfig._meta.get_field("companies").remote_field.model.objects.filter(is_active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="同一群聊可选择多家公司；只推送勾选的公司。",
+    )
+    payment_report_types = forms.MultipleChoiceField(
+        label="付款报表周期", choices=[("day", "付款日报"), ("week", "付款周报（周一）"), ("month", "付款月报（每月1日）")],
+        widget=forms.CheckboxSelectMultiple, required=False,
+    )
     content_types = forms.MultipleChoiceField(
         label="推送内容",
         choices=DingtalkGroupConfig.ContentType.choices,
+        required=False,
         widget=forms.CheckboxSelectMultiple,
         help_text="勾选要包含的数据类型",
     )
@@ -154,27 +168,48 @@ class DingtalkGroupConfigForm(forms.ModelForm):
     class Meta:
         model = DingtalkGroupConfig
         fields = "__all__"
+        exclude = ("company",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # 从JSONField读取已有值
         if self.instance.pk and self.instance.content_types:
             self.fields["content_types"].initial = self.instance.content_types
+        if self.instance.pk and self.instance.payment_report_types:
+            self.fields["payment_report_types"].initial = self.instance.payment_report_types
+        if self.instance.pk and not self.instance.companies.exists() and self.instance.company_id:
+            self.fields["companies"].initial = [self.instance.company_id]
 
     def clean(self):
         data = super().clean()
-        company, app = data.get("company"), data.get("app")
-        if company and app and app.company_id != company.pk:
-            raise forms.ValidationError("钉钉应用所属公司必须与群配置公司一致。")
+        companies = list(data.get("companies") or [])
+        app = data.get("app")
+        if not companies:
+            raise forms.ValidationError("至少选择一个推送公司。")
+        if app:
+            missing = [company.name for company in companies
+                       if app.company_id != company.pk
+                       and not app.company_mappings.filter(company=company).exists()]
+            if missing:
+                raise forms.ValidationError(
+                    "钉钉应用尚未映射这些公司：" + "、".join(missing)
+                )
         return data
 
 
 @admin.register(DingtalkGroupConfig)
 class DingtalkGroupConfigAdmin(AuditedAdmin):
     form = DingtalkGroupConfigForm
-    list_display = ("company", "name", "app", "content_types_display", "send_at", "is_active")
-    list_filter = ("company", "is_active")
+    list_display = ("companies_display", "name", "app", "content_types_display", "send_at", "is_active")
+    list_filter = ("companies", "is_active")
     search_fields = ("name", "open_conversation_id")
+
+    @admin.display(description="推送公司")
+    def companies_display(self, obj):
+        companies = list(obj.companies.all())
+        if not companies and obj.company_id:
+            companies = [obj.company]
+        return "、".join(company.name for company in companies) or "-"
 
     @admin.display(description="推送内容")
     def content_types_display(self, obj):
@@ -238,3 +273,17 @@ class SyncRunAdmin(ReadOnlyAdmin):
     list_filter = ("integration", "status", "company")
     date_hierarchy = "started_at"
     readonly_fields = [f.name for f in SyncRun._meta.fields]
+
+
+@admin.register(DingtalkCompanyMapping)
+class DingtalkCompanyMappingAdmin(AuditedAdmin):
+    list_display = ("app", "application_company", "company")
+    list_filter = ("app", "company")
+    search_fields = ("application_company", "company__name")
+
+
+@admin.register(PaymentReportDispatch)
+class PaymentReportDispatchAdmin(ReadOnlyAdmin):
+    list_display = ("group", "company", "report_type", "delivery_date", "status", "updated_at")
+    list_filter = ("status", "report_type")
+    readonly_fields = [f.name for f in PaymentReportDispatch._meta.fields]

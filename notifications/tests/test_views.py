@@ -22,7 +22,7 @@ class MailingListViewTests(TestCase):
             reverse("notifications:mailing_list_create"),
             {
                 "name": "管理层日报",
-                "scope": MailingList.Scope.BOTH,
+                "content_types": ["SALES", "PURCHASE"],
                 "recipients": "boss@example.com",
                 "cc_recipients": "",
                 "send_at": "18:00",
@@ -35,6 +35,11 @@ class MailingListViewTests(TestCase):
         mailing_list = MailingList.objects.get()
         self.assertEqual(mailing_list.company, company_a())
         self.assertEqual(mailing_list.recipient_list(), ["boss@example.com"])
+        self.assertEqual(mailing_list.content_types, ["SALES", "PURCHASE"])
+        audit = OperationLog.objects.get(
+            action="CREATE", model_label="notifications.MailingList", object_id=str(mailing_list.pk)
+        )
+        self.assertEqual(audit.after_data["content_types"], ["SALES", "PURCHASE"])
         self.assertTrue(
             OperationLog.objects.filter(
                 action="CREATE", model_label="notifications.MailingList", object_id=str(mailing_list.pk)
@@ -52,7 +57,8 @@ class MailingListViewTests(TestCase):
 
     def test_mailing_list_of_another_company_cannot_be_edited(self):
         mailing_list = MailingList.objects.create(
-            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0)
+            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
 
         response = self.client.get(reverse("notifications:mailing_list_edit", args=[mailing_list.pk]))
@@ -66,7 +72,7 @@ class MailingListViewTests(TestCase):
             reverse("notifications:mailing_list_create"),
             {
                 "name": "管理层日报",
-                "scope": MailingList.Scope.BOTH,
+                "content_types": ["SALES", "PURCHASE"],
                 "recipients": "other@example.com",
                 "cc_recipients": "",
                 "send_at": "18:00",
@@ -81,7 +87,7 @@ class MailingListViewTests(TestCase):
             reverse("notifications:mailing_list_create"),
             {
                 "name": "管理层日报",
-                "scope": MailingList.Scope.BOTH,
+                "content_types": ["SALES", "PURCHASE"],
                 "recipients": "not-an-email",
                 "cc_recipients": "",
                 "send_at": "18:00",
@@ -108,7 +114,8 @@ class SendNowTests(TestCase):
         self.admin = User.objects.create_superuser("admin", password="pw")
         login_with_company(self.client, self.admin, company_a())
         self.mailing_list = MailingList.objects.create(
-            company=company_a(), name="管理层日报", recipients="boss@example.com", send_at=time(18, 0)
+            company=company_a(), name="管理层日报", recipients="boss@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
 
     def test_send_now_delivers_today_report_even_when_empty(self):
@@ -149,7 +156,8 @@ class SendNowTests(TestCase):
 
     def test_send_now_cannot_target_another_company_list(self):
         other = MailingList.objects.create(
-            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0)
+            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
 
         response = self.client.post(reverse("notifications:mailing_list_send_now", args=[other.pk]))

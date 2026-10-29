@@ -1,228 +1,61 @@
-# K3Cloud 日报关联功能 - UB 端部署说明
+# dailyReport 生产部署说明
 
-## 📝 部署步骤
+## 唯一生产位置
 
-### 1. 上传部署脚本到服务器
+- SSH：`ssh mesdevserver`（`mesdev@172.16.77.80`）。
+- 项目目录：`~/deploy/daily-report`，绝对路径 `/home/mesdev/deploy/daily-report`。
+- Web 入口：`http://172.16.77.80:8001/`；容器内端口 8000。
+- 容器：`daily-report-web`、`daily-report-mailer`、`daily-report-backup`、`daily-report-sync`、`daily-report-scheduler`。
+- 持久化数据：项目目录下 `data/`、`backups/`；线上 `.env` 和加密密钥必须保留，不得用本地配置覆盖。
 
-在本地执行：
-```bash
-scp deploy_to_ub.sh cenvy@172.16.77.80:~/dailyReport/
-```
+> 2026-10-28 已确认：不要使用 `/data/dailyReport`、`~/dailyReport`、旧用户 `cenvy` 或 `/home/mesdev/fns-plm`。生产目录是文件发布目录，不是 Git 仓库；服务器当前未安装 Compose，不可在此执行 `git pull` 或依赖 `docker compose` / `docker-compose`。
 
-### 2. 登录服务器并执行部署
+## 发布前核验
 
-```bash
-# SSH 登录
-ssh cenvy@172.16.77.80
-
-# 进入项目目录
-cd ~/dailyReport
-
-# 赋予执行权限
-chmod +x deploy_to_ub.sh
-
-# 执行部署脚本
-./deploy_to_ub.sh
-```
-
-### 3. 验证部署
-
-部署完成后，检查以下内容：
+在本地使用 Git Bash 的 SSH（`C:/Program Files/Git/usr/bin/ssh.exe`），避免旧 Windows OpenSSH 在管道环境挂起。先执行：
 
 ```bash
-# 查看所有容器状态（应有 5 个容器运行）
-docker-compose ps
-
-# 预期输出：
-# web       - running
-# mailer    - running
-# backup    - running
-# sync      - running
-# scheduler - running (新增)
-
-# 查看 scheduler 日志
-docker-compose logs scheduler | tail -50
-
-# 测试近期同步
-docker-compose exec web python manage.py sync_kingdee_recent --now --dry-run
-
-# 测试报表生成
-docker-compose exec web python manage.py generate_and_send_report --date 2026-10-04 --dry-run
+ssh mesdevserver 'set -eu; cd "$HOME/deploy/daily-report"; pwd -P; test -f manage.py; docker ps --filter name=daily-report --format "{{.Names}} | {{.Image}} | {{.Status}} | {{.Ports}}"'
 ```
 
----
+必须与上述目录、五个容器和 8001 端口匹配。名称相似不是依据，不得操作同机的 PLM 等其他应用。
 
-## 🔧 手动部署步骤（如果脚本失败）
+## 增量生产发布顺序
 
-### 步骤 1: 拉取代码
-```bash
-cd ~/dailyReport
-git pull
-```
+1. 运行本次功能的定向测试、`manage.py check`、`makemigrations --check --dry-run` 和 `git diff --check`。
+2. 比对**正在运行的镜像文件**与本次文件，制作显式文件清单；不要把整个脏工作区、数据库或 `.env` 上传覆盖。
+3. 保存五个容器的启动配置、当前镜像 ID、业务群配置和发布清单到受限发布目录；备份文件可能含凭据，权限必须为 0700/0600，不得提交 Git 或输出内容。
+4. 基于当前线上镜像制作本次增量镜像，先在临时测试库运行迁移和定向测试。保留旧镜像，不执行镜像清理。
+5. 暂停五个容器，确认无后台任务写库，再对真实 SQLite 使用在线备份 API，执行 `PRAGMA integrity_check`，记录备份路径。
+6. 使用新镜像执行数据库迁移；更新已有群的“推送公司”选择，不更改既有应用密钥、群 ID、报表周期和发送时间。
+7. 用原有环境、挂载、端口 8001 和重启策略重建五个同名容器；保留停下来的旧容器用于回滚。
+8. 核验新镜像 ID、`showmigrations`、`manage.py check`、HTTP 登录页、后台多选字段、群公司映射和定时命令 `--dry-run`；不得把 dry-run 当实际群送达。
 
-### 步骤 2: 备份数据库
-```bash
-docker-compose exec web python scripts/backup_sqlite.py
-```
+全量首次部署的既有入口是本地 `scripts/deploy_remote.sh mesdevserver 8001`。它会上传完整源码并替换容器，不适合直接发布混有无关改动的工作区。`deploy_to_ub.sh` / `deploy_card_fix.sh` 是历史脚本，不作为当前生产发布入口。
 
-### 步骤 3: 重建容器
-```bash
-docker-compose down
-docker-compose build
-docker-compose up -d
-```
+## 钉钉共享应用与同群多公司
 
-### 步骤 4: 等待启动并应用迁移
-```bash
-sleep 30
-docker-compose exec web python manage.py migrate integrations
-```
+- 钉钉应用仅配置一次，通过“申请公司映射”关联现有 FNS / NBHH 公司。
+- “钉钉群推送配置”的“推送公司”可多选；勾选哪些公司，该群就只接收哪些公司的报表。
+- 同一群选择 FNS、NBHH 后，两家公司分别计算、分别生成 Excel / A2UI 卡片并发送到该群，不混算。
+- 只选 NBHH 时，即使历史单公司字段保留 FNS，也不能额外推送 FNS；多选字段有值时以多选为准。
+- 付款日报/周报/月报周期和发送时间沿用后台配置；空周期表示未启用付款定时推送，不擅自新增周期。
+- 全量审批同步不受群公司选择影响；卡片继续使用已验证的机器人原生 A2UI 通道，不要求个人 DWS 账号。
 
-### 步骤 5: 验证
-```bash
-docker-compose ps
-docker-compose logs scheduler
-```
-
----
-
-## ⚙️ 配置说明
-
-### 配置邮件收件组
-
-进入 Django Admin 或使用 shell：
+## 线上验证
 
 ```bash
-docker-compose exec web python manage.py shell
+ssh mesdevserver
+cd ~/deploy/daily-report
+docker ps --filter name=daily-report
+docker exec daily-report-web python manage.py check
+docker exec daily-report-web python manage.py showmigrations integrations
+docker exec daily-report-web python manage.py send_scheduled_payment_reports --dry-run
+docker logs --tail 50 daily-report-web
+docker logs --tail 50 daily-report-scheduler
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8001/accounts/login/
 ```
 
-```python
-from core.models import Company
-from notifications.models import MailingList
+## 回滚
 
-company = Company.objects.first()
-
-MailingList.objects.create(
-    company=company,
-    name="管理层日报",
-    scope="BOTH",
-    recipients="manager@company.com",
-    send_at="08:30",
-    attach_workbook=True,
-    is_active=True,
-)
-```
-
-### 配置钉钉群推送（可选）
-
-```python
-from integrations.models import DingtalkApp, DingtalkGroupConfig
-
-app = DingtalkApp.objects.first()
-
-DingtalkGroupConfig.objects.create(
-    company=company,
-    app=app,
-    name="日报群",
-    open_conversation_id="cidXXXXXXXX",  # 从钉钉获取
-    scope="BOTH",
-    send_at="09:00",
-    is_active=True,
-)
-```
-
----
-
-## 🔍 故障排查
-
-### 容器无法启动
-
-```bash
-# 查看错误日志
-docker-compose logs web
-docker-compose logs scheduler
-
-# 检查镜像
-docker images | grep daily-report
-
-# 强制重建
-docker-compose build --no-cache
-```
-
-### 迁移失败
-
-```bash
-# 查看迁移状态
-docker-compose exec web python manage.py showmigrations integrations
-
-# 手动执行迁移
-docker-compose exec web python manage.py migrate integrations --verbosity 2
-```
-
-### scheduler 容器未运行
-
-```bash
-# 查看容器日志
-docker-compose logs scheduler
-
-# 重启 scheduler
-docker-compose restart scheduler
-
-# 手工测试命令
-docker-compose exec scheduler python manage.py sync_kingdee_recent --now
-```
-
----
-
-## 📊 监控命令
-
-```bash
-# 实时监控 scheduler 日志
-docker-compose logs -f scheduler
-
-# 查看最近 100 行日志
-docker-compose logs --tail=100 scheduler
-
-# 查看所有容器资源使用
-docker stats
-
-# 查看数据库大小
-ls -lh data/db.sqlite3
-```
-
----
-
-## 🎯 验证功能
-
-### 1. 访问日报录入页
-
-浏览器打开：http://172.16.77.80:8001/sales/shipments/create/
-
-检查：
-- [ ] 页面正常加载
-- [ ] "金蝶明细关联" 区域可见
-- [ ] 展开后可以搜索
-
-### 2. 测试 API
-
-```bash
-# 测试关联检索接口
-curl -X POST http://172.16.77.80:8001/integrations/search-kingdee-lines/ \
-  -H "Content-Type: application/json" \
-  -d '{"company_id": 1, "business_type": "SALES_OUT"}'
-```
-
-### 3. 测试定时任务
-
-```bash
-# 查看 cron 日志
-docker-compose logs scheduler | grep "sync_kingdee_recent\|generate_and_send_report"
-```
-
----
-
-## 📞 联系方式
-
-如有问题，请查看：
-- 完整实施报告_最终版_20261005.md
-- K3Cloud 日报关联、金额对账与定时推送实施计划.md
+若迁移或健康检查失败：保持所有写入服务停止，核实本次发布记录中的绝对备份路径，按原路径恢复 SQLite，再恢复旧镜像和旧容器配置。恢复前另存失败现场数据库；不要在服务仍写入时覆盖数据库，也不要恢复其他项目的数据。具体旧容器名、镜像、配置快照和 SQLite 备份路径以该次发布记录为准。

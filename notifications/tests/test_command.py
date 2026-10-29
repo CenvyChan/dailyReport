@@ -43,10 +43,12 @@ class SendDailyReportCommandTests(TestCase):
         seed_shipment(company_a())
         seed_shipment(company_b(), amount="200.00")
         self.list_a = MailingList.objects.create(
-            company=company_a(), name="A 日报", recipients="a@example.com", send_at=time(18, 0)
+            company=company_a(), name="A 日报", recipients="a@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
         self.list_b = MailingList.objects.create(
-            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0)
+            company=company_b(), name="B 日报", recipients="b@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
 
     def _run(self, **options):
@@ -144,7 +146,8 @@ class RetryLimitTests(TestCase):
     def setUp(self):
         seed_shipment(company_a())
         self.mailing_list = MailingList.objects.create(
-            company=company_a(), name="A 日报", recipients="a@example.com", send_at=time(18, 0)
+            company=company_a(), name="A 日报", recipients="a@example.com", send_at=time(18, 0),
+            content_types=["SALES", "PURCHASE"],
         )
 
     def _run(self, **options):

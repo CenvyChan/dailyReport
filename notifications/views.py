@@ -24,7 +24,7 @@ def _snapshot(mailing_list):
     return {
         "company_id": mailing_list.company_id,
         "name": mailing_list.name,
-        "scope": mailing_list.scope,
+        "content_types": mailing_list.content_types,
         "recipients": mailing_list.recipients,
         "cc_recipients": mailing_list.cc_recipients,
         "send_at": mailing_list.send_at.isoformat(),

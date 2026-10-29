@@ -1,0 +1,337 @@
+[
+  {
+    "version": "v1.0",
+    "createSurface": {
+      "surfaceId": "operations-report-template",
+      "catalogId": "https://dingtalk.com/card/a2ui/catalogs/public/catalog.json"
+    }
+  },
+  {
+    "version": "v1.0",
+    "updateDataModel": {
+      "surfaceId": "operations-report-template",
+      "path": "/",
+      "value": {}
+    }
+  },
+  {
+    "version": "v1.0",
+    "updateComponents": {
+      "surfaceId": "operations-report-template",
+      "components": [
+        {
+          "id": "root",
+          "component": "Column",
+          "children": [
+            "header",
+            "warning-card",
+            "summary-card",
+            "trend-title",
+            "trend-caption",
+            "trend-chart",
+            "month-title",
+            "month-caption",
+            "month-chart",
+            "scope-note"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "title",
+          "component": "Text",
+          "text": {
+            "path": "/reportTitle"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "tag",
+          "component": "Tag",
+          "text": {
+            "path": "/dataLabel"
+          },
+          "theme": "blue"
+        },
+        {
+          "id": "title-row",
+          "component": "Row",
+          "children": [
+            "title",
+            "tag"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "company",
+          "component": "Text",
+          "text": {
+            "path": "/companyName"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h3_text_style__font_size"
+        },
+        {
+          "id": "period",
+          "component": "Text",
+          "text": {
+            "path": "/periodLabel"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "header",
+          "component": "Column",
+          "children": [
+            "title-row",
+            "company",
+            "period"
+          ],
+          "gap": 4
+        },
+        {
+          "id": "warning-text",
+          "component": "Text",
+          "text": {
+            "path": "/warningText"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "warning-card",
+          "component": "Card",
+          "child": "warning-text",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color",
+          "visible": {
+            "path": "/hasWarnings"
+          }
+        },
+        {
+          "id": "purchase-label",
+          "component": "Text",
+          "text": "当月采购日报合计",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "purchase-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/purchaseTotalText"
+          },
+          "bold": true,
+          "sizeToken": "common_h3_text_style__font_size"
+        },
+        {
+          "id": "purchase-metric",
+          "component": "Column",
+          "children": [
+            "purchase-label",
+            "purchase-value"
+          ],
+          "gap": 4,
+          "visible": {
+            "path": "/summary/hasPurchase"
+          }
+        },
+        {
+          "id": "sales-label",
+          "component": "Text",
+          "text": "当月销售日报合计",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "sales-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/salesTotalText"
+          },
+          "bold": true,
+          "sizeToken": "common_h3_text_style__font_size"
+        },
+        {
+          "id": "sales-metric",
+          "component": "Column",
+          "children": [
+            "sales-label",
+            "sales-value"
+          ],
+          "gap": 4,
+          "visible": {
+            "path": "/summary/hasSales"
+          }
+        },
+        {
+          "id": "share-label",
+          "component": "Text",
+          "text": "合计占比",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "share-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/shareText"
+          },
+          "bold": true,
+          "sizeToken": "common_h3_text_style__font_size"
+        },
+        {
+          "id": "share-metric",
+          "component": "Column",
+          "children": [
+            "share-label",
+            "share-value"
+          ],
+          "gap": 4,
+          "visible": {
+            "path": "/summary/hasRatio"
+          }
+        },
+        {
+          "id": "summary-metrics",
+          "component": "Column",
+          "children": [
+            "purchase-metric",
+            "sales-metric",
+            "share-metric",
+            "daily-row"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "daily-purchase",
+          "component": "Text",
+          "text": {
+            "path": "/summary/purchaseDailyText"
+          },
+          "visible": {
+            "path": "/summary/hasPurchase"
+          }
+        },
+        {
+          "id": "daily-sales",
+          "component": "Text",
+          "text": {
+            "path": "/summary/salesDailyText"
+          },
+          "visible": {
+            "path": "/summary/hasSales"
+          }
+        },
+        {
+          "id": "daily-purchase-label",
+          "component": "Text",
+          "text": "当日采购入库",
+          "variant": "caption",
+          "visible": {
+            "path": "/summary/hasPurchase"
+          }
+        },
+        {
+          "id": "daily-sales-label",
+          "component": "Text",
+          "text": "当日销售出库",
+          "variant": "caption",
+          "visible": {
+            "path": "/summary/hasSales"
+          }
+        },
+        {
+          "id": "daily-row",
+          "component": "Column",
+          "children": [
+            "daily-purchase-label",
+            "daily-purchase",
+            "daily-sales-label",
+            "daily-sales"
+          ],
+          "gap": 4
+        },
+        {
+          "id": "summary-card",
+          "component": "Card",
+          "child": "summary-metrics",
+          "padding": 16,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "trend-title",
+          "component": "Text",
+          "text": "近 15 天金蝶日报金额趋势",
+          "bold": true
+        },
+        {
+          "id": "trend-caption",
+          "component": "Text",
+          "text": {
+            "path": "/trendCaption"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "trend-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/trend"
+          },
+          "height": 200,
+          "visible": {
+            "path": "/hasTrend"
+          },
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "month-title",
+          "component": "Text",
+          "text": "当月采销对比折线图",
+          "bold": true
+        },
+        {
+          "id": "month-caption",
+          "component": "Text",
+          "text": {
+            "path": "/monthCaption"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "month-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/month"
+          },
+          "height": 200,
+          "visible": {
+            "path": "/hasMonth"
+          },
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "scope-note",
+          "component": "Text",
+          "text": {
+            "path": "/scopeNote"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        }
+      ]
+    }
+  }
+]

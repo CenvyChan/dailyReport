@@ -9,10 +9,11 @@
 
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from core.models import Company
@@ -28,52 +29,11 @@ def render_snapshot_html(snapshot: ReportSnapshot, *, standalone: bool = True) -
     """渲染合并版 HTML 快照，邮件和钉钉文件消息共用同一份内容。"""
     from django.template.loader import render_to_string
 
+    from integrations.services.operations_summary import operations_context
     return render_to_string(
-        "integrations/report_snapshot.html",
-        {"snapshot": snapshot, "standalone": standalone},
+        "integrations/report_snapshot_book.html" if standalone else "integrations/report_snapshot.html",
+        operations_context(snapshot),
     )
-
-
-def _build_book_context(snapshot: ReportSnapshot) -> dict:
-    """为书册式(book)模板预处理上下文。
-
-    书册式趋势图要求「每日金额以万元为单位、保留两位小数」，而快照里存的
-    是元。Django 模板没有除法过滤器，这里在 Python 侧把 points 补上
-    `wan`(万元数值)和 `wan_text`(两位小数字符串)，并算出柱状图高度比例，
-    避免模板里做算术。销售/采购共用同一最大值归一，两组柱子高度可直接比较。
-    """
-
-    def _augment(points):
-        if not points:
-            return []
-        peak = max((abs(p.get("value") or 0) for p in points), default=0) or 1
-        out = []
-        for p in points:
-            value = p.get("value") or 0
-            wan = value / 10000
-            out.append(
-                {
-                    "date": p.get("date", ""),
-                    "value": value,
-                    "wan": wan,
-                    "wan_text": f"{wan:,.2f}",
-                    "ratio": round(abs(value) / peak * 100, 2),
-                }
-            )
-        return out
-
-    data = snapshot.data or {}
-    sales = data.get("sales") or {}
-    purchase = data.get("purchase") or {}
-    sales_total = (sales.get("daily_coverage") or {}).get("total_amount") or 0
-    purchase_total = (purchase.get("daily_coverage") or {}).get("total_amount") or 0
-
-    return {
-        "snapshot": snapshot,
-        "sales_trend": _augment((sales.get("daily_trend") or {}).get("points")),
-        "purchase_trend": _augment((purchase.get("daily_trend") or {}).get("points")),
-        "net_margin": sales_total - purchase_total,
-    }
 
 
 def render_snapshot_book_html(snapshot: ReportSnapshot) -> str:
@@ -84,10 +44,8 @@ def render_snapshot_book_html(snapshot: ReportSnapshot) -> str:
     """
     from django.template.loader import render_to_string
 
-    return render_to_string(
-        "integrations/report_snapshot_book.html",
-        _build_book_context(snapshot),
-    )
+    from integrations.services.operations_summary import operations_context
+    return render_to_string("integrations/report_snapshot_book.html", operations_context(snapshot))
 
 
 def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> bytes:
@@ -99,8 +57,8 @@ def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> 
 
     打印背景色必须开启，否则 KPI 卡片、柱状图等依赖背景色的元素会丢色。
 
-    style="classic" 为现有投递使用的看板版；style="book" 为新增的书册式
-    分节报告(自带 @page 分页，margin 清零交给模板控制)。
+    style="classic" 保留兼容入口；两种风格入口均使用书册式分节报告，
+    模板自带页边距与分页，Chromium 外边距保持为零。
     """
     from playwright.sync_api import sync_playwright
 
@@ -109,7 +67,7 @@ def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> 
         margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
     else:
         html = render_snapshot_html(snapshot)
-        margin = {"top": "12mm", "bottom": "12mm", "left": "10mm", "right": "10mm"}
+        margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
     with sync_playwright() as p:
         browser = p.chromium.launch(
             args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
@@ -172,6 +130,10 @@ def generate_report_snapshot(
         report_date=report_date,
         scope=scope,
     )
+
+    from integrations.services.operations_summary import build_operations_summary, build_monthly_comparison_snapshot
+    reconciliation_data["operations"] = build_operations_summary(company, report_date, scope)
+    reconciliation_data["monthly_comparison"] = build_monthly_comparison_snapshot(company, report_date)
 
     # 获取同步窗口信息
     from integrations.models import SyncRun
@@ -287,6 +249,8 @@ def send_report_to_all_channels(
             status=ReportDelivery.Status.PENDING,
             attempt_count=0,
             last_error="",
+            delivery_state={},
+            sent_at=None,
         )
         if reset_count:
             logger.info(
@@ -491,18 +455,12 @@ def _send_to_dingtalk_channels(
 
     # 查找到点的群配置
     group_configs = DingtalkGroupConfig.objects.filter(
-        company=snapshot.company,
         is_active=True,
-    ).select_related("app")
+    ).filter(Q(companies=snapshot.company) | Q(companies__isnull=True, company=snapshot.company)).select_related("app").distinct()
 
-    # 过滤业务范围：新版用 content_types (JSONField)
-    if snapshot.scope == "SALES":
-        group_configs = [gc for gc in group_configs if "SALES" in (gc.content_types or [])]
-    elif snapshot.scope == "PURCHASE":
-        group_configs = [gc for gc in group_configs if "PURCHASE" in (gc.content_types or [])]
-    else:  # BOTH
-        # 快照是 BOTH 时，只要群配置包含 SALES 或 PURCHASE 就匹配
-        group_configs = list(group_configs)
+    # BOTH 快照也必须尊重群内容选择，卡片及附件都不包含未勾选的业务。
+    selected = {snapshot.scope} if snapshot.scope != "BOTH" else {"SALES", "PURCHASE"}
+    group_configs = [gc for gc in group_configs if selected.intersection(gc.content_types or [])]
 
     if not send_now:
         # 检查发送时间
@@ -525,6 +483,23 @@ def _send_to_dingtalk_channels(
             },
         )
 
+        if (
+            not created
+            and not send_now
+            and delivery.status == ReportDelivery.Status.SENT
+            and _sent_before_scheduled_window(delivery, snapshot, group_config)
+        ):
+            # 手动提前发过（如 --now），定时窗口仍需按时再发一次；
+            # 定时发出后 sent_at 晚于窗口，后续轮次不会再重复。
+            delivery.status = ReportDelivery.Status.PENDING
+            delivery.attempt_count = 0
+            delivery.last_error = ""
+            delivery.delivery_state = {}
+            delivery.sent_at = None
+            delivery.save()
+            logger.info("定时窗口重发：snapshot=%s, target=%s 此前在窗口前已手动发送",
+                        snapshot.id, group_config.name)
+
         if not created and delivery.status == ReportDelivery.Status.SENT:
             results.append(("钉钉", "SKIPPED", f"{group_config.name} 已发送"))
             continue
@@ -533,77 +508,50 @@ def _send_to_dingtalk_channels(
             results.append(("钉钉", "SKIPPED", f"{group_config.name} 已达重试上限"))
             continue
 
-        # 发送钉钉群消息
+        if delivery.status == ReportDelivery.Status.UNCERTAIN:
+            results.append(("钉钉", "SKIPPED", f"{group_config.name} 投递结果待人工核对"))
+            continue
+
         try:
+            from integrations.services.operations_a2ui import filter_snapshot_for_contents
+            from integrations.services.operations_delivery import deliver_operations_report, OperationsDeliveryUncertain
+            from integrations.services.snapshot_export import export_snapshot_to_excel
+
+            scoped_snapshot = filter_snapshot_for_contents(snapshot, group_config.content_types)
             client = build_client(group_config.app)
-
-            # 构建精简摘要
-            markdown_text = _build_dingtalk_markdown(snapshot)
-
-            # 摘要先以 Markdown 发送，文件消息随后发送合并版 HTML。
-            # HTML 文件上传/发送失败时仍保留摘要发送结果，避免文件能力
-            # 未开通阻断日报正文。
-            response = client.post(
-                "/v1.0/robot/groupMessages/send",
-                {
-                    "robotCode": group_config.app.app_key,
-                    "openConversationId": group_config.open_conversation_id,
-                    "msgKey": "sampleMarkdown",
-                    "msgParam": json.dumps(
-                        {"title": f"{snapshot.company.name} 经营日报 {snapshot.report_date}", "text": markdown_text},
-                        ensure_ascii=False,
-                    ),
-                },
+            deliver_operations_report(
+                delivery, group_config, scoped_snapshot, client,
+                render_pdf=render_snapshot_pdf, render_excel=export_snapshot_to_excel,
             )
-
-            # 优先投递 PDF（钉钉 APP 可直接预览）；PDF 渲染失败时回退 HTML，
-            # 避免 Chromium 环境异常阻断整条日报推送。
-            try:
-                file_bytes = render_snapshot_pdf(snapshot, style="book")
-                file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.pdf"
-            except Exception as pdf_exc:
-                logger.warning("PDF 渲染失败，回退 HTML：snapshot=%s, err=%s", snapshot.id, pdf_exc)
-                file_bytes = render_snapshot_book_html(snapshot).encode("utf-8")
-                file_name = f"{snapshot.company.code}_{snapshot.report_date}_经营日报.html"
-            media_id = client.upload_media(file_name, file_bytes)
-            client.post(
-                "/v1.0/robot/groupMessages/send",
-                {
-                    "robotCode": group_config.app.app_key,
-                    "openConversationId": group_config.open_conversation_id,
-                    "msgKey": "sampleFile",
-                    "msgParam": json.dumps(
-                        {
-                            "mediaId": media_id,
-                            "fileName": file_name,
-                        },
-                        ensure_ascii=False,
-                    ),
-                },
-            )
-
-            # 新版接口成功时 errcode 缺省为 0（客户端 post 已校验非 0 抛错），此处兜底
-            if response.get("errcode", 0) == 0:
-                delivery.status = ReportDelivery.Status.SENT
-                delivery.attempt_count += 1
-                delivery.sent_at = timezone.now()
-                delivery.save()
-
-                results.append(("钉钉", "SENT", group_config.name))
-                logger.info("钉钉发送成功：snapshot=%s, target=%s", snapshot.id, group_config.name)
-            else:
-                raise Exception(f"钉钉 API 返回错误：{response.get('errmsg', 'Unknown error')}")
-
-        except Exception as e:
-            delivery.status = ReportDelivery.Status.FAILED
+            delivery.status = ReportDelivery.Status.SENT
             delivery.attempt_count += 1
-            delivery.last_error = str(e)
+            delivery.sent_at = timezone.now()
+            delivery.last_error = ""
             delivery.save()
-
-            results.append(("钉钉", "FAILED", f"{group_config.name}: {e}"))
-            logger.exception("钉钉发送失败：snapshot=%s, target=%s", snapshot.id, group_config.name)
+            results.append(("钉钉", "SENT", group_config.name))
+            logger.info("钉钉 A2UI/PDF/Excel 发送成功：snapshot=%s, target=%s", snapshot.id, group_config.name)
+        except Exception as exc:
+            from integrations.services.operations_delivery import OperationsDeliveryUncertain
+            delivery.refresh_from_db()
+            delivery.status = (ReportDelivery.Status.UNCERTAIN if isinstance(exc, OperationsDeliveryUncertain)
+                               else ReportDelivery.Status.FAILED)
+            delivery.attempt_count += 1
+            delivery.last_error = str(exc)
+            delivery.save()
+            results.append(("钉钉", delivery.status, f"{group_config.name}: {exc}"))
+            logger.exception("钉钉日报三件套发送失败：snapshot=%s, target=%s", snapshot.id, group_config.name)
 
     return results
+
+
+def _sent_before_scheduled_window(delivery, snapshot, group_config) -> bool:
+    """报表日的定时窗口是「报表日次日的 send_at」，早于它的发送视为手动提前发送。"""
+    if delivery.sent_at is None:
+        return False
+    window = timezone.make_aware(
+        datetime.combine(snapshot.report_date + timedelta(days=1), group_config.send_at)
+    )
+    return delivery.sent_at < window
 
 
 def _build_dingtalk_markdown(snapshot: ReportSnapshot) -> str:
