@@ -141,6 +141,35 @@ def build_operations_model(snapshot):
     )
     has_share_pie = len(selected) == 2
 
+    def metrics_table():
+        """三行三列指标；Table 在桌面撑开卡片宽度，在移动端可横向滑动。"""
+        has_purchase = any(name == "purchase" for name, _ in selected)
+        has_sales = any(name == "sales" for name, _ in selected)
+        has_share = len(selected) == 2
+        meta = [{"colKey": "scope", "colName": "口径", "type": "text"}]
+        if has_purchase:
+            meta.append({"colKey": "purchase", "colName": "采购", "type": "text"})
+        if has_sales:
+            meta.append({"colKey": "sales", "colName": "销售", "type": "text"})
+        if has_share:
+            meta.append({"colKey": "share", "colName": "占比", "type": "text"})
+        rows = (
+            ("当月累计", "purchaseTotalText", "salesTotalText", "shareText"),
+            ("人员日报", "reportPurchaseDailyText", "reportSalesDailyText", "reportShareDailyText"),
+            ("金蝶 K3Cloud", "purchaseDailyText", "salesDailyText", "k3ShareDailyText"),
+        )
+        data = []
+        for label, purchase_key, sales_key, share_key in rows:
+            row = {"scope": label}
+            if has_purchase:
+                row["purchase"] = summary.get(purchase_key, "—")
+            if has_sales:
+                row["sales"] = summary.get(sales_key, "—")
+            if has_share:
+                row["share"] = summary.get(share_key, "—")
+            data.append(row)
+        return {"meta": meta, "data": data}
+
     def chart(key):
         return {
             "type": "lineChart",
@@ -171,6 +200,7 @@ def build_operations_model(snapshot):
         "periodLabel": "报表日期：" + snapshot.report_date.isoformat(),
         "dataLabel": "金蝶 K3Cloud",
         "summary": summary,
+        "metricsTable": metrics_table(),
         "hasWarnings": bool(warnings),
         "warningText": "\n".join(warnings),
         "charts": {

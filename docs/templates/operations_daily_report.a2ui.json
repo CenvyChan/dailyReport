@@ -390,14 +390,7 @@
             "k3-row"
           ],
           "gap": 10,
-          "visible": {
-            "call": "not",
-            "args": {
-              "value": {
-                "path": "/hasMetricsImage"
-              }
-            }
-          }
+          "visible": false
         },
         {
           "id": "month-row",
@@ -487,15 +480,24 @@
           },
           "fit": "contain",
           "previewEnabled": true,
-          "visible": {
-            "path": "/hasMetricsImage"
-          },
+          "visible": false,
           "fallbackMarkdown": "当前客户端不支持图片，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "metrics-table",
+          "component": "Table",
+          "data": {
+            "path": "/metricsTable"
+          },
+          "cellPadding": 10,
+          "zebra": true,
+          "scrollAreaWidth": 860
         },
         {
           "id": "summary-body",
           "component": "Column",
           "children": [
+            "metrics-table",
             "metrics-image",
             "summary-metrics"
           ],

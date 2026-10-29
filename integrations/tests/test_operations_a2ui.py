@@ -170,8 +170,6 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.excel = Mock(return_value=b"PK-test")
         self.patches = [
             patch("integrations.services.dingtalk_client.build_client", return_value=self.client_mock),
-            patch("integrations.services.operations_delivery.render_metrics_image",
-                  return_value=bytes([137, 80, 78, 71]) + b"-test"),
             patch("integrations.services.report_delivery.render_snapshot_pdf", self.pdf),
             patch("integrations.services.snapshot_export.export_snapshot_to_excel", self.excel),
         ]
