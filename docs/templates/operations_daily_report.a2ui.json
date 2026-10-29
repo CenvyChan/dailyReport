@@ -28,6 +28,7 @@
             "summary-card",
             "trend-card",
             "month-card",
+            "share-card",
             "scope-note"
           ],
           "gap": 12
@@ -124,7 +125,8 @@
             "path": "/summary/purchaseTotalText"
           },
           "bold": true,
-          "sizeToken": "common_h3_text_style__font_size"
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
         },
         {
           "id": "purchase-metric",
@@ -134,7 +136,7 @@
             "purchase-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -156,7 +158,8 @@
             "path": "/summary/salesTotalText"
           },
           "bold": true,
-          "sizeToken": "common_h3_text_style__font_size"
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
         },
         {
           "id": "sales-metric",
@@ -166,7 +169,7 @@
             "sales-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -177,7 +180,7 @@
         {
           "id": "share-label",
           "component": "Text",
-          "text": "合计占比",
+          "text": "采销汇总月度占比",
           "variant": "caption",
           "colorToken": "common_level2_base_color"
         },
@@ -188,7 +191,8 @@
             "path": "/summary/shareText"
           },
           "bold": true,
-          "sizeToken": "common_h3_text_style__font_size"
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
         },
         {
           "id": "share-metric",
@@ -198,7 +202,7 @@
             "share-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -207,31 +211,194 @@
           }
         },
         {
-          "id": "summary-metrics",
+          "id": "report-caption",
+          "component": "Text",
+          "text": "人员日报 · 当日",
+          "variant": "caption",
+          "bold": true,
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-purchase-label",
+          "component": "Text",
+          "text": "当日采购入库",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-purchase-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/reportPurchaseDailyText"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "report-purchase-metric",
           "component": "Column",
           "children": [
-            "month-metrics",
-            "summary-divider",
-            "daily-metrics"
+            "report-purchase-label",
+            "report-purchase-value"
+          ],
+          "gap": 4,
+          "padding": 10,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
+          "weight": 1,
+          "visible": {
+            "path": "/summary/hasPurchase"
+          }
+        },
+        {
+          "id": "report-sales-label",
+          "component": "Text",
+          "text": "当日销售出库",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-sales-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/reportSalesDailyText"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "report-sales-metric",
+          "component": "Column",
+          "children": [
+            "report-sales-label",
+            "report-sales-value"
+          ],
+          "gap": 4,
+          "padding": 10,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
+          "weight": 1,
+          "visible": {
+            "path": "/summary/hasSales"
+          }
+        },
+        {
+          "id": "report-share-label",
+          "component": "Text",
+          "text": "采销日占比",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-share-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/reportShareDailyText"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "report-share-metric",
+          "component": "Column",
+          "children": [
+            "report-share-label",
+            "report-share-value"
+          ],
+          "gap": 4,
+          "padding": 10,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
+          "weight": 1,
+          "visible": {
+            "path": "/summary/hasRatio"
+          }
+        },
+        {
+          "id": "report-row",
+          "component": "Row",
+          "children": [
+            "report-purchase-metric",
+            "report-sales-metric",
+            "report-share-metric"
           ],
           "gap": 12
         },
         {
-          "id": "month-metrics",
-          "component": "ColumnLayout",
+          "id": "k3-caption",
+          "component": "Text",
+          "text": "金蝶 K3Cloud · 当日",
+          "variant": "caption",
+          "bold": true,
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "k3-share-label",
+          "component": "Text",
+          "text": "采销日占比",
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "k3-share-value",
+          "component": "Text",
+          "text": {
+            "path": "/summary/k3ShareDailyText"
+          },
+          "bold": true,
+          "maxLine": 2,
+          "sizeToken": "common_h4_text_style__font_size"
+        },
+        {
+          "id": "k3-share-metric",
+          "component": "Column",
+          "children": [
+            "k3-share-label",
+            "k3-share-value"
+          ],
+          "gap": 4,
+          "padding": 10,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
+          "weight": 1,
+          "visible": {
+            "path": "/summary/hasRatio"
+          }
+        },
+        {
+          "id": "k3-row",
+          "component": "Row",
+          "children": [
+            "daily-purchase-metric",
+            "daily-sales-metric",
+            "k3-share-metric"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "summary-metrics",
+          "component": "Column",
+          "children": [
+            "month-row",
+            "summary-divider",
+            "report-caption",
+            "report-row",
+            "k3-caption",
+            "k3-row"
+          ],
+          "gap": 10
+        },
+        {
+          "id": "month-row",
+          "component": "Row",
           "children": [
             "purchase-metric",
             "sales-metric",
             "share-metric"
           ],
-          "columns": 3,
-          "columnWidths": [
-            1,
-            1,
-            1
-          ],
-          "responsive": true,
-          "responsiveColumns": 1,
           "gap": 12
         },
         {
@@ -277,7 +444,7 @@
             "daily-purchase"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -293,29 +460,13 @@
             "daily-sales"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasSales"
           }
-        },
-        {
-          "id": "daily-metrics",
-          "component": "ColumnLayout",
-          "children": [
-            "daily-purchase-metric",
-            "daily-sales-metric"
-          ],
-          "columns": 2,
-          "columnWidths": [
-            1,
-            1
-          ],
-          "responsive": true,
-          "responsiveColumns": 1,
-          "gap": 12
         },
         {
           "id": "summary-card",
@@ -348,7 +499,7 @@
           "data": {
             "path": "/charts/trend"
           },
-          "height": 240,
+          "aspectRatio": "2:1",
           "visible": {
             "path": "/hasTrend"
           },
@@ -395,7 +546,7 @@
           "data": {
             "path": "/charts/month"
           },
-          "height": 240,
+          "aspectRatio": "2:1",
           "visible": {
             "path": "/hasMonth"
           },
@@ -415,6 +566,110 @@
           "id": "month-card",
           "component": "Card",
           "child": "month-body",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
+        },
+        {
+          "id": "share-title",
+          "component": "Text",
+          "text": "采销占比分布",
+          "bold": true
+        },
+        {
+          "id": "share-caption",
+          "component": "Text",
+          "text": {
+            "path": "/shareCaption"
+          },
+          "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-share-title",
+          "component": "Text",
+          "text": "人员日报",
+          "variant": "caption",
+          "bold": true,
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-share-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/reportShare"
+          },
+          "aspectRatio": "1:1",
+          "visible": {
+            "path": "/hasReportShare"
+          },
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "report-share-block",
+          "component": "Column",
+          "children": [
+            "report-share-title",
+            "report-share-chart"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "kingdee-share-title",
+          "component": "Text",
+          "text": "金蝶 K3Cloud",
+          "variant": "caption",
+          "bold": true,
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "kingdee-share-chart",
+          "component": "Chart",
+          "data": {
+            "path": "/charts/kingdeeShare"
+          },
+          "aspectRatio": "1:1",
+          "visible": {
+            "path": "/hasKingdeeShare"
+          },
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "kingdee-share-block",
+          "component": "Column",
+          "children": [
+            "kingdee-share-title",
+            "kingdee-share-chart"
+          ],
+          "gap": 4,
+          "weight": 1
+        },
+        {
+          "id": "share-charts",
+          "component": "Row",
+          "children": [
+            "report-share-block",
+            "kingdee-share-block"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "share-body",
+          "component": "Column",
+          "children": [
+            "share-title",
+            "share-caption",
+            "share-charts"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "share-card",
+          "component": "Card",
+          "child": "share-body",
           "padding": 12,
           "cornerRadius": 8,
           "borderWidth": 0.5,

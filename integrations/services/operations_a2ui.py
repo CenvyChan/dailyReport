@@ -69,6 +69,30 @@ def _percent(value):
     return "—" if value is None else f"{_decimal(value):.1f}%"
 
 
+def _ratio(purchase, sales):
+    if purchase is None or sales is None or not sales:
+        return None
+    return purchase / sales * 100
+
+
+def _report_daily_amount(snapshot, name):
+    """人员日报当日金额；无上报记录时为 None，不以金蝶金额回填。"""
+    coverage = ((snapshot.data or {}).get(name) or {}).get("daily_coverage") or {}
+    value = coverage.get("total_amount")
+    return None if value is None else _decimal(value)
+
+
+def _share_pie(purchase, sales):
+    """采销构成环形图：两方都需有金额，负金额（退货）按 0 处理。"""
+    if purchase is None or sales is None:
+        return {"type": "pieChart", "data": []}, False
+    rows = [
+        {"x": label, "y": float(max(amount, Decimal(0)) / 10000)}
+        for label, amount in (("采购", purchase), ("销售", sales))
+    ]
+    return {"type": "pieChart", "data": rows}, any(row["y"] > 0 for row in rows)
+
+
 def build_operations_a2ui_messages(snapshot, template_path=None):
     from integrations.services.operations_summary import snapshot_operations
 
@@ -88,19 +112,41 @@ def build_operations_a2ui_messages(snapshot, template_path=None):
     if not selected:
         raise ValueError("没有可生成卡片的销售或采购快照数据。")
     summary = {"hasPurchase": False, "hasSales": False, "hasRatio": len(selected) == 2}
+    report_amounts = {}
+    kingdee_amounts = {}
     for name, label in selected:
+        report_amount = _report_daily_amount(snapshot, name)
+        kingdee_amount = data.get(name + "_daily")
+        report_amounts[name] = report_amount
+        kingdee_amounts[name] = (
+            None if kingdee_amount is None else _decimal(kingdee_amount)
+        )
         summary[name + "TotalText"] = (
             _money(data[name + "_total"])
             if data.get(name + "_total") is not None
             else "—"
         )
         summary[name + "DailyText"] = (
-            _money(data[name + "_daily"])
-            if data.get(name + "_daily") is not None
-            else "—"
+            _money(kingdee_amount) if kingdee_amount is not None else "—"
+        )
+        summary["report" + name.title() + "DailyText"] = (
+            _money(report_amount) if report_amount is not None else "—"
         )
         summary["has" + name.title()] = True
     summary["shareText"] = _percent(data.get("share_total"))
+    summary["reportShareDailyText"] = _percent(
+        _ratio(report_amounts.get("purchase"), report_amounts.get("sales"))
+    )
+    summary["k3ShareDailyText"] = _percent(
+        _ratio(kingdee_amounts.get("purchase"), kingdee_amounts.get("sales"))
+    )
+    report_pie, has_report_pie = _share_pie(
+        report_amounts.get("purchase"), report_amounts.get("sales")
+    )
+    kingdee_pie, has_kingdee_pie = _share_pie(
+        kingdee_amounts.get("purchase"), kingdee_amounts.get("sales")
+    )
+    has_share_pie = len(selected) == 2
 
     def chart(key):
         return {
@@ -134,12 +180,20 @@ def build_operations_a2ui_messages(snapshot, template_path=None):
         "summary": summary,
         "hasWarnings": bool(warnings),
         "warningText": "\n".join(warnings),
-        "charts": {"trend": chart("trend_rows"), "month": chart("month_rows")},
+        "charts": {
+            "trend": chart("trend_rows"),
+            "month": chart("month_rows"),
+            "reportShare": report_pie,
+            "kingdeeShare": kingdee_pie,
+        },
         "hasTrend": bool(data.get("trend_rows")),
         "hasMonth": bool(data.get("month_rows")),
+        "hasReportShare": has_share_pie and has_report_pie,
+        "hasKingdeeShare": has_share_pie and has_kingdee_pie,
         "monthCaption": f"{data.get('period_start','')}—{data.get('period_end','')} · 采购 / 销售，单位：万元",
         "trendCaption": f"{data.get('trend_start','')}—{snapshot.report_date.isoformat()} · 单位：万元",
-        "scopeNote": "口径：金蝶有效采购入库 / 销售出库单，按业务日期汇总，退货保留负数；合计占比 = 当月采购 ÷ 当月销售，销售为 0 时显示 —。图表金额单位为万元；月度统计截至报表日。",
+        "shareCaption": "采购 / 销售金额构成 · 单位：万元",
+        "scopeNote": "口径：月度与 K3Cloud 当日为金蝶有效采购入库 / 销售出库单，按业务日期汇总；人员日报为手工提交金额。退货不进入分布图；占比 = 采购 ÷ 销售，销售为 0 时显示 —。",
         "reportMeta": {
             "dataMode": "live",
             "source": "KINGDEE",

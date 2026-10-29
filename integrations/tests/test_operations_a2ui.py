@@ -81,8 +81,22 @@ class OperationsA2UIModelTests(SimpleTestCase):
         self.assertEqual(model['charts']['trend']['data'][0]['y'],-0.2)
         self.assertNotIn('monthDiffText',model['summary'])
         self.assertNotIn('利润',model['deliverySummary'])
+        self.assertEqual(model['summary']['reportSalesDailyText'],'¥10,000.00')
+        self.assertEqual(model['summary']['reportPurchaseDailyText'],'¥8,000.00')
+        self.assertEqual(model['summary']['k3ShareDailyText'],'80.0%')
+        self.assertEqual(model['charts']['kingdeeShare']['type'],'pieChart')
+        self.assertTrue(model['hasReportShare'])
         self.assertEqual(len({next(v for k,v in f.items() if k!='version')['surfaceId'] for f in frames}),1)
         self.assertNotEqual(frames[0]['createSurface']['surfaceId'],build_operations_a2ui_messages(fake_snapshot())[0]['createSurface']['surfaceId'])
+
+    def test_missing_manual_daily_is_not_backfilled_with_kingdee(self):
+        snapshot=fake_snapshot()
+        snapshot.data['sales'].pop('daily_coverage')
+        model=build_operations_a2ui_messages(snapshot)[1]['updateDataModel']['value']
+        self.assertEqual(model['summary']['reportSalesDailyText'],'—')
+        self.assertEqual(model['summary']['reportShareDailyText'],'—')
+        self.assertFalse(model['hasReportShare'])
+        self.assertTrue(model['hasKingdeeShare'])
 
     def test_purchase_only_scope_does_not_leak_sales_values(self):
         original=fake_snapshot();selected=filter_snapshot_for_contents(original,['PURCHASE','APPROVALS'])
@@ -101,7 +115,9 @@ class OperationsA2UIModelTests(SimpleTestCase):
         model=build_operations_a2ui_messages(snapshot)[1]['updateDataModel']['value']
         self.assertEqual(model['charts']['trend']['data'],[])
         self.assertTrue(model['hasWarnings']);self.assertIn('历史快照',model['warningText'])
-        self.assertNotIn('999',json.dumps(model))
+        self.assertEqual(model['summary']['salesDailyText'],'—')
+        self.assertEqual(model['summary']['reportSalesDailyText'],'¥999.00')
+        self.assertEqual(model['summary']['reportShareDailyText'],'—')
 
     def test_non_finite_amounts_are_rejected(self):
         snapshot=fake_snapshot();snapshot.data['operations']['sales_total']=float('inf')
