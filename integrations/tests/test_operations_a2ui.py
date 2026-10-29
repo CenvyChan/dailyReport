@@ -85,12 +85,14 @@ class MetricsImageTests(SimpleTestCase):
 
     def test_metrics_image_reference_is_bound_when_available(self):
         frames = build_operations_a2ui_messages(
-            fake_snapshot(), metrics_image={"light": "@lAD-light", "dark": "@lAD-dark"}
+            fake_snapshot(), metrics_image={"light": "@lAD-light"}
         )
         model = frames[1]["updateDataModel"]["value"]
         self.assertTrue(model["hasMetricsImage"])
-        self.assertEqual(model["metricsImageUrl"], "@lAD-light")
-        self.assertEqual(model["metricsImageDarkUrl"], "@lAD-dark")
+        components = next(f["updateComponents"]["components"] for f in frames if "updateComponents" in f)
+        image = next(c for c in components if c["id"] == "metrics-image")
+        self.assertEqual(image["component"], "ImageList")
+        self.assertEqual(image["images"], ["@lAD-light"])
 
 
 class OperationsA2UIModelTests(SimpleTestCase):
@@ -170,6 +172,8 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.excel = Mock(return_value=b"PK-test")
         self.patches = [
             patch("integrations.services.dingtalk_client.build_client", return_value=self.client_mock),
+            patch("integrations.services.operations_delivery.render_metrics_image",
+                  return_value=bytes([137, 80, 78, 71]) + b"-test"),
             patch("integrations.services.report_delivery.render_snapshot_pdf", self.pdf),
             patch("integrations.services.snapshot_export.export_snapshot_to_excel", self.excel),
         ]

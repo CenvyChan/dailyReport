@@ -1,6 +1,7 @@
 """经营日报三件套投递：附件先准备，逐步落盘，不盲重发结果未知的消息。"""
 import hashlib
 import json
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,12 +9,27 @@ from django.conf import settings
 from django.utils import timezone
 
 from integrations.models import ReportDelivery
-from integrations.services.operations_a2ui import build_operations_a2ui_messages
+from integrations.services.operations_a2ui import (
+    build_operations_a2ui_messages,
+    build_operations_model,
+)
+from integrations.services.operations_metrics_image import render_metrics_image
 from integrations.services.a2ui_robot import DingtalkA2UIClient
+
+logger = logging.getLogger(__name__)
 
 
 class OperationsDeliveryUncertain(RuntimeError):
     """远端可能已接受消息，必须人工核对，禁止自动重发。"""
+
+
+def _upload_metrics_image(client, snapshot):
+    """指标图走钉钉媒体库：Image 能显示，但只有 ImageList 在桌面端支持点击放大。"""
+    model = build_operations_model(snapshot)
+    png = render_metrics_image(model, dark=False)
+    if not png.startswith(b"\x89PNG"):
+        raise ValueError("指标图片渲染结果不是 PNG 文件。")
+    return {"light": client.upload_media("operations-metrics.png", png, media_type="image")}
 
 
 TEMPLATE_PATH = (
@@ -80,7 +96,13 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
         if card_path.exists():
             frames = json.loads(card_path.read_text(encoding="utf-8"))
         else:
-            frames = build_operations_a2ui_messages(snapshot)
+            # 指标图不是投递前置条件：渲染或上传失败时退回文字指标，不能阻断整份日报。
+            metrics_image = None
+            try:
+                metrics_image = _upload_metrics_image(client, snapshot)
+            except Exception:
+                logger.exception("指标图片生成或上传失败，本次卡片使用文字指标")
+            frames = build_operations_a2ui_messages(snapshot, metrics_image=metrics_image)
             card_path.write_text(json.dumps(frames, ensure_ascii=False, indent=2), encoding="utf-8")
         # 上传不会在群里产生消息，可安全重试；两份附件先上传再发送卡片。
         for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
