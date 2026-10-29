@@ -134,6 +134,9 @@
             "purchase-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasPurchase"
@@ -163,6 +166,9 @@
             "sales-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasSales"
@@ -192,6 +198,9 @@
             "share-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasRatio"
@@ -201,20 +210,28 @@
           "id": "summary-metrics",
           "component": "Column",
           "children": [
-            "month-row",
+            "month-metrics",
             "summary-divider",
-            "daily-row"
+            "daily-metrics"
           ],
           "gap": 12
         },
         {
-          "id": "month-row",
-          "component": "Row",
+          "id": "month-metrics",
+          "component": "ColumnLayout",
           "children": [
             "purchase-metric",
             "sales-metric",
             "share-metric"
           ],
+          "columns": 3,
+          "columnWidths": [
+            1,
+            1,
+            1
+          ],
+          "responsive": true,
+          "responsiveColumns": 1,
           "gap": 12
         },
         {
@@ -260,6 +277,9 @@
             "daily-purchase"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasPurchase"
@@ -273,18 +293,28 @@
             "daily-sales"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1,
           "visible": {
             "path": "/summary/hasSales"
           }
         },
         {
-          "id": "daily-row",
-          "component": "Row",
+          "id": "daily-metrics",
+          "component": "ColumnLayout",
           "children": [
             "daily-purchase-metric",
             "daily-sales-metric"
           ],
+          "columns": 2,
+          "columnWidths": [
+            1,
+            1
+          ],
+          "responsive": true,
+          "responsiveColumns": 1,
           "gap": 12
         },
         {
@@ -318,7 +348,7 @@
           "data": {
             "path": "/charts/trend"
           },
-          "aspectRatio": 2,
+          "height": 240,
           "visible": {
             "path": "/hasTrend"
           },
@@ -365,7 +395,7 @@
           "data": {
             "path": "/charts/month"
           },
-          "aspectRatio": 2,
+          "height": 240,
           "visible": {
             "path": "/hasMonth"
           },

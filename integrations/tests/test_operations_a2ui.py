@@ -54,6 +54,23 @@ def success_response(path, payload):
     return {"processQueryKey": "accepted"}
 
 
+class A2UITemplateContractTests(SimpleTestCase):
+    def test_chart_sizing_matches_public_catalog_enum(self):
+        for name in ("operations_daily_report", "payment_application_report"):
+            frames = json.loads(
+                (Path(__file__).resolve().parents[2] / f"docs/templates/{name}.a2ui.json").read_text(encoding="utf-8")
+            )
+            components = next(f["updateComponents"]["components"] for f in frames if "updateComponents" in f)
+            for component in components:
+                if component["component"] != "Chart":
+                    continue
+                if "aspectRatio" in component:
+                    self.assertIn(component["aspectRatio"], {"1:1", "2:1", "4:3", "16:9"}, name)
+                    self.assertNotIn("height", component, name)
+                else:
+                    self.assertGreater(component.get("height", 0), 0, name)
+
+
 class OperationsA2UIModelTests(SimpleTestCase):
     def test_combined_native_chart_and_summary_use_frozen_k3_data(self):
         frames=build_operations_a2ui_messages(fake_snapshot());model=frames[1]['updateDataModel']['value']

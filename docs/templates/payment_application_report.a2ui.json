@@ -259,7 +259,7 @@
           "children": [
             "header",
             "summary-card",
-            "metrics-content",
+            "metrics-card",
             "status-card",
             "trend-card",
             "payees-card",
@@ -380,6 +380,9 @@
             "count-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
@@ -406,16 +409,27 @@
             "average-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
           "id": "count-average-row",
-          "component": "Row",
+          "component": "ColumnLayout",
           "children": [
             "count",
             "average",
             "recipients"
           ],
+          "columns": 3,
+          "columnWidths": [
+            1,
+            1,
+            1
+          ],
+          "responsive": true,
+          "responsiveColumns": 1,
           "gap": 12
         },
         {
@@ -442,6 +456,9 @@
             "running-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
@@ -468,16 +485,27 @@
             "completed-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
           "id": "approval-amount-row",
-          "component": "Row",
+          "component": "ColumnLayout",
           "children": [
             "running",
             "completed",
             "completion-rate"
           ],
+          "columns": 3,
+          "columnWidths": [
+            1,
+            1,
+            1
+          ],
+          "responsive": true,
+          "responsiveColumns": 1,
           "gap": 12
         },
         {
@@ -504,6 +532,9 @@
             "recipients-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
@@ -530,6 +561,9 @@
             "completion-rate-value"
           ],
           "gap": 4,
+          "padding": 12,
+          "cornerRadius": 8,
+          "backgroundColorToken": "common_bg_color",
           "weight": 1
         },
         {
@@ -569,6 +603,16 @@
             "approval-amount-row"
           ],
           "gap": 8
+        },
+        {
+          "id": "metrics-card",
+          "component": "Card",
+          "child": "metrics-content",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
         },
         {
           "id": "status-label",
@@ -652,7 +696,7 @@
           "data": {
             "path": "/charts/dailyAmount"
           },
-          "aspectRatio": 2,
+          "height": 200,
           "visible": {
             "call": "gt",
             "args": {
@@ -733,7 +777,7 @@
           "data": {
             "path": "/charts/payeeAmount"
           },
-          "aspectRatio": 2,
+          "height": 200,
           "visible": {
             "call": "gt",
             "args": {
