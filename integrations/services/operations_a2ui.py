@@ -93,16 +93,9 @@ def _share_pie(purchase, sales):
     return {"type": "pieChart", "data": rows}, any(row["y"] > 0 for row in rows)
 
 
-def build_operations_a2ui_messages(snapshot, template_path=None):
+def build_operations_model(snapshot):
     from integrations.services.operations_summary import snapshot_operations
 
-    template_path = (
-        Path(template_path)
-        if template_path
-        else Path(__file__).resolve().parents[2]
-        / "docs/templates/operations_daily_report.a2ui.json"
-    )
-    frames = json.loads(template_path.read_text(encoding="utf-8"))
     data = snapshot_operations(snapshot)
     selected = [
         (name, label)
@@ -208,6 +201,22 @@ def build_operations_a2ui_messages(snapshot, template_path=None):
             label + " " + summary[name + "DailyText"] for name, label in selected
         )
     )
+    return model
+
+
+def build_operations_a2ui_messages(snapshot, template_path=None, metrics_image=None):
+    """metrics_image 为 {"light": mediaId, "dark": mediaId}；缺失时卡片用文字指标。"""
+    template_path = (
+        Path(template_path)
+        if template_path
+        else Path(__file__).resolve().parents[2]
+        / "docs/templates/operations_daily_report.a2ui.json"
+    )
+    frames = json.loads(template_path.read_text(encoding="utf-8"))
+    model = build_operations_model(snapshot)
+    model["metricsImageUrl"] = (metrics_image or {}).get("light", "")
+    model["metricsImageDarkUrl"] = (metrics_image or {}).get("dark", "")
+    model["hasMetricsImage"] = bool(metrics_image)
     surface = "operations-report-" + uuid4().hex
     for frame in frames:
         body = next(value for key, value in frame.items() if key != "version")

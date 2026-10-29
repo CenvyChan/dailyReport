@@ -71,6 +71,28 @@ class A2UITemplateContractTests(SimpleTestCase):
                     self.assertGreater(component.get("height", 0), 0, name)
 
 
+class MetricsImageTests(SimpleTestCase):
+    def test_three_scopes_render_into_single_image(self):
+        from integrations.services.operations_a2ui import build_operations_model
+        from integrations.services.operations_metrics_image import metrics_rows, render_metrics_html
+        model = build_operations_model(fake_snapshot())
+        rows = metrics_rows(model)
+        self.assertEqual([row[0] for row in rows], ["当月累计", "人员日报", "金蝶 K3Cloud"])
+        self.assertTrue(all(len(row) == 4 for row in rows))
+        html = render_metrics_html(model)
+        self.assertIn("¥40,000.00", html)
+        self.assertIn("金蝶 K3Cloud", html)
+
+    def test_metrics_image_reference_is_bound_when_available(self):
+        frames = build_operations_a2ui_messages(
+            fake_snapshot(), metrics_image={"light": "@lAD-light", "dark": "@lAD-dark"}
+        )
+        model = frames[1]["updateDataModel"]["value"]
+        self.assertTrue(model["hasMetricsImage"])
+        self.assertEqual(model["metricsImageUrl"], "@lAD-light")
+        self.assertEqual(model["metricsImageDarkUrl"], "@lAD-dark")
+
+
 class OperationsA2UIModelTests(SimpleTestCase):
     def test_combined_native_chart_and_summary_use_frozen_k3_data(self):
         frames=build_operations_a2ui_messages(fake_snapshot());model=frames[1]['updateDataModel']['value']
@@ -142,12 +164,14 @@ class OperationsA2UIDeliveryTests(TestCase):
                                                       scope="BOTH", data=fixture_data(), is_complete=True)
         self.client_mock = Mock()
         self.client_mock.app = self.app
-        self.client_mock.upload_media.side_effect = lambda name, data: "media-" + Path(name).suffix
+        self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-" + Path(name).suffix
         self.client_mock.post.side_effect = success_response
         self.pdf = Mock(return_value=b"%PDF-test")
         self.excel = Mock(return_value=b"PK-test")
         self.patches = [
             patch("integrations.services.dingtalk_client.build_client", return_value=self.client_mock),
+            patch("integrations.services.operations_delivery.render_metrics_image",
+                  return_value=bytes([137, 80, 78, 71]) + b"-test"),
             patch("integrations.services.report_delivery.render_snapshot_pdf", self.pdf),
             patch("integrations.services.snapshot_export.export_snapshot_to_excel", self.excel),
         ]
@@ -190,7 +214,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.upload_media.side_effect = RuntimeError("upload failed")
         self.assertEqual(self.send()[0][1], "FAILED")
         self.client_mock.post.assert_not_called()
-        self.client_mock.upload_media.side_effect = lambda name, data: "media-" + Path(name).suffix
+        self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-" + Path(name).suffix
         self.assertEqual(self.send()[0][1], "SENT")
         self.assertEqual(self.client_mock.post.call_count, 3)
 

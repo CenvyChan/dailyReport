@@ -389,7 +389,15 @@
             "k3-caption",
             "k3-row"
           ],
-          "gap": 10
+          "gap": 10,
+          "visible": {
+            "call": "not",
+            "args": {
+              "value": {
+                "path": "/hasMetricsImage"
+              }
+            }
+          }
         },
         {
           "id": "month-row",
@@ -469,9 +477,34 @@
           }
         },
         {
+          "id": "metrics-image",
+          "component": "Image",
+          "url": {
+            "path": "/metricsImageUrl"
+          },
+          "darkUrl": {
+            "path": "/metricsImageDarkUrl"
+          },
+          "fit": "contain",
+          "previewEnabled": true,
+          "visible": {
+            "path": "/hasMetricsImage"
+          },
+          "fallbackMarkdown": "当前客户端不支持图片，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "summary-body",
+          "component": "Column",
+          "children": [
+            "metrics-image",
+            "summary-metrics"
+          ],
+          "gap": 8
+        },
+        {
           "id": "summary-card",
           "component": "Card",
-          "child": "summary-metrics",
+          "child": "summary-body",
           "padding": 16,
           "cornerRadius": 8,
           "borderWidth": 0.5,
