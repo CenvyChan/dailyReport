@@ -26,12 +26,8 @@
             "header",
             "warning-card",
             "summary-card",
-            "trend-title",
-            "trend-caption",
-            "trend-chart",
-            "month-title",
-            "month-caption",
-            "month-chart",
+            "trend-card",
+            "month-card",
             "scope-note"
           ],
           "gap": 12
@@ -138,6 +134,7 @@
             "purchase-value"
           ],
           "gap": 4,
+          "weight": 1,
           "visible": {
             "path": "/summary/hasPurchase"
           }
@@ -166,6 +163,7 @@
             "sales-value"
           ],
           "gap": 4,
+          "weight": 1,
           "visible": {
             "path": "/summary/hasSales"
           }
@@ -194,6 +192,7 @@
             "share-value"
           ],
           "gap": 4,
+          "weight": 1,
           "visible": {
             "path": "/summary/hasRatio"
           }
@@ -202,12 +201,26 @@
           "id": "summary-metrics",
           "component": "Column",
           "children": [
-            "purchase-metric",
-            "sales-metric",
-            "share-metric",
+            "month-row",
+            "summary-divider",
             "daily-row"
           ],
           "gap": 12
+        },
+        {
+          "id": "month-row",
+          "component": "Row",
+          "children": [
+            "purchase-metric",
+            "sales-metric",
+            "share-metric"
+          ],
+          "gap": 12
+        },
+        {
+          "id": "summary-divider",
+          "component": "Divider",
+          "borderColorToken": "common_line_light_color"
         },
         {
           "id": "daily-purchase",
@@ -215,9 +228,7 @@
           "text": {
             "path": "/summary/purchaseDailyText"
           },
-          "visible": {
-            "path": "/summary/hasPurchase"
-          }
+          "bold": true
         },
         {
           "id": "daily-sales",
@@ -225,38 +236,56 @@
           "text": {
             "path": "/summary/salesDailyText"
           },
-          "visible": {
-            "path": "/summary/hasSales"
-          }
+          "bold": true
         },
         {
           "id": "daily-purchase-label",
           "component": "Text",
           "text": "当日采购入库",
           "variant": "caption",
-          "visible": {
-            "path": "/summary/hasPurchase"
-          }
+          "colorToken": "common_level2_base_color"
         },
         {
           "id": "daily-sales-label",
           "component": "Text",
           "text": "当日销售出库",
           "variant": "caption",
+          "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "daily-purchase-metric",
+          "component": "Column",
+          "children": [
+            "daily-purchase-label",
+            "daily-purchase"
+          ],
+          "gap": 4,
+          "weight": 1,
+          "visible": {
+            "path": "/summary/hasPurchase"
+          }
+        },
+        {
+          "id": "daily-sales-metric",
+          "component": "Column",
+          "children": [
+            "daily-sales-label",
+            "daily-sales"
+          ],
+          "gap": 4,
+          "weight": 1,
           "visible": {
             "path": "/summary/hasSales"
           }
         },
         {
           "id": "daily-row",
-          "component": "Column",
+          "component": "Row",
           "children": [
-            "daily-purchase-label",
-            "daily-purchase",
-            "daily-sales-label",
-            "daily-sales"
+            "daily-purchase-metric",
+            "daily-sales-metric"
           ],
-          "gap": 4
+          "gap": 12
         },
         {
           "id": "summary-card",
@@ -289,11 +318,31 @@
           "data": {
             "path": "/charts/trend"
           },
-          "height": 200,
+          "aspectRatio": 2,
           "visible": {
             "path": "/hasTrend"
           },
           "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "trend-body",
+          "component": "Column",
+          "children": [
+            "trend-title",
+            "trend-caption",
+            "trend-chart"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "trend-card",
+          "component": "Card",
+          "child": "trend-body",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
         },
         {
           "id": "month-title",
@@ -316,11 +365,31 @@
           "data": {
             "path": "/charts/month"
           },
-          "height": 200,
+          "aspectRatio": 2,
           "visible": {
             "path": "/hasMonth"
           },
           "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+        },
+        {
+          "id": "month-body",
+          "component": "Column",
+          "children": [
+            "month-title",
+            "month-caption",
+            "month-chart"
+          ],
+          "gap": 8
+        },
+        {
+          "id": "month-card",
+          "component": "Card",
+          "child": "month-body",
+          "padding": 12,
+          "cornerRadius": 8,
+          "borderWidth": 0.5,
+          "borderColorToken": "common_line_hard_color",
+          "backgroundColorToken": "common_fg_z1_color"
         },
         {
           "id": "scope-note",

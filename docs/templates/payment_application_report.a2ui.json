@@ -413,7 +413,8 @@
           "component": "Row",
           "children": [
             "count",
-            "average"
+            "average",
+            "recipients"
           ],
           "gap": 12
         },
@@ -474,7 +475,8 @@
           "component": "Row",
           "children": [
             "running",
-            "completed"
+            "completed",
+            "completion-rate"
           ],
           "gap": 12
         },
@@ -531,15 +533,6 @@
           "weight": 1
         },
         {
-          "id": "recipient-rate-row",
-          "component": "Row",
-          "children": [
-            "recipients",
-            "completion-rate"
-          ],
-          "gap": 12
-        },
-        {
           "id": "summary-content",
           "component": "Column",
           "children": [
@@ -573,8 +566,7 @@
           "component": "Column",
           "children": [
             "metrics-title",
-            "approval-amount-row",
-            "recipient-rate-row"
+            "approval-amount-row"
           ],
           "gap": 8
         },
@@ -660,7 +652,7 @@
           "data": {
             "path": "/charts/dailyAmount"
           },
-          "height": 180,
+          "aspectRatio": 2,
           "visible": {
             "call": "gt",
             "args": {
@@ -741,7 +733,7 @@
           "data": {
             "path": "/charts/payeeAmount"
           },
-          "height": 180,
+          "aspectRatio": 2,
           "visible": {
             "call": "gt",
             "args": {
