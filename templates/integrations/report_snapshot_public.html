@@ -1,0 +1,15 @@
+{% load display %}<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ snapshot.company.name }} 采销汇总日报 {{ snapshot.report_date|date:"Y-m-d" }}</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #f5f7fb; }
+  body { -webkit-text-size-adjust: 100%; }
+</style>
+</head>
+<body>
+{% include "integrations/operations_summary.html" %}
+</body>
+</html>

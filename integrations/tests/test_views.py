@@ -154,7 +154,9 @@ class PublicSnapshotLinkTests(TestCase):
             {"token": self._token(self.snapshot)},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("采销汇总日报", response.content.decode("utf-8"))
+        body = response.content.decode("utf-8")
+        self.assertIn("采购 · 销售汇总日报", body)
+        self.assertIn('name="viewport"', body)
         self.assertEqual(response["X-Robots-Tag"], "noindex, nofollow")
 
     def test_bad_or_mismatched_token_is_forbidden(self):

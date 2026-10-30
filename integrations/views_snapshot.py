@@ -9,11 +9,9 @@ from django.shortcuts import get_object_or_404, render
 
 from core.services.permissions import can_view_comparison
 from integrations.models import ReportSnapshot
-from integrations.services.report_delivery import (
-    SNAPSHOT_LINK_SALT,
-    render_snapshot_book_html,
-)
+from integrations.services.report_delivery import SNAPSHOT_LINK_SALT
 from integrations.services.snapshot_export import export_snapshot_to_excel
+from integrations.services.snapshot_public import render_snapshot_public_html
 
 logger = logging.getLogger("integrations")
 
@@ -65,7 +63,7 @@ def snapshot_public_view(request, snapshot_id):
         return HttpResponseForbidden("链接与报表不匹配。")
     snapshot = get_object_or_404(ReportSnapshot, pk=snapshot_id)
     response = HttpResponse(
-        render_snapshot_book_html(snapshot),
+        render_snapshot_public_html(snapshot),
         content_type="text/html; charset=utf-8",
     )
     # 报表含经营数据，禁止搜索引擎和预览机器人索引。
