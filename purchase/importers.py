@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 import pandas as pd
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group
 from django.db import transaction
 
 from core.errors import MissingExchangeRate
@@ -12,6 +12,7 @@ from core.models import ExchangeRate, PurchaseAssignment, Supplier
 from core.services.audit import record_audit
 from core.services.companies import grant_company_access
 from core.services.permissions import is_administrator
+from core.services.users import describe_import_people, resolve_import_people
 from purchase.models import PurchaseReceipt
 
 
@@ -41,6 +42,7 @@ class ImportPreview:
     error_rows: list[dict]
     rows: list[dict]
     rate_errors: list[dict] = None
+    people: dict = None
 
 
 def validate_purchase_rows(rows):
@@ -95,7 +97,7 @@ def validate_purchase_rates(rows, *, available_months):
     return errors
 
 
-def preview_purchase_import(path, *, company, sheet_name=0):
+def preview_purchase_import(path, *, company, sheet_name=0, people=None):
     rows = read_rows(path, sheet_name)
     require_columns(rows, PURCHASE_COLUMNS)
     preview = validate_purchase_rows(rows)
@@ -105,12 +107,24 @@ def preview_purchase_import(path, *, company, sheet_name=0):
             ExchangeRate.objects.filter(company=company).values_list("month", flat=True)
         ),
     )
-    return ImportPreview(preview.valid_row_count, preview.error_rows, preview.rows, rate_errors)
+    # 人员解析只作为预览提示，不进 error_rows：正式导入时才会强制。
+    people_info = describe_import_people(
+        (row["buyer_name"] for row in preview.rows), provided=people
+    )
+    return ImportPreview(
+        preview.valid_row_count,
+        preview.error_rows,
+        preview.rows,
+        rate_errors,
+        people_info,
+    )
 
 
-def commit_purchase_import(preview, *, actor, company, source_file, people=None):
-    """people 可选：{源表里的姓名: User}。不传就按姓名当用户名自动建号（页面导入的行为），
-    传了就用指定账号，用于源表写中文姓名、系统里却要用工号/拼音登录的场景。
+def commit_purchase_import(preview, *, actor, company, source_file, people=None, create_missing=False):
+    """people 可选：{源表里的姓名: User}，用于源表写中文姓名、系统里却用
+    工号/拼音登录的场景。不传时按登录名和 first_name 自动匹配（历史拼音
+    账号能命中）；仍匹配不到的姓名默认报错而不是建号——按姓名建号会造出
+    无法登录的重复账号。create_missing=True 才允许为这些姓名新建账号。
 
     整批一次性写入：逐行 get_or_create 时 3000 行要跑近 3 万次查询，全都压在
     一个 atomic() 里独占 SQLite 写锁，浏览器先超时、用户再重复点击。
@@ -123,7 +137,9 @@ def commit_purchase_import(preview, *, actor, company, source_file, people=None)
     rows = preview.rows
     with transaction.atomic():
         purchase_group = Group.objects.get(name="purchase")
-        buyers = _resolve_buyers(rows, people or {}, purchase_group, company)
+        buyers = _resolve_buyers(
+            rows, people or {}, purchase_group, company, create_missing=create_missing
+        )
         suppliers = _resolve_suppliers(rows, company)
         _ensure_assignments(rows, buyers, suppliers)
         rates = _rate_lookup(company)
@@ -162,15 +178,14 @@ def commit_purchase_import(preview, *, actor, company, source_file, people=None)
     return preview.valid_row_count
 
 
-def _resolve_buyers(rows, people, purchase_group, company):
-    """一次性把姓名映射成账号。没有的按姓名建号（保持原有页面导入行为）。"""
-    names = {row["buyer_name"] for row in rows}
-    resolved = {name: people[name] for name in names if name in people}
-    missing = names - set(resolved)
-    if missing:
-        existing = {user.username: user for user in User.objects.filter(username__in=missing)}
-        for name in missing:
-            resolved[name] = existing.get(name) or User.objects.create(username=name)
+def _resolve_buyers(rows, people, purchase_group, company, *, create_missing=False):
+    """一次性把姓名映射成账号。登录名和 first_name 都参与匹配，避免把
+    已有拼音账号当成新人再建一遍。"""
+    resolved = resolve_import_people(
+        (row["buyer_name"] for row in rows),
+        provided=people,
+        create_missing=create_missing,
+    )
     for user in resolved.values():
         user.groups.add(purchase_group)
         grant_company_access(user, [company])

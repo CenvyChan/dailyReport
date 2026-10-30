@@ -16,6 +16,11 @@ from purchase.models import PurchaseReceipt
 
 
 class PurchaseImportCommitTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin")
+        # 导入默认不再隐式建号，测试里先准备好源表姓名的对应账号。
+        self.buyer = User.objects.create_user("purchase-buyer", first_name="purchase-buyer")
+
     def _preview(self):
         return ImportPreview(
             1,
@@ -35,18 +40,16 @@ class PurchaseImportCommitTests(TestCase):
         )
 
     def test_imported_buyer_is_added_to_purchase_group_and_company(self):
-        admin = User.objects.create_superuser("admin")
+        commit_purchase_import(self._preview(), actor=self.admin, company=company_a(), source_file="history.xls")
 
-        commit_purchase_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
-
-        buyer = User.objects.get(username="purchase-buyer")
-        self.assertTrue(buyer.groups.filter(name="purchase").exists())
-        self.assertTrue(CompanyMembership.objects.filter(user=buyer, company=company_a()).exists())
+        self.buyer.refresh_from_db()
+        self.assertTrue(self.buyer.groups.filter(name="purchase").exists())
+        self.assertTrue(
+            CompanyMembership.objects.filter(user=self.buyer, company=company_a()).exists()
+        )
 
     def test_import_creates_master_data_and_rows_inside_the_target_company(self):
-        admin = User.objects.create_superuser("admin")
-
-        commit_purchase_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+        commit_purchase_import(self._preview(), actor=self.admin, company=company_b(), source_file="history.xls")
 
         self.assertTrue(Supplier.objects.filter(company=company_b(), name="Supplier A").exists())
         self.assertFalse(Supplier.objects.filter(company=company_a(), name="Supplier A").exists())

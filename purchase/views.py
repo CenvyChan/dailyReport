@@ -273,6 +273,9 @@ def import_preview(request):
         return JsonResponse({
             "valid_row_count": preview.valid_row_count,
             "error_rows": preview.error_rows + (preview.rate_errors or []),
+            # 让页面在点「正式导入」之前就能看到哪些姓名没有对应账号，
+            # 而不是等 commit 报错才发现。
+            "people": preview.people or {},
         })
 
     return import_response(handler)

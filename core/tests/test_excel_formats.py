@@ -63,8 +63,27 @@ class XlsxUploadTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["valid_row_count"], 2)
         self.assertEqual(payload["error_rows"], [])
+        # 模板里的「张三」还没有账号，预览阶段就要告诉页面，别等 commit 才失败。
+        self.assertEqual(payload["people"]["unmatched"], ["张三"])
+
+    def test_sales_commit_rejects_unmatched_names_without_creating_accounts(self):
+        _, content = build_template("sales")
+
+        response = self.client.post(
+            reverse("sales:import_commit"),
+            {"file": SimpleUploadedFile("销售模板.xlsx", content, content_type=XLSX_MIME)},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("张三", response.json()["error"])
+        self.assertFalse(User.objects.filter(username="张三").exists())
+        from sales.models import SalesShipment
+
+        self.assertEqual(SalesShipment.objects.count(), 0)
 
     def test_sales_commit_accepts_xlsx_and_creates_rows_in_the_active_company(self):
+        # 模板示例行的业务跟单是「张三」；正式导入要求姓名能对上账号。
+        zhangsan = User.objects.create_user("zhangsan", first_name="张三")
         _, content = build_template("sales")
 
         response = self.client.post(
@@ -77,6 +96,7 @@ class XlsxUploadTests(TestCase):
         from sales.models import SalesShipment
 
         self.assertEqual(SalesShipment.objects.filter(company=company_a()).count(), 2)
+        self.assertFalse(SalesShipment.objects.exclude(owner=zhangsan).exists())
 
     def test_purchase_preview_accepts_xlsx_and_only_flags_the_missing_rate(self):
         _, content = build_template("purchase")

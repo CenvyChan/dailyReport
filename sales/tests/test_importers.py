@@ -31,6 +31,11 @@ class SalesImportFlowTests(SimpleTestCase):
 
 
 class SalesImportCommitTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin")
+        # 导入默认不再隐式建号，测试里先准备好源表姓名的对应账号。
+        self.owner = User.objects.create_user("sales-owner", first_name="sales-owner")
+
     def _preview(self):
         return ImportPreview(
             1,
@@ -51,18 +56,16 @@ class SalesImportCommitTests(TestCase):
         )
 
     def test_imported_owner_is_added_to_sales_group_and_company(self):
-        admin = User.objects.create_superuser("admin")
+        commit_sales_import(self._preview(), actor=self.admin, company=company_a(), source_file="history.xls")
 
-        commit_sales_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
-
-        owner = User.objects.get(username="sales-owner")
-        self.assertTrue(owner.groups.filter(name="sales").exists())
-        self.assertTrue(CompanyMembership.objects.filter(user=owner, company=company_a()).exists())
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.groups.filter(name="sales").exists())
+        self.assertTrue(
+            CompanyMembership.objects.filter(user=self.owner, company=company_a()).exists()
+        )
 
     def test_import_creates_master_data_and_rows_inside_the_target_company(self):
-        admin = User.objects.create_superuser("admin")
-
-        commit_sales_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+        commit_sales_import(self._preview(), actor=self.admin, company=company_b(), source_file="history.xls")
 
         self.assertTrue(Customer.objects.filter(company=company_b(), name="Customer A").exists())
         self.assertFalse(Customer.objects.filter(company=company_a(), name="Customer A").exists())
@@ -70,10 +73,8 @@ class SalesImportCommitTests(TestCase):
         self.assertEqual(SalesShipment.objects.filter(company=company_a()).count(), 0)
 
     def test_the_same_source_file_can_be_imported_into_both_companies(self):
-        admin = User.objects.create_superuser("admin")
-
-        commit_sales_import(self._preview(), actor=admin, company=company_a(), source_file="history.xls")
-        commit_sales_import(self._preview(), actor=admin, company=company_b(), source_file="history.xls")
+        commit_sales_import(self._preview(), actor=self.admin, company=company_a(), source_file="history.xls")
+        commit_sales_import(self._preview(), actor=self.admin, company=company_b(), source_file="history.xls")
 
         self.assertEqual(SalesShipment.objects.filter(company=company_a()).count(), 1)
         self.assertEqual(SalesShipment.objects.filter(company=company_b()).count(), 1)

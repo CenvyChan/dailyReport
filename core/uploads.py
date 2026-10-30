@@ -9,7 +9,7 @@ from io import BytesIO
 
 from django.http import HttpResponse, JsonResponse
 
-from core.errors import ImportFileError, MissingExchangeRate
+from core.errors import ImportFileError, MissingExchangeRate, UnresolvedImportPeople
 
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,9 @@ def import_response(handler):
     except UploadRejected as error:
         return JsonResponse({"error": str(error)}, status=400)
     except ImportFileError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    except UnresolvedImportPeople as error:
+        # 人员没对上不是服务器故障，让前端按业务错误展示，别落进 500 兜底。
         return JsonResponse({"error": str(error)}, status=400)
     except MissingExchangeRate as error:
         return JsonResponse({"error": str(error)}, status=400)

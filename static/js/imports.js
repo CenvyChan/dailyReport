@@ -51,12 +51,22 @@
     }
   };
 
-  const show = (message, errors = [], kind = "info") => {
+  const show = (message, errors = [], kind = "info", notes = []) => {
     result.replaceChildren();
     result.dataset.kind = kind;
     const summary = document.createElement("p");
     summary.textContent = message;
     result.append(summary);
+    if (notes.length) {
+      const list = document.createElement("ul");
+      list.className = "import-notes";
+      notes.forEach((note) => {
+        const item = document.createElement("li");
+        item.textContent = note;
+        list.append(item);
+      });
+      result.append(list);
+    }
     if (errors.length) {
       const list = document.createElement("ul");
       errors.forEach((error) => {
@@ -120,11 +130,35 @@
         return;
       }
       const errors = payload.error_rows || [];
-      const usable = errors.length === 0 && payload.valid_row_count > 0;
+      const people = payload.people || {};
+      const notes = [];
+      if ((people.matched || []).length) {
+        notes.push(
+          "将复用已有账号：" +
+            people.matched.map((person) => `${person.name} → ${person.username}`).join("、")
+        );
+      }
+      if ((people.unmatched || []).length) {
+        notes.push(
+          "以下姓名在系统中没有账号：" +
+            people.unmatched.join("、") +
+            "。请先在「用户管理」为这些人员建号并填写姓名，否则无法正式导入。"
+        );
+      }
+      (people.ambiguous || []).forEach((item) => {
+        notes.push(
+          `姓名「${item.name}」匹配到多个账号：${item.candidates.join("、")}，请先消除歧义。`
+        );
+      });
+      // 人员没对上时不允许点「正式导入」：后端也会拒绝，但提前禁用能省一次失败。
+      const peopleProblems =
+        (people.unmatched || []).length + (people.ambiguous || []).length;
+      const usable = errors.length === 0 && payload.valid_row_count > 0 && peopleProblems === 0;
       show(
         `可导入 ${payload.valid_row_count} 条记录。` + (usable ? "请点「正式导入」写入数据。" : ""),
         errors,
-        usable ? "ok" : "fail"
+        usable ? "ok" : "fail",
+        notes
       );
       if (usable) commitButton.disabled = false;
     } catch {

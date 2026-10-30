@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 import xlrd
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group
 from django.db import transaction
 
 from core.errors import MissingExchangeRate
@@ -15,6 +15,7 @@ from core.models import Customer, ExchangeRate, SalesAssignment
 from core.services.audit import record_audit
 from core.services.companies import grant_company_access
 from core.services.permissions import is_administrator
+from core.services.users import describe_import_people, resolve_import_people
 from sales.models import SalesShipment
 
 
@@ -44,6 +45,7 @@ class ImportPreview:
     rows: list[dict]
     rate_errors: list[dict] = None
     exchange_rates: tuple = ()
+    people: dict = None
 
 
 def _excel_serial_if_datetime(value):
@@ -115,12 +117,24 @@ def validate_exchange_rate_rows(rows):
     return errors, tuple(valid)
 
 
-def preview_sales_import(path):
+def preview_sales_import(path, *, people=None):
     rows = read_rows(path, "数据表")
     require_columns(rows, SALES_COLUMNS, sheet_label="工作表「数据表」")
     preview = validate_sales_rows(rows)
     rate_errors, rates = validate_exchange_rate_rows(read_rows(path, "汇率"))
-    return ImportPreview(preview.valid_row_count, preview.error_rows, preview.rows, rate_errors, rates)
+    # 人员解析只作为预览提示，不进 error_rows：命令行导入会显式传 people 映射，
+    # 页面导入则必须在正式导入前看到「哪些姓名还没有账号」。
+    people_info = describe_import_people(
+        (row["owner_name"] for row in preview.rows), provided=people
+    )
+    return ImportPreview(
+        preview.valid_row_count,
+        preview.error_rows,
+        preview.rows,
+        rate_errors,
+        rates,
+        people_info,
+    )
 
 
 def import_exchange_rates(path, *, actor, company):
@@ -138,9 +152,11 @@ def import_exchange_rates(path, *, actor, company):
         )
 
 
-def commit_sales_import(preview, *, actor, company, source_file, people=None):
-    """people 可选：{源表里的姓名: User}。不传就按姓名当用户名自动建号（页面导入的行为），
-    传了就用指定账号，用于源表写中文姓名、系统里却要用工号/拼音登录的场景。
+def commit_sales_import(preview, *, actor, company, source_file, people=None, create_missing=False):
+    """people 可选：{源表里的姓名: User}，用于源表写中文姓名、系统里却用
+    工号/拼音登录的场景。不传时按登录名和 first_name 自动匹配（历史拼音
+    账号能命中）；仍匹配不到的姓名默认报错而不是建号——按姓名建号会造出
+    无法登录的重复账号。create_missing=True 才允许为这些姓名新建账号。
 
     整批一次性写入：逐行 get_or_create 时 3000 行要跑近 3 万次查询，全都压在
     一个 atomic() 里独占 SQLite 写锁，浏览器先超时、用户再重复点击。
@@ -165,7 +181,9 @@ def commit_sales_import(preview, *, actor, company, source_file, people=None):
             )
 
         sales_group = Group.objects.get(name="sales")
-        owners = _resolve_owners(rows, people or {}, sales_group, company)
+        owners = _resolve_owners(
+            rows, people or {}, sales_group, company, create_missing=create_missing
+        )
         customers = _resolve_customers(rows, company)
         _ensure_assignments(rows, owners, customers)
         rates = _rate_lookup(company)
@@ -204,15 +222,14 @@ def commit_sales_import(preview, *, actor, company, source_file, people=None):
     return preview.valid_row_count
 
 
-def _resolve_owners(rows, people, sales_group, company):
-    """一次性把姓名映射成账号。没有的按姓名建号（保持原有页面导入行为）。"""
-    names = {row["owner_name"] for row in rows}
-    resolved = {name: people[name] for name in names if name in people}
-    missing = names - set(resolved)
-    if missing:
-        existing = {user.username: user for user in User.objects.filter(username__in=missing)}
-        for name in missing:
-            resolved[name] = existing.get(name) or User.objects.create(username=name)
+def _resolve_owners(rows, people, sales_group, company, *, create_missing=False):
+    """一次性把姓名映射成账号。登录名和 first_name 都参与匹配，避免把
+    已有拼音账号当成新人再建一遍。"""
+    resolved = resolve_import_people(
+        (row["owner_name"] for row in rows),
+        provided=people,
+        create_missing=create_missing,
+    )
     for user in resolved.values():
         user.groups.add(sales_group)
         grant_company_access(user, [company])

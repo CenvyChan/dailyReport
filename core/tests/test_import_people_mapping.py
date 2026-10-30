@@ -4,6 +4,8 @@ from decimal import Decimal
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 
+from core.errors import UnresolvedImportPeople
+from core.services.users import describe_import_people
 from core.testing import company_a
 from purchase.importers import ImportPreview as PurchasePreview, commit_purchase_import
 from purchase.models import PurchaseReceipt
@@ -88,25 +90,74 @@ class ImportPeopleMappingTests(TestCase):
         self.assertFalse(User.objects.filter(username="李四").exists())
         self.assertTrue(lisi.groups.filter(name="purchase").exists())
 
-    def test_without_a_mapping_the_chinese_name_becomes_the_username(self):
-        """页面导入不传映射，保持原有行为（按姓名自动建号）。"""
+    def test_chinese_name_matches_existing_account_by_first_name(self):
+        """回归：系统里是 xuyingjia/first_name=许莹佳，源表写许莹佳时必须复用，
+        不能另建一个中文名账号。2026-10-30 的重复账号事故就是这条没做到。"""
+        zhangsan = User.objects.create_user("zhangsan", first_name="张三")
+
         commit_sales_import(
             sales_preview(), actor=self.admin, company=self.company, source_file="t.xls"
         )
 
-        self.assertTrue(User.objects.filter(username="张三").exists())
-        self.assertEqual(SalesShipment.objects.get().owner.username, "张三")
+        self.assertEqual(SalesShipment.objects.get().owner, zhangsan)
+        self.assertFalse(User.objects.filter(username="张三").exists())
 
-    def test_a_name_missing_from_the_mapping_falls_back_to_auto_creation(self):
+    def test_unknown_name_is_rejected_instead_of_creating_an_account(self):
+        with self.assertRaises(UnresolvedImportPeople):
+            commit_sales_import(
+                sales_preview(), actor=self.admin, company=self.company, source_file="t.xls"
+            )
+
+        self.assertFalse(User.objects.filter(username="张三").exists())
+        self.assertEqual(SalesShipment.objects.count(), 0)
+
+    def test_a_name_missing_from_the_mapping_is_rejected(self):
+        with self.assertRaises(UnresolvedImportPeople):
+            commit_sales_import(
+                sales_preview(),
+                actor=self.admin,
+                company=self.company,
+                source_file="t.xls",
+                people={"王五": User.objects.create_user("wangwu")},
+            )
+
+        self.assertFalse(User.objects.filter(username="张三").exists())
+
+    def test_create_missing_still_available_when_explicitly_requested(self):
+        """页面勾选「为未匹配姓名建号」后才允许创建，且必须写入 first_name，
+        否则下次导入仍然匹配不上。"""
         commit_sales_import(
             sales_preview(),
             actor=self.admin,
             company=self.company,
             source_file="t.xls",
-            people={"王五": User.objects.create_user("wangwu")},
+            create_missing=True,
         )
 
-        self.assertEqual(SalesShipment.objects.get().owner.username, "张三")
+        created = User.objects.get(username="张三")
+        self.assertEqual(created.first_name, "张三")
+        self.assertEqual(SalesShipment.objects.get().owner, created)
+
+    def test_ambiguous_name_is_rejected(self):
+        User.objects.create_user("zhangsan1", first_name="张三")
+        User.objects.create_user("zhangsan2", first_name="张三")
+
+        with self.assertRaises(UnresolvedImportPeople) as raised:
+            commit_sales_import(
+                sales_preview(), actor=self.admin, company=self.company, source_file="t.xls"
+            )
+
+        self.assertIn("张三", str(raised.exception))
+        self.assertEqual(SalesShipment.objects.count(), 0)
+
+    def test_preview_describes_matched_and_unmatched_names(self):
+        User.objects.create_user("zhangsan", first_name="张三")
+
+        info = describe_import_people(["张三", "李四"])
+
+        self.assertEqual(info["matched"][0]["username"], "zhangsan")
+        self.assertEqual(info["unmatched"], ["李四"])
+        self.assertEqual(info["ambiguous"], [])
 
     def test_mapped_account_keeps_its_existing_roles(self):
         both = User.objects.create_user("both")

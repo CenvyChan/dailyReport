@@ -55,8 +55,14 @@ class SalesBulkImportTests(TestCase):
 
     def commit(self, rows, rates=()):
         preview = SalesPreview(len(rows), [], rows, rate_errors=[], exchange_rates=rates)
+        # 这组测试关注批量写入本身，人员用 create_missing 建出来即可；
+        # 显式建号的严格行为由 test_import_people_mapping 覆盖。
         return commit_sales_import(
-            preview, actor=self.admin, company=self.company, source_file="t.xls"
+            preview,
+            actor=self.admin,
+            company=self.company,
+            source_file="t.xls",
+            create_missing=True,
         )
 
     def count_queries(self, action):
@@ -134,6 +140,7 @@ class SalesBulkImportTests(TestCase):
             company=self.company,
             source_file="t.xls",
             people={"业务0": mapped},
+            create_missing=True,
         )
 
         self.assertTrue(SalesShipment.objects.filter(owner=mapped).exists())
@@ -178,7 +185,11 @@ class PurchaseBulkImportTests(TestCase):
     def commit(self, rows):
         preview = PurchasePreview(len(rows), [], rows, rate_errors=[])
         return commit_purchase_import(
-            preview, actor=self.admin, company=self.company, source_file="t.xls"
+            preview,
+            actor=self.admin,
+            company=self.company,
+            source_file="t.xls",
+            create_missing=True,
         )
 
     def test_all_rows_are_written_with_correct_amounts(self):
