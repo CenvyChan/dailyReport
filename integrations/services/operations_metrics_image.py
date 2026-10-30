@@ -17,7 +17,6 @@ TEMPLATE = """<!doctype html>
     background: {background}; color: {text};
     font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
   }}
-  .unit {{ font-size: 13px; color: {muted}; padding: 0 0 6px 4px; }}
   table {{ border-collapse: separate; border-spacing: 8px; margin: -8px; }}
   thead th {{
     font-size: 15px; font-weight: 400; color: {muted};
@@ -27,14 +26,13 @@ TEMPLATE = """<!doctype html>
     font-size: 18px; text-align: left; padding-right: 6px; white-space: nowrap;
   }}
   td {{
-    background: {surface}; border-radius: 8px; padding: 10px 14px;
+    background: {surface}; border-radius: 8px; padding: 8px 12px;
     font-size: 32px; font-weight: 700; white-space: nowrap;
   }}
 </style></head><body>
 <div class="card" id="metrics-card">
-<div class="unit">单位：万元</div>
 <table>
-<thead><tr><th></th>{headers}</tr></thead>
+<thead><tr><th>单位：万元</th>{headers}</tr></thead>
 <tbody>
 {rows}
 </tbody>
