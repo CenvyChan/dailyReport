@@ -6,177 +6,372 @@
 <title>FINOSSReportSystem · 用户使用指南</title>
 <style>
 :root{
-  --ink:#1f2328; --muted:#656d76; --line:#d8dee4; --bg:#f6f8fa;
-  --brand:#0969da; --ok:#1a7f37; --warn:#9a6700; --danger:#cf222e;
+  --ink:#1f2328; --muted:#667085; --line:#e4e9f0; --bg:#f4f6fb;
+  --brand:#4f46e5; --brand-2:#06b6d4; --brand-soft:#eef2ff;
+  --ok:#0f7b4f; --ok-bg:#e8f7ef; --warn:#9a6700; --warn-bg:#fff7e6;
+  --danger:#c62828; --danger-bg:#fdecec; --panel:#ffffff; --soft:#f8fafc;
 }
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.75 "Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink);background:var(--bg)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
-header.top{background:#fff;border-bottom:1px solid var(--line);padding:28px 0;margin-bottom:28px}
-header.top .wrap{padding-bottom:0}
-h1{margin:0 0 6px;font-size:26px}
-.sub{color:var(--muted);margin:0}
-nav.toc{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin-bottom:28px}
-nav.toc strong{display:block;margin-bottom:8px}
-nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:32px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px 72px}
+
+/* ---- 顶部品牌区：与登录页同一套深色渐变 ---- */
+header.top{
+  position:relative;overflow:hidden;color:#eef2ff;
+  background:linear-gradient(135deg,#0b1220 0%,#111a33 55%,#0e2b3a 100%);
+  padding:42px 0 38px;margin-bottom:-34px;
+}
+header.top::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:38px 38px;
+  mask-image:radial-gradient(85% 85% at 50% 40%,#000 40%,transparent 100%);
+  -webkit-mask-image:radial-gradient(85% 85% at 50% 40%,#000 40%,transparent 100%);
+}
+header.top .wrap{position:relative;z-index:1;padding-bottom:0}
+.mark{display:flex;align-items:center;gap:12px;font-size:14.5px;font-weight:600;letter-spacing:.6px}
+.mark .logo{
+  display:grid;place-items:center;width:96px;height:54px;padding:4px 6px;
+  border-radius:10px;border:1px solid rgba(255,255,255,.4);background:#fff;
+  box-shadow:0 0 22px -5px rgba(99,102,241,.8);
+}
+.mark .logo img{width:100%;height:100%;object-fit:contain;display:block}
+.mark .amp{font-weight:400;color:#94a3b8}
+h1{margin:26px 0 6px;font-size:30px;letter-spacing:-.4px}
+.sub{margin:0;color:#a5b4fc;font-size:14px}
+.sub code{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#e0e7ff}
+
+.container{position:relative;z-index:2}
+
+/* ---- 目录 ---- */
+nav.toc{
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:20px 24px;margin-bottom:22px;box-shadow:0 20px 40px -30px rgba(15,23,42,.45);
+}
+nav.toc strong{display:block;margin-bottom:10px;font-size:14px;color:var(--muted);letter-spacing:.5px}
+nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:36px;font-size:14px}
+nav.toc li{margin:5px 0}
 nav.toc a{color:var(--brand);text-decoration:none}
 nav.toc a:hover{text-decoration:underline}
-section{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px 28px;margin-bottom:22px}
-h2{margin:0 0 4px;font-size:20px;padding-bottom:10px;border-bottom:2px solid var(--brand);display:inline-block}
-h3{font-size:16px;margin:24px 0 8px}
+
+section{
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:28px 32px;margin-bottom:20px;box-shadow:0 20px 40px -34px rgba(15,23,42,.4);
+}
+.eyebrow{display:block;font-size:11px;letter-spacing:2px;color:var(--brand);font-weight:700;margin-bottom:4px}
+h2{margin:0 0 14px;font-size:21px;letter-spacing:-.2px}
+h3{font-size:16px;margin:26px 0 8px}
+h4{font-size:14.5px;margin:18px 0 6px}
 p{margin:10px 0}
-ol.steps{padding-left:0;list-style:none;counter-reset:s}
-ol.steps>li{counter-increment:s;position:relative;padding:0 0 14px 38px;margin:0}
-ol.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;
-  background:var(--brand);color:#fff;font-size:13px;text-align:center;line-height:24px;font-weight:700}
-.note,.warn,.tip{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:14px}
-.note{border-color:var(--brand);background:#ddf4ff}
-.warn{border-color:var(--danger);background:#ffebe9}
-.tip{border-color:var(--ok);background:#dafbe1}
-.note b,.warn b,.tip b{display:block;margin-bottom:2px}
+ul,ol{padding-left:22px}
+li{margin:5px 0}
+
+.note,.warn,.tip{border-left:4px solid;padding:13px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
+.note{border-color:var(--brand);background:var(--brand-soft)}
+.warn{border-color:var(--danger);background:var(--danger-bg)}
+.tip{border-color:var(--ok);background:var(--ok-bg)}
+.note>b:first-child,.warn>b:first-child,.tip>b:first-child{display:block;margin-bottom:2px}
+
 table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
 th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
-th{background:var(--bg);font-weight:600}
-code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px;
+th{background:var(--soft);font-weight:600}
+td.num,th.num{text-align:right}
+code{background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;
   font-family:Consolas,"Courier New",monospace}
 
+ol.steps{padding-left:0;list-style:none;counter-reset:s;margin:12px 0}
+ol.steps>li{counter-increment:s;position:relative;padding:0 0 14px 40px;margin:0}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-size:13px;
+  text-align:center;line-height:26px;font-weight:700}
+
+.pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.info{background:var(--brand-soft);color:var(--brand)}
+.pill.off{background:#f1f3f5;color:#868e96}
+
 /* ---- 界面原型 ---- */
-.mock{border:1px solid #c8d1d9;border-radius:8px;overflow:hidden;margin:16px 0;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.mock .bar{background:#e8ecf0;border-bottom:1px solid #c8d1d9;padding:7px 12px;display:flex;align-items:center;gap:7px}
-.mock .dot{width:11px;height:11px;border-radius:50%;background:#c8d1d9}
-.mock .url{flex:1;background:#fff;border:1px solid #d8dee4;border-radius:4px;padding:3px 10px;
+.mock{border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;margin:18px 0;background:#fff;
+  box-shadow:0 18px 36px -28px rgba(15,23,42,.55)}
+.mock .bar{background:#e9eef5;border-bottom:1px solid #cbd5e1;padding:7px 12px;display:flex;align-items:center;gap:7px}
+.mock .dot{width:10px;height:10px;border-radius:50%;background:#cbd5e1}
+.mock .url{flex:1;background:#fff;border:1px solid #dbe2ea;border-radius:5px;padding:3px 10px;
   font:12px Consolas,monospace;color:var(--muted)}
 .mock .body{padding:0}
-.appnav{background:#24292f;color:#e6edf3;padding:9px 14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px}
-.appnav a{color:#e6edf3;text-decoration:none;opacity:.85}
-.appnav a.on{opacity:1;font-weight:700;border-bottom:2px solid #58a6ff;padding-bottom:2px}
+.appnav{background:#0b1220;color:#e6edf3;padding:9px 14px;display:flex;align-items:center;gap:15px;
+  flex-wrap:wrap;font-size:12.5px}
+.appnav .brand{display:inline-flex;align-items:center;gap:7px;font-weight:700}
+.appnav .brand .mini{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;
+  background:linear-gradient(135deg,#6366f1,#22d3ee);font-size:11px;color:#fff}
+.appnav a{color:#e6edf3;text-decoration:none;opacity:.82}
+.appnav a.on{opacity:1;font-weight:700;border-bottom:2px solid #818cf8;padding-bottom:2px}
 .appnav .spacer{flex:1}
-.chip{background:#2d6cdf;color:#fff;padding:2px 10px;border-radius:12px;font-size:12px;white-space:nowrap}
-.screen{padding:20px 22px}
-.screen h4{margin:0 0 14px;font-size:17px}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-.inp{border:1px solid #c8d1d9;border-radius:6px;padding:7px 10px;background:#fff;font-size:14px;min-height:34px}
-.inp.sel{background:#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23656d76'/></svg>") no-repeat right 10px center}
-.inp.ph{color:#8c959f}
-.btn{display:inline-block;background:var(--brand);color:#fff;border-radius:6px;padding:7px 18px;font-size:14px;font-weight:600}
-.btn.gray{background:#f6f8fa;color:var(--ink);border:1px solid #c8d1d9}
-.btn.dim{background:#94a3b8}
-.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
-.grow{flex:1;min-width:150px}
-table.data{margin:0;font-size:13px}
-table.data th{background:#f6f8fa}
-.callout{display:inline-block;background:var(--danger);color:#fff;border-radius:50%;width:20px;height:20px;
-  font-size:12px;font-weight:700;text-align:center;line-height:20px;margin-right:6px}
-.legend{margin:10px 0 0;padding-left:0;list-style:none;font-size:14px}
-.legend li{margin:5px 0}
+.appnav .search{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:7px;
+  border:1px solid rgba(129,140,248,.55);background:linear-gradient(135deg,rgba(99,102,241,.22),rgba(34,211,238,.14));
+  color:#e0e7ff;font-size:11.5px}
+.appnav .search kbd{background:rgba(99,102,241,.3);border:1px solid rgba(129,140,248,.5);border-radius:4px;
+  padding:0 4px;font:10px Consolas,monospace;color:#c7d2fe}
+.chip{background:rgba(99,102,241,.18);border:1px solid rgba(129,140,248,.45);color:#c7d2fe;
+  padding:2px 10px;border-radius:999px;font-size:11.5px;white-space:nowrap}
+.iconpill{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;
+  border:1px solid rgba(255,255,255,.2);font-size:11px;color:#cbd5e1}
+.screen{padding:20px 22px;background:#f8fafc}
+.screen h5{margin:0 0 12px;font-size:16px}
+.statrow{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.stat{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff}
+.stat span{display:block;font-size:11.5px;color:var(--muted)}
+.stat b{font-size:17px}
+.stat.key{border-color:#c7d2fe;background:#f5f7ff}
+.filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px solid var(--line);
+  border-radius:10px;padding:10px 12px;background:#fff;margin-bottom:14px;font-size:12px}
+.filterbar .f{border:1px solid #d7dee8;border-radius:6px;padding:4px 9px;background:#fff;color:#475467}
+.filterbar .f.on{background:var(--brand);border-color:var(--brand);color:#fff}
+table.data{margin:0;font-size:12.5px;background:#fff}
+table.data th{background:#f8fafc}
+table.data td{padding:7px 10px}
+.btn{display:inline-block;border-radius:7px;padding:5px 12px;font-size:12.5px;font-weight:600;
+  background:var(--brand);color:#fff}
+.btn.gray{background:#fff;color:#344054;border:1px solid #d7dee8}
+.btn.dim{background:#c7d2fe;color:#fff}
+.pager{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
+.pager span{border:1px solid var(--line);border-radius:5px;padding:2px 7px;background:#fff}
+.pager span.cur{background:var(--brand-soft);border-color:#c7d2fe;color:var(--brand);font-weight:700}
+
 .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.kpi div{flex:1;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:9px 12px;background:#f6f8fa}
-.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi div{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:#fff}
+.kpi span{display:block;font-size:11.5px;color:var(--muted)}
 .kpi b{font-size:18px}
-.chartbox{border:1px dashed #c8d1d9;border-radius:6px;height:96px;display:flex;align-items:center;
-  justify-content:center;color:#8c959f;font-size:13px;background:#fbfcfd}
-.faq dt{font-weight:700;margin-top:14px}
-.faq dd{margin:4px 0 0 0;color:#333}
-footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
-@media(max-width:720px){nav.toc ol{columns:1}}
+.chartbox{border:1px dashed #c7d2fe;border-radius:10px;height:104px;display:flex;align-items:center;
+  justify-content:center;color:#818cf8;font-size:13px;background:#f8faff}
+
+.legend{margin:10px 0 0;padding-left:0;list-style:none;font-size:14px}
+.legend li{margin:6px 0;padding-left:26px;position:relative}
+.legend li::before{content:"→";position:absolute;left:0;color:var(--brand);font-weight:700}
+/* ---- 初始账号 ---- */
+.cred{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+.cred-item{border:1px solid #c7d2fe;border-radius:12px;padding:14px 16px;
+  background:linear-gradient(135deg,#eef2ff,#f0fdff)}
+.cred-item .k{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.cred-item b{font-size:18px}
+.cred-item small{display:block;color:var(--muted);margin-top:4px;font-size:12.5px}
+.copy{display:inline-flex;align-items:center;gap:10px;border:1px dashed #a5b4fc;border-radius:9px;
+  background:#fff;color:var(--brand);font:600 18px/1.4 Consolas,monospace;padding:6px 12px;cursor:pointer}
+.copy em{font:400 12px "Microsoft YaHei",sans-serif;color:var(--muted);font-style:normal}
+.copy:hover{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.1);filter:none}
+.copy.copied{border-style:solid;border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+.faq dt{font-weight:700;margin-top:16px}
+.faq dd{margin:4px 0 0;color:#344054}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mini-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--soft)}
+.mini-card h4{margin:0 0 6px}
+footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
+@media(max-width:760px){
+  nav.toc ol{columns:1}
+  section{padding:22px 20px}
+  .grid2{grid-template-columns:1fr}
+  .cred{grid-template-columns:1fr}
+  h1{font-size:25px}
+}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <h1>FINOSSReportSystem · 用户使用指南</h1>
-  <p class="sub">面向销售、采购与管理人员　·　访问地址 <code>http://172.16.77.80:8001/</code></p>
+  <div class="mark">
+    <span class="logo" aria-hidden="true">
+      <img src="/static/images/logo-fns.png" alt="">
+    </span>
+    <span>FINOSS 飞诺斯 <span class="amp">&amp;</span> 汇慧</span>
+  </div>
+  <h1>用户使用指南</h1>
+  <p class="sub">面向销售、采购与管理人员　·　访问地址 <code>http://172.16.77.80:8001/</code>　·　更新于 2026-10-30</p>
 </div></header>
 
-<div class="wrap">
+<div class="wrap container">
 
 <nav class="toc">
   <strong>目录</strong>
   <ol>
     <li><a href="#login">登录与选择公司</a></li>
+    <li><a href="#nav">导航、快捷搜索与个人设置</a></li>
     <li><a href="#switch">切换公司</a></li>
     <li><a href="#entry">录入日报</a></li>
+    <li><a href="#master">维护客户、供应商与汇率</a></li>
+    <li><a href="#report">报表与分析</a></li>
+    <li><a href="#kingdee">金蝶数据：核对、出入库与客商映射</a></li>
+    <li><a href="#payment">钉钉付款申请</a></li>
+    <li><a href="#push">每日日报推送</a></li>
     <li><a href="#import">导入历史数据</a></li>
-    <li><a href="#report">查看报表与导出</a></li>
-    <li><a href="#mail">每日邮件推送</a></li>
     <li><a href="#faq">常见问题</a></li>
   </ol>
 </nav>
 
 <div class="note">
   <b>先理解一件事：数据按公司隔离</b>
-  系统里有飞诺斯和宁波汇慧两家公司。你的账号和密码两家共用，但<b>业务数据完全分开</b>——登录飞诺斯时看到的客户、日报、报表，都只属于飞诺斯。所以每次操作前，先确认导航栏上「当前公司」是不是你要的那家。
+  系统里有<b>飞诺斯电子科技有限公司</b>和<b>宁波汇慧有限公司</b>两家公司。你的账号和密码两家共用，
+  但<b>业务数据完全分开</b>——登录飞诺斯时看到的客户、日报、报表，都只属于飞诺斯。
+  所以每次操作前，先确认导航栏上的「当前公司」是不是你要的那家。
 </div>
 
 <!-- 1 登录 -->
 <section id="login">
+  <span class="eyebrow">SECTION 01</span>
   <h2>1. 登录与选择公司</h2>
   <p>浏览器打开 <code>http://172.16.77.80:8001/</code>，会跳到登录页。<b>先选公司，再输账号密码。</b></p>
 
   <div class="mock">
     <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span class="url">http://172.16.77.80:8001/accounts/login/</span></div>
-    <div class="body"><div class="screen">
-      <h4>日报登录</h4>
-      <p style="font-size:13px;color:#656d76;margin-top:0">先选择要进入的公司，再输入账号密码；各公司的业务数据相互隔离，账号和角色在公司之间共用。</p>
-      <div class="field"><label><span class="callout">1</span>公司</label><div class="inp sel">飞诺斯电子科技有限公司</div></div>
-      <div class="field"><label>用户名</label><div class="inp ph">你的账号</div></div>
-      <div class="field"><label>密码</label><div class="inp ph">••••••••</div></div>
-      <div class="btn">登录</div>
-    </div></div>
+    <div class="body">
+      <div style="display:flex;min-height:250px">
+        <div style="flex:1;padding:22px;color:#eef2ff;background:linear-gradient(135deg,#0b1220,#111a33 60%,#0e2b3a)">
+          <div style="display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600">
+            <span style="display:grid;place-items:center;width:48px;height:28px;padding:2px 4px;border-radius:6px;background:#fff"><img src="/static/images/logo-fns.png" alt="" style="width:100%;height:100%;object-fit:contain;display:block"></span>
+            FINOSS 飞诺斯 <span style="color:#94a3b8;font-weight:400">&amp;</span> 汇慧
+          </div>
+          <div style="margin-top:34px;font-size:20px;font-weight:700;line-height:1.5">采购销售日报<br>数据管理平台</div>
+          <div style="margin-top:16px;font-size:10.5px;color:#94a3b8">多公司数据隔离 · 采销实时对比 · 日报自动推送</div>
+        </div>
+        <div style="flex:1;padding:22px 24px;background:#fff">
+          <b style="font-size:17px">登录</b>
+          <div style="font-size:11.5px;color:#667085;margin:12px 0 4px">公司 <span style="color:#c62828">*</span></div>
+          <div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">飞诺斯电子科技有限公司 ▾</div>
+          <div style="font-size:11.5px;color:#667085;margin:10px 0 4px">用户名 <span style="color:#c62828">*</span></div>
+          <div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;height:34px"></div>
+          <div style="font-size:11.5px;color:#667085;margin:10px 0 4px">密码 <span style="color:#c62828">*</span></div>
+          <div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;height:34px"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+            <div class="btn" style="flex:1;text-align:center;padding:9px">登录</div>
+            <span class="iconpill" style="border-color:#d7dee8;color:#667085">?</span>
+            <span class="iconpill" style="border-color:#d7dee8;color:#667085">☾</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <ul class="legend">
-    <li><span class="callout">1</span>下拉框里只会出现<b>你被授权的公司</b>。如果少了某家，说明还没给你开权限，找管理员添加。</li>
+    <li>下拉框里只会出现<b>你被授权的公司</b>。如果少了某家，说明还没给你开权限，找管理员添加。</li>
+    <li>登录按钮右侧的 <b>?</b> 随时可以打开本指南，<b>☾</b> 切换明暗主题。两者都不需要登录。</li>
   </ul>
 
-  <h3>首次登录必须改密码</h3>
-  <p>管理员给你的是初始密码。第一次登录后系统会强制跳到「完善账号信息」页，需要<b>填写本人邮箱并修改密码</b>，完成后才能进入其他功能。邮箱用于接收日报推送，之后可在「个人设置」里改。</p>
-  <div class="tip"><b>密码建议</b>不要用工号、生日、连续数字。改完请自己记牢，忘记只能找管理员重置。</div>
-  <div class="warn"><b>登录提示「当前账号没有该公司的访问权限」</b>说明你选错了公司，或者管理员还没给你授权这家公司。换一家试试，或联系管理员。</div>
+  <h3>初始账号规则</h3>
+  <div class="cred">
+    <div class="cred-item">
+      <span class="k">用户名</span>
+      <b>姓名全拼</b>
+      <small>例如：张三 → <code>zhangsan</code>，许梦维 → <code>xumengwei</code></small>
+    </div>
+    <div class="cred-item">
+      <span class="k">默认密码</span>
+      <button type="button" class="copy" data-copy="fns112233.">fns112233.<em>点击复制</em></button>
+    </div>
+  </div>
+  <p>账号由管理员创建，两家公司共用同一个用户名和密码。首次登录后请立即按提示修改密码；忘记密码只能找管理员重置。</p>
+
+  <h3>首次登录必须完善账号信息</h3>
+  <p>管理员给你的是初始密码。第一次登录后系统会跳到「首次登录，请完善账号信息」页，需要<b>填写本人邮箱并修改密码</b>，完成后才能进入其他功能。邮箱用于接收日报推送与系统通知，之后可在「个人设置」里修改。</p>
+  <div class="tip"><b>密码规则</b>至少 8 位，不能是纯数字，也不能是 password、12345678 这类常见弱密码。改完请自己记牢，忘记只能找管理员重置。</div>
+  <div class="warn"><b>提示「当前账号没有该公司的访问权限」</b>说明你选错了公司，或者管理员还没给你授权这家公司。换一家试试，或联系管理员在「用户公司授权」中添加。</div>
 </section>
 
-<!-- 2 切换公司 -->
-<section id="switch">
-  <h2>2. 切换公司</h2>
-  <p>登录后，导航栏右侧显示<b>当前公司</b>。如果你被授权了两家公司，旁边会出现切换下拉框；只授权一家的话不显示，也不需要切换。</p>
+<!-- 2 导航 -->
+<section id="nav">
+  <span class="eyebrow">SECTION 02</span>
+  <h2>2. 导航、快捷搜索与个人设置</h2>
+  <p>登录后顶部导航按用途分成三组。你能看到哪些入口，取决于管理员给你的角色和公司授权。</p>
 
   <div class="mock">
     <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span class="url">http://172.16.77.80:8001/sales/shipments/</span></div>
     <div class="body">
       <div class="appnav">
-        <a class="on" href="#">销售</a><a href="#">采购</a><a href="#">销售分析</a><a href="#">采购分析</a>
+        <span class="brand"><span class="mini">⚡</span>FINOSS<em style="font-style:normal;color:#a5b4fc">Report</em></span>
+        <a class="on" href="#">销售</a><a href="#">采购</a><a href="#">分析 ▾</a><a href="#">资料 ▾</a><a href="#">系统 ▾</a>
         <span class="spacer"></span>
-        <span class="chip">当前公司：飞诺斯</span>
-        <span><span class="callout">1</span>切换公司 <span style="border:1px solid #57606a;border-radius:4px;padding:1px 8px">飞诺斯 ▾</span> <span class="btn gray" style="padding:2px 10px;font-size:12px">切换</span></span>
-        <span style="opacity:.8">zhangsan</span><span class="btn gray" style="padding:2px 10px;font-size:12px">退出</span>
+        <span class="search">🔍 快捷跳转 <kbd>Ctrl K</kbd></span>
+        <span class="chip">● 当前公司：飞诺斯</span>
+        <span class="iconpill">?</span>
+        <span class="iconpill">☾</span>
+        <span class="chip" style="border-radius:999px">a　admin ▾</span>
       </div>
       <div class="screen">
-        <h4>销售日报</h4>
+        <h5>销售日报</h5>
+        <div class="statrow">
+          <div class="stat"><span>记录数</span><b>206 <small>条</small></b></div>
+          <div class="stat"><span>数量合计</span><b>6,898,700</b></div>
+          <div class="stat"><span>美元金额</span><b>408,384.58</b></div>
+          <div class="stat key"><span>折算人民币合计</span><b>8,939,360.13</b></div>
+        </div>
+        <div class="filterbar">
+          <span class="f">2026-10-01</span><span>至</span><span class="f">2026-10-30</span>
+          <span class="f on">本月</span><span class="f">本周</span><span class="f">本年</span><span class="f">重置</span>
+        </div>
         <table class="data">
-          <tr><th>日期</th><th>客户</th><th>负责人</th><th>类型</th><th>数量</th><th>金额</th></tr>
-          <tr><td>2026-08-21</td><td>示例客户乙</td><td>lisi</td><td>内销</td><td>534,464</td><td>12,345.67</td></tr>
+          <tr><th>日期</th><th>客户</th><th>负责人</th><th>类型</th><th class="num">数量</th><th>币种</th><th class="num">原币金额</th><th class="num">折算人民币</th><th>操作</th></tr>
+          <tr><td>2026-10-29</td><td>佛山益源</td><td>许梦维</td><td><span class="pill ok">内销</span></td><td class="num">5,000</td><td>CNY</td><td class="num">1,990.00</td><td class="num">1,990.00</td><td>编辑 删除</td></tr>
+          <tr><td>2026-10-29</td><td>印度台达</td><td>许莹佳</td><td><span class="pill info">外销</span></td><td class="num">21,034</td><td>USD</td><td class="num">11,371.99</td><td class="num">76,591.49</td><td>编辑 删除</td></tr>
         </table>
       </div>
     </div>
   </div>
 
-  <ul class="legend">
-    <li><span class="callout">1</span>选好公司点「切换」。切换后<b>所有页面</b>（日报、报表、导出、导入）都跟着换到那家公司的数据。</li>
+  <table>
+    <tr><th style="width:90px">入口</th><th>包含内容</th><th>谁能看到</th></tr>
+    <tr><td><b>销售</b></td><td>销售日报列表、新增出货、历史数据导入</td><td>销售、管理员、报表查看者</td></tr>
+    <tr><td><b>采购</b></td><td>采购日报列表、新增采购、历史数据导入</td><td>采购、管理员、报表查看者</td></tr>
+    <tr><td><b>分析</b></td><td>销售分析、采购分析、采销对比、数据核对、金蝶出入库、钉钉付款、客商映射</td><td>有销售或采购权限的账号</td></tr>
+    <tr><td><b>资料</b></td><td>客户、供应商、汇率</td><td>客户：销售；供应商：采购；汇率：管理员</td></tr>
+    <tr><td><b>系统</b></td><td>用户、邮件推送、集成配置</td><td>仅管理员</td></tr>
+  </table>
+
+  <h3>快捷搜索：Ctrl + K</h3>
+  <p>光标不在输入框里时，按 <code>Ctrl</code> + <code>K</code>（Mac 用 <code>⌘</code> + <code>K</code>）会弹出搜索框，输入「销售、汇率、采销对比」等关键词即可跳转。条目会跟着你的权限走，搜不到没授权的页面。</p>
+  <div class="tip"><b>高频操作建议</b>把 Ctrl + K 当成主入口：不用记菜单位置，输入两三个字就能到目标页面。</div>
+
+  <h3>个人设置与帮助</h3>
+  <ul>
+    <li>点右上角头像 →「个人设置」，可修改<b>本人邮箱</b>（用于日报推送和系统通知），也可以在那个菜单里修改密码。</li>
+    <li>点右上角头像 →「帮助」，或主题开关旁边的 <b>?</b>，都会新开标签页打开本指南。</li>
+    <li>主题开关只影响你自己的浏览器，不会改别人的界面。</li>
   </ul>
-  <div class="note"><b>怎么确认切换成功</b>看「当前公司」这个标签变了没有。列表里的数据也会整体变化——两家公司的客户和金额本来就不一样。</div>
+
+  <h3>谁能看、谁能改</h3>
+  <table>
+    <tr><th>角色</th><th>查看</th><th>录入 / 修改 / 删除</th></tr>
+    <tr><td>管理员</td><td>本公司全部数据</td><td>全部</td></tr>
+    <tr><td>销售</td><td>本公司全部销售日报</td><td>只有<b>自己负责的客户</b>的日报；客户资料同理</td></tr>
+    <tr><td>采购</td><td>本公司全部采购日报</td><td>只有<b>自己负责的供应商</b>的日报；供应商资料同理</td></tr>
+    <tr><td>报表查看者</td><td>本公司全部日报与报表</td><td>不能录入、修改、删除</td></tr>
+  </table>
+  <div class="note"><b>为什么看得到别人的单却改不了</b>系统故意把「看」和「改」分开：公司内互相可见便于核对，但写权限只属于客户/供应商的归属人。看到「编辑」按钮点下去被拒，说明这笔单的客户不在你名下。</div>
 </section>
 
-<!-- 3 录入 -->
+<!-- 3 切换公司 -->
+<section id="switch">
+  <span class="eyebrow">SECTION 03</span>
+  <h2>3. 切换公司</h2>
+  <p>登录后，导航栏右侧显示<b>当前公司</b>。点开这个胶囊就能切换；只授权一家公司时，面板里会提示「你的账号只授权了这一家公司」，不需要切换。</p>
+  <ol class="steps">
+    <li>点右上角「当前公司：××」胶囊。</li>
+    <li>在「切换公司」下拉里选择另一家公司。</li>
+    <li>点「切换」。所有页面（日报、报表、导出、导入）都会跟着换到那家公司的数据。</li>
+  </ol>
+  <div class="note"><b>怎么确认切换成功</b>看「当前公司」标签变了没有。列表里的数据也会整体变化——两家公司的客户和金额本来就不一样。</div>
+  <div class="warn"><b>不要用两个标签页分别看两家公司</b>当前公司记录在同一个登录会话里，任一标签页切换都会影响其他已打开的页面。需要对比两家数据时，请分别导出 Excel。</div>
+</section>
+
+<!-- 4 录入 -->
 <section id="entry">
-  <h2>3. 录入日报</h2>
+  <span class="eyebrow">SECTION 04</span>
+  <h2>4. 录入日报</h2>
   <p>销售人员用「销售」菜单，采购人员用「采购」菜单。两边操作完全对称，下面以销售为例。</p>
 
   <ol class="steps">
     <li>点导航栏「销售」，进入销售日报列表。</li>
     <li>点「新增出货」。</li>
-    <li>填写客户、销售类型、出货日期、数量、金额，保存。</li>
+    <li>选择客户（连带确定负责人）、销售类型、出货日期，填写数量与金额，保存。</li>
   </ol>
 
   <div class="mock">
@@ -185,47 +380,235 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
     <div class="body">
       <div class="appnav"><a class="on" href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
       <div class="screen">
-        <h4>新增销售日报</h4>
-        <div class="field"><label><span class="callout">1</span>客户　<span style="font-size:12px">可输入客户名称或销售业务员进行筛选，然后从候选列表中选择</span></label><div class="inp ph">输入关键字后从下拉中选择…</div></div>
-        <div class="row">
-          <div class="field grow"><label><span class="callout">2</span>销售类型</label><div class="inp sel">内销</div></div>
-          <div class="field grow"><label>出货日期</label><div class="inp">2026-08-21</div></div>
+        <h5>新增销售日报</h5>
+        <p style="font-size:12px;color:#667085;margin-top:0">客户与负责人的对应关系决定这笔单归谁；金额填原币，人民币由系统折算。</p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div style="flex:2;min-width:260px">
+            <div style="font-size:12px;color:#667085;margin-bottom:4px">客户</div>
+            <div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px;color:#98a2b3">输入客户名称或业务员后从下拉中选择…</div>
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">销售类型</div><div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">内销 ▾</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">出货日期</div><div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">2026-10-29</div></div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">数量</div><div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">100</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">金额（原币）</div><div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">12345.67</div></div>
+            </div>
+            <div class="btn" style="margin-top:14px">保存</div>
+          </div>
+          <div style="flex:1;min-width:200px;border:1px dashed #c7d2fe;border-radius:10px;padding:12px;background:#f8faff">
+            <b style="font-size:12.5px">金蝶明细关联（可选）</b>
+            <p style="font-size:11.5px;color:#667085;margin:6px 0">搜索并选择金蝶出库明细，可把本次金额分摊到多行，用于后续金额核对。</p>
+            <div class="btn gray" style="font-size:11.5px">＋ 选择金蝶明细</div>
+          </div>
         </div>
-        <div class="row">
-          <div class="field grow"><label>数量</label><div class="inp">100</div></div>
-          <div class="field grow"><label><span class="callout">3</span>金额（原币）</label><div class="inp">12345.67</div></div>
-        </div>
-        <div class="btn">保存</div>
       </div>
     </div>
   </div>
 
   <ul class="legend">
-    <li><span class="callout">1</span>客户框<b>必须从下拉候选里选</b>，手打一个不存在的名字保存不了。候选里只有分配给你的客户；缺客户找管理员建档并分配。</li>
-    <li><span class="callout">2</span><b>内销记人民币，外销记美元</b>。选错会导致金额口径错误。</li>
-    <li><span class="callout">3</span>只填<b>原币金额</b>。外销填美元原值，系统按出货月份的汇率自动折算人民币，不用自己算。</li>
+    <li>客户框<b>必须从下拉候选里选</b>，手打一个不存在的名字保存不了。候选会显示为「客户名称（业务员）」，选中后<b>负责人自动带出</b>，不用另选。</li>
+    <li><b>内销记人民币，外销记美元</b>；采购对应「国内采购／国外采购」。选错会导致金额口径错误。</li>
+    <li>只填<b>原币金额</b>。外销/国外采购填美元原值，系统按业务日期所在月份的汇率自动折算人民币。</li>
+    <li><b>金蝶明细关联</b>不是必填。需要和财务对账时再关联；不关联也能正常录日报。</li>
   </ul>
 
   <div class="warn">
-    <b>提示「飞诺斯电子科技有限公司缺少 2026年08月 的美元兑人民币汇率」</b>
+    <b>提示「飞诺斯电子科技有限公司缺少 2026年10月 的美元兑人民币汇率」</b>
     外销/国外采购要用汇率折算，但这家公司这个月的汇率还没维护。汇率是<b>按公司分别维护</b>的，一家有不代表另一家也有。请管理员在「汇率」里补录后再保存。
   </div>
+  <div class="warn">
+    <b>提示「该客户还没有分配销售负责人」</b>
+    管理员代录时如果选了未分配客户，会被拦住。请先在客户资料里把该客户分配给具体业务员，再录日报。
+  </div>
 
-  <h3>修改与删除</h3>
-  <p>列表每行右侧有「编辑」「删除」。你只能看到和操作<b>自己名下</b>的日报（管理员可见全部）。所有修改删除都会记进操作日志，可追溯。</p>
-  <div class="warn"><b>删除不可撤销</b>点删除前请再确认一遍行内容。</div>
+  <h3>列表、筛选与合计</h3>
+  <p>列表默认按日期倒序。日期栏支持<b>今天／本周／本月／本年／全部</b>和前后翻页；下面还可以按<b>负责人、客户、币种</b>筛选，或直接搜索客户与负责人。搜索会跨全部时间，不受日期框限制。</p>
+  <p>顶部的<b>记录数、数量合计、美元金额、折算人民币合计</b>始终跟着当前筛选口径走，翻页不会改变合计。</p>
+  <div class="warn"><b>删除不可撤销</b>点删除前请再确认一遍行内容。所有新增、修改、删除都会记入操作日志，可追溯。</div>
 </section>
 
-<!-- 4 导入 -->
+<!-- 5 基础资料 -->
+<section id="master">
+  <span class="eyebrow">SECTION 05</span>
+  <h2>5. 维护客户、供应商与汇率</h2>
+
+  <h3>客户（销售角色）</h3>
+  <p>「资料 → 客户」里只会列出<b>你自己负责的客户</b>。新增客户时，系统默认把<b>你本人</b>设为负责人，保存后立即出现在你的录入候选里。</p>
+  <ul>
+    <li>客户名称在<b>同一家公司内</b>不能重复；两家公司可以各有一个同名客户。</li>
+    <li>客户可以停用。停用后不再出现在录入候选里，但历史日报保留。</li>
+    <li>管理员能看到本公司全部客户，并可在客户表单里调整负责业务员（可多选）。</li>
+  </ul>
+
+  <h3>供应商（采购角色）</h3>
+  <p>入口是「资料 → 供应商」，逻辑与客户完全对称：只看自己负责的供应商，新增时自动把自己设为采购负责人。</p>
+
+  <h3>汇率（管理员）</h3>
+  <p>「资料 → 汇率」按<b>公司 + 月份</b>维护美元兑人民币汇率，每月一条。外销销售和国外采购在保存时自动取<b>业务日期所在月份</b>的汇率作为快照；已经保存的日报不会因为以后改汇率而变化。</p>
+  <div class="note"><b>先维护汇率，再录外币业务</b>缺当月汇率时，外币日报保存会直接报错。内销/国内采购不受影响。</div>
+</section>
+
+<!-- 6 报表 -->
+<section id="report">
+  <span class="eyebrow">SECTION 06</span>
+  <h2>6. 报表与分析</h2>
+  <p>「分析 → 销售分析 / 采购分析」是本公司的图表看板，只统计<b>当前公司</b>的数据。两个看板操作完全对称。</p>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">http://172.16.77.80:8001/reports/sales/</span></div>
+    <div class="body">
+      <div class="appnav"><a href="#">销售</a><a href="#">采购</a><a class="on" href="#">分析</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
+      <div class="screen">
+        <h5>销售报表</h5>
+        <div class="filterbar">
+          <span class="f">开始日期 2026-10-01</span><span class="f">结束日期 2026-10-30</span>
+          <span class="f">负责人（全部）</span><span class="f">客户（全部）</span><span class="f">业务类型（全部）</span>
+          <span class="f on">筛选</span><span class="f">导出 Excel</span>
+        </div>
+        <div class="kpi">
+          <div><span>数量合计</span><b>1,250</b></div>
+          <div><span>人民币金额</span><b>986,540</b></div>
+          <div><span>美元金额</span><b>32,000</b></div>
+          <div><span>折算人民币合计</span><b>1,214,380</b></div>
+        </div>
+        <div class="chartbox">每日趋势 · 业务类型占比 · 月度趋势 · 客户排名 · 负责人排名</div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li>「本月 / 本周 / 本年」是快捷时间段，点一下自动填好日期。</li>
+    <li>负责人、客户支持输入片段搜索（原生联想），业务类型按下拉筛选。</li>
+    <li>「导出 Excel」导出的是<b>当前筛选条件下</b>的明细，文件名带公司代码，不会混进另一家公司。单次最多 5 万行，超过会提示收窄日期范围。</li>
+    <li>报表页右下角还有「导出当前口径」「客户排名」「负责人排名」等快捷块，点表格行也能继续下钻查看明细。</li>
+  </ul>
+
+  <div class="note">
+    <b>看懂金额口径</b>
+    「人民币」和「美元」是<b>各自币种的原币合计</b>，两者不能直接相加；「折算人民币」才是总额，按每笔录入当月的汇率快照折算。历史汇率变动不会改动已保存的日报金额。
+  </div>
+
+  <h3>采销对比</h3>
+  <p>「分析 → 采销对比」按月展示<b>全公司口径</b>的采购入库金额与销售金额：上方是每日销售 vs 采购柱状图，下方是逐日明细表，最后一行是月度合计。金额均为<b>未税口径</b>，与日报录入金额一致。</p>
+  <ul>
+    <li>「每天占比」= 当日采购 ÷ 当日销售，超过 100% 说明当天进货多于出货，属正常波动，不代表利润率。</li>
+    <li>可按年月切换，也可以导出当月对比 Excel。</li>
+    <li>只要账号能进入销售或采购任一模块，就能查看本公司的对比表；报表查看者也可以。</li>
+  </ul>
+</section>
+
+<!-- 7 金蝶 -->
+<section id="kingdee">
+  <span class="eyebrow">SECTION 07</span>
+  <h2>7. 金蝶数据：核对、出入库与客商映射</h2>
+  <p>系统会和金蝶云星空定时同步出入库单据。这里的页面都是<b>只读</b>的，数据由后台同步任务写入。</p>
+
+  <h3>系统数据 ↔ 金蝶核对</h3>
+  <p>按月、按业务类型（销售出库 / 采购入库）对比两侧的每日笔数、数量与金额：</p>
+  <table>
+    <tr><th>列</th><th>含义</th></tr>
+    <tr><td>系统笔数 / 数量 / 金额</td><td>本系统日报录入或历史导入的记录，金额为未税折人民币</td></tr>
+    <tr><td>金蝶单据 / 数量 / 金额</td><td>金蝶库存发生单据，金额口径可能含税</td></tr>
+    <tr><td>金额差 / 数量差</td><td>金蝶 − 系统。用于发现漏录、多录或口径差异，需要人工判断</td></tr>
+  </table>
+  <div class="note"><b>差值是线索，不是错误提示</b>两侧口径本来就不同（系统是业务员提报，金蝶是财务库存单据），有差额是正常的。重点看差额异常放大的日期，结合「金蝶出入库」明细排查。</div>
+
+  <h3>金蝶出入库</h3>
+  <p>列出已同步的金蝶单据，可按<b>单号、客商、内码</b>搜索。点进去能看到单据头信息和逐行物料明细（物料、规格、数量、单位、单价、金额）。被金蝶删除或反审核的单据会自动置为无效，不再计入核对。</p>
+
+  <h3>金蝶客商映射</h3>
+  <p>金蝶里的客户/供应商名称往往和本系统的简称不一致，需要把两侧对应起来。系统会先做模糊匹配并给出候选，但<b>必须人工逐条确认</b>：</p>
+  <ol class="steps">
+    <li>在「分析 → 客商映射」按状态筛选，优先处理「待人工审核」。</li>
+    <li>核对金蝶名称与候选列表，选择正确的系统客户/供应商。</li>
+    <li>保存后状态变为「人工确定」，后续核对和日报就能对上号。</li>
+  </ol>
+  <ul>
+    <li>一个系统客商可以挂接多个金蝶编码；规则是同名或曾用名都能归到一处。</li>
+    <li>业务员只能挂接<b>自己负责</b>的客商，看不到别人的映射；清除挂接只有管理员可以操作。</li>
+  </ul>
+</section>
+
+<!-- 8 钉钉付款 -->
+<section id="payment">
+  <span class="eyebrow">SECTION 08</span>
+  <h2>8. 钉钉付款申请</h2>
+  <p>「分析 → 钉钉付款」汇总从钉钉审批同步过来的付款申请，用于随时查看申请金额与审批进度。</p>
+  <table>
+    <tr><th>列</th><th>说明</th></tr>
+    <tr><td>发起时间 / 完成时间</td><td>审批实例的创建与结束时间</td></tr>
+    <tr><td>标题 / 发起人 / 部门</td><td>钉钉审批单的基本信息</td></tr>
+    <tr><td>模板</td><td>审批模板名称，如「付款申请」</td></tr>
+    <tr><td>状态 / 结果</td><td>审批中、已完成、已终止</td></tr>
+    <tr><td>金额</td><td>审批单中的付款金额</td></tr>
+  </table>
+  <ul>
+    <li>可按状态筛选，或按标题、发起人、实例 ID 搜索。</li>
+    <li>管理员在页面右上角可以手动「同步当月数据」「更新未完结」，日常无需操作，后台会定时同步。</li>
+    <li>本页面<b>不能审批</b>，审批请回到钉钉完成；系统只做汇总和报表。</li>
+  </ul>
+</section>
+
+<!-- 9 推送 -->
+<section id="push">
+  <span class="eyebrow">SECTION 09</span>
+  <h2>9. 每日日报推送</h2>
+  <p>系统每天定时生成<b>前一自然日</b>的经营日报快照，并推送到管理员配置的<b>邮箱</b>和<b>钉钉群</b>。收件人和群由管理员维护，普通用户不需要设置。</p>
+
+  <h3>日报里有什么</h3>
+  <table>
+    <tr><th>区块</th><th>内容</th></tr>
+    <tr><td>经营总览与关键指标</td><td>以图片卡片呈现，金额单位<b>万元</b>；钉钉桌面端点击图片可放大，手机上直接看</td></tr>
+    <tr><td>趋势对比</td><td>近 15 天金蝶日报金额趋势、当月采销对比折线图</td></tr>
+    <tr><td>人员日报明细</td><td>逐笔列出客户/供应商、<b>提报人</b>、日期、数量、金额。销售取业务员，采购取采购员</td></tr>
+    <tr><td>当月采销对比</td><td>月度采购、销售与占比</td></tr>
+    <tr><td>附件</td><td>PDF 版日报 + Excel 明细（邮件与钉钉都会附带）</td></tr>
+  </table>
+
+  <div class="mock">
+    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">钉钉群 · 经营日报卡片</span></div>
+    <div class="body" style="padding:16px 18px;background:#f8fafc">
+      <div style="border:1px solid #e4e9f0;border-radius:12px;background:#fff;padding:14px 16px">
+        <b style="font-size:13.5px">飞诺斯电子科技有限公司 · 2026-10-29 经营日报</b>
+        <p style="font-size:11.5px;color:#667085;margin:4px 0 10px">金额单位：万元</p>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11.5px">
+          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">采购</span><br><b style="font-size:17px">126.42</b></div>
+          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">销售</span><br><b style="font-size:17px">221.08</b></div>
+          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">占比</span><br><b style="font-size:17px">57.2%</b></div>
+          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">本月累计</span><br><b style="font-size:17px">3,486.9</b></div>
+        </div>
+        <div style="margin-top:10px;font-size:11.5px;color:#475467">📎 经营日报.pdf　　📎 经营日报.xlsx</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><b>一家公司一份内容</b>飞诺斯的收件组和钉钉群只会收到飞诺斯的数据，两家不会混在一起。推送内容由管理员在「系统 → 邮件推送」和「系统 → 集成配置」里按渠道勾选：销售出库、采购入库、付款审批。</div>
+
+  <h3>付款申请周报 / 月报</h3>
+  <p>除经营日报外，管理员还可以配置把<b>钉钉付款申请</b>按日、周、月汇总推送到指定钉钉群。周报在每周一发送，月报在每月 1 日发送，内容包含：</p>
+  <ul>
+    <li>总计笔数与金额、已完成/进行中数量；</li>
+    <li>按收款人汇总的金额与明细；</li>
+    <li>Excel 附件（汇总统计、按收款人汇总、明细等 4 个工作表）。</li>
+  </ul>
+
+  <div class="warn"><b>没收到推送？</b>先检查垃圾邮件箱和钉钉群是否被折叠；再确认当天是否真的有数据、金蝶同步是否覆盖到该日期；仍有问题联系管理员查看「发送记录」——里面记录了每次发送的成败与失败原因，并支持补发。</div>
+</section>
+
+<!-- 10 导入 -->
 <section id="import">
-  <h2>4. 导入历史数据</h2>
-  <p>批量导入历史数据由<b>管理员</b>操作。共 5 个导入入口，流程一致：<b>下载模板 → 按模板填写 → 上传预览 → 正式导入</b>。</p>
+  <span class="eyebrow">SECTION 10</span>
+  <h2>10. 导入历史数据</h2>
+  <p>批量导入由<b>管理员</b>操作。共 5 个入口，流程一致：<b>下载模板 → 按模板填写 → 上传预览 → 正式导入</b>。</p>
 
   <table>
     <tr><th>导入什么</th><th>菜单入口</th><th>模板里的列</th></tr>
-    <tr><td>客户</td><td>客户导入</td><td>客户名称</td></tr>
-    <tr><td>供应商</td><td>供应商导入</td><td>供应商名称</td></tr>
-    <tr><td>用户</td><td>用户（页内「导入用户」）</td><td>用户名、姓名、角色、初始密码<br>角色可写多个，用「、」分隔，如「销售、采购」</td></tr>
+    <tr><td>客户</td><td>资料 → 客户 → 导入客户</td><td>客户名称（也兼容「名称」）</td></tr>
+    <tr><td>供应商</td><td>资料 → 供应商 → 导入供应商</td><td>供应商名称（也兼容「供应商」「名称」）</td></tr>
+    <tr><td>用户</td><td>系统 → 用户 → 导入用户</td><td>用户名、姓名、角色、初始密码<br>角色可写多个，用「、」分隔，如「销售、采购」</td></tr>
     <tr><td>销售历史</td><td>销售 → 导入历史数据</td><td>「数据表」：客户名称、业务跟单、销售类型、出货日期、数量、金额<br>「汇率」：日期、汇率</td></tr>
     <tr><td>采购历史</td><td>采购 → 导入历史数据</td><td>供应商、采购员、采购类型、采购日期、数量、金额</td></tr>
   </table>
@@ -236,110 +619,59 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
     <div class="body">
       <div class="appnav"><a href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
       <div class="screen">
-        <h4>销售数据导入</h4>
-        <p><span class="callout">1</span><span class="btn gray">下载导入模板</span></p>
-        <div style="background:#f6f8fa;border:1px solid var(--line);border-radius:6px;padding:12px 16px;font-size:13px">
-          <b>操作说明</b>
-          <ol style="margin:6px 0 0;padding-left:20px">
-            <li>建议先下载导入模板，按模板的列名和格式填写后再上传。</li>
-            <li><b>数据将导入当前公司「飞诺斯电子科技有限公司」</b>，切换公司后重新导入不会互相覆盖。</li>
-            <li>文件需要包含数据表和汇率两个工作表。</li>
-            <li>只有预览没有错误时才能正式导入。</li>
-          </ol>
+        <h5>销售数据导入</h5>
+        <p style="font-size:12px;color:#667085;margin-top:0">数据将导入当前公司「飞诺斯电子科技有限公司」，切换公司后重新导入不会互相覆盖。</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <span class="btn gray">下载导入模板</span>
+          <span style="border:1px solid #d7dee8;border-radius:7px;padding:5px 12px;font-size:12px;color:#98a2b3">选择文件（.xls 或 .xlsx）</span>
+          <span class="btn">预览</span>
+          <span class="btn dim">正式导入</span>
         </div>
-        <div class="field" style="margin-top:14px"><label>Excel 文件</label><div class="inp ph">选择文件（.xls 或 .xlsx）</div></div>
-        <p><span class="callout">2</span><span class="btn">预览</span>　<span class="callout">3</span><span class="btn dim">正式导入</span></p>
+        <div style="border:1px solid #e4e9f0;border-radius:10px;background:#fff;padding:12px 14px;font-size:12px">
+          <b>预览结果：可导入 128 行，发现 2 处问题</b>
+          <table class="data" style="margin-top:8px">
+            <tr><th>行号</th><th>字段</th><th>问题</th></tr>
+            <tr><td>37</td><td>业务跟单</td><td>系统里没有匹配到「张 三」，请先建账号或修正姓名</td></tr>
+            <tr><td>82</td><td>业务跟单</td><td>「李敏」同时匹配到两个账号，请管理员区分后再导入</td></tr>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
   <ul class="legend">
-    <li><span class="callout">1</span><b>务必先下载模板</b>。列名必须和模板一致，否则导入识别不到。模板里有两行示例和一个「填写说明」工作表。</li>
-    <li><span class="callout">2</span>先点「预览」。预览<b>只校验、不写库</b>，会列出每个错误在第几行、哪个字段。</li>
-    <li><span class="callout">3</span>预览零错误后，「正式导入」才可点击。</li>
+    <li><b>务必先下载模板</b>。列名必须和模板一致，否则识别不到。模板里带示例行和「填写说明」工作表。</li>
+    <li>先点「预览」。预览<b>只校验、不写库</b>，会列出每个错误在第几行、哪个字段；也可以把错误清单导出成 Excel 逐条修正。</li>
+    <li>预览零错误后，「正式导入」才可点击。</li>
   </ul>
 
-  <div class="note">
-    <b>填模板注意</b>
-    <ul style="margin:6px 0 0;padding-left:20px">
-      <li>示例行是给你照着改的，<b>正式导入前替换成真实数据或删掉</b>，否则示例也会被导进去。</li>
-      <li>工作表名称不要改：销售模板必须保留「数据表」和「汇率」两个表名。</li>
-      <li>销售类型只填<b>内销 / 外销</b>；采购类型只填<b>国内采购 / 国外采购</b>；角色填<b>管理员 / 销售 / 采购 / 报表查看者</b>，兼岗可写多个（如「销售、采购」）。</li>
-      <li>日期写成 <code>2026-08-10</code>；汇率表的日期写成 <code>2026年8月</code>。</li>
-    </ul>
-  </div>
+  <h3>人员匹配规则（重要）</h3>
+  <p>销售历史的「业务跟单」和采购历史的「采购员」必须能对应到<b>系统里已有账号</b>。匹配顺序是 <b>用户名 → 姓名</b>，会忽略首尾和中间的空格（「张 三」「张　三」都按「张三」处理）。</p>
+  <ul>
+    <li>预览会分三组显示：<span class="pill ok">已匹配</span>、<span class="pill warn">未匹配</span>、<span class="pill warn">重名歧义</span>。</li>
+    <li><b>未匹配或重名歧义都会阻止正式导入</b>。请先在「系统 → 用户」里建好账号，或把源表姓名改成系统里的姓名/用户名。</li>
+    <li>系统<b>不会</b>再按姓名自动建号，避免笔误产生一批无法登录的重复账号。</li>
+    <li>匹配成功的账号会被加入对应的销售/采购角色，并授权<b>当前公司</b>。导入前请核对名单。</li>
+  </ul>
 
-  <div class="warn">
-    <b>导入会自动建账号并授权当前公司</b>
-    「业务跟单」「采购员」列里的用户名，如果系统里没有会<b>自动创建账号</b>并授予当前公司的访问权限；如果是另一家公司的已有账号，那个人就同时能进这家公司了。导入前请核对名单。
-  </div>
+  <h3>填模板注意</h3>
+  <ul>
+    <li>示例行是给你照着改的，<b>正式导入前替换成真实数据或删掉</b>，否则示例也会被导进去。</li>
+    <li>工作表名称不要改：销售模板必须保留「数据表」和「汇率」两个表名。</li>
+    <li>销售类型只填<b>内销 / 外销</b>；采购类型只填<b>国内采购 / 国外采购</b>；用户角色填<b>管理员 / 销售 / 采购 / 报表查看者</b>。</li>
+    <li>日期写成 <code>2026-08-10</code>；汇率表的日期写成 <code>2026年8月</code>。</li>
+    <li>历史数据里出现的客户/供应商如果系统里没有，会<b>自动建档</b>；业务跟单/采购员与客商的归属关系也会自动补齐。</li>
+    <li>销售模板里的「汇率」工作表会写入或覆盖对应月份的汇率，导入前请确认数值正确。</li>
+  </ul>
+
   <div class="tip"><b>采购导入没有汇率表</b>国外采购请先在「汇率」页面维护好对应月份，再来导入，否则预览会报「缺少该月份美元兑人民币汇率」。</div>
+  <div class="warn"><b>导入到哪家公司？</b>看导航栏的「当前公司」。切换公司后重新导入不会互相覆盖，两家可以分别导入。</div>
 </section>
 
-<!-- 5 报表 -->
-<section id="report">
-  <h2>5. 查看报表与导出</h2>
-  <p>导航栏「销售分析」「采购分析」是图表看板，只统计<b>当前公司</b>的数据。</p>
-
-  <div class="mock">
-    <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span class="url">http://172.16.77.80:8001/reports/sales/</span></div>
-    <div class="body">
-      <div class="appnav"><a href="#">销售</a><a href="#">采购</a><a class="on" href="#">销售分析</a><a href="#">采购分析</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
-      <div class="screen">
-        <h4>销售报表</h4>
-        <div class="row" style="margin-bottom:14px">
-          <div class="field"><label>开始日期</label><div class="inp" style="min-width:120px">2026-08-01</div></div>
-          <div class="field"><label>结束日期</label><div class="inp" style="min-width:120px">2026-08-21</div></div>
-          <div class="field"><label>负责人</label><div class="inp sel" style="min-width:100px">全部</div></div>
-          <div class="field"><label>客户</label><div class="inp sel" style="min-width:100px">全部</div></div>
-          <div class="field"><span class="callout">1</span><span class="btn gray">本月</span> <span class="btn gray">本周</span> <span class="btn gray">本年</span></div>
-          <div class="field"><span class="btn">筛选</span> <span class="callout">2</span><span class="btn gray">导出 Excel</span></div>
-        </div>
-        <div class="kpi">
-          <div><span>数量</span><b>1,250</b></div>
-          <div><span>人民币</span><b>986,540</b></div>
-          <div><span>美元</span><b>32,000</b></div>
-          <div><span>折算人民币</span><b>1,214,380</b></div>
-        </div>
-        <div class="chartbox">日趋势 / 月趋势 / 类型占比 / 客户排行（ECharts 图表）</div>
-      </div>
-    </div>
-  </div>
-
-  <ul class="legend">
-    <li><span class="callout">1</span>「本月 / 本周 / 本年」是快捷时间段，点一下自动填好日期。</li>
-    <li><span class="callout">2</span>「导出 Excel」导出的是<b>当前筛选条件下</b>的明细，文件名带公司代码（如 <code>sales-report-A.xlsx</code>），不会混进另一家公司的数据。</li>
-  </ul>
-
-  <div class="note">
-    <b>看懂金额口径</b>
-    「人民币」和「美元」是<b>各自币种的原币合计</b>，两者不能直接相加；「折算人民币」才是总额，按每笔录入当月的汇率快照折算。历史汇率变动不会改动已保存的日报金额。
-  </div>
-</section>
-
-<!-- 6 邮件 -->
-<section id="mail">
-  <h2>6. 每日邮件推送</h2>
-  <p>系统每天定时把当天数据发到指定邮箱，收件人不用登录系统也能看到。收件组由管理员配置。</p>
-
-  <h3>邮件里有什么</h3>
-  <table>
-    <tr><th>内容</th><th>说明</th></tr>
-    <tr><td>标题</td><td><code>[飞诺斯电子科技有限公司] 2026-08-21 经营日报</code>，带公司名和业务日期</td></tr>
-    <tr><td>三档汇总</td><td>当日、本月累计、本年累计；每档都分列人民币、美元、折算人民币合计</td></tr>
-    <tr><td>当日明细</td><td>正文里的表格，逐笔列出</td></tr>
-    <tr><td>Excel 附件</td><td>当日明细，销售和采购分两个工作表</td></tr>
-  </table>
-
-  <div class="note"><b>一家公司一封邮件</b>飞诺斯的收件组只会收到飞诺斯的数据，两家不会混在一封里。</div>
-  <div class="tip"><b>当天没数据不发邮件</b>如果某天一笔都没录，系统默认跳过不发，避免收到空邮件。</div>
-  <div class="warn"><b>没收到邮件？</b>先检查垃圾邮件箱；再确认当天是否真的有数据录入；仍有问题联系管理员查「邮件发送记录」，里面有每次发送的成败和失败原因。</div>
-</section>
-
-<!-- 7 FAQ -->
+<!-- 11 FAQ -->
 <section id="faq">
-  <h2>7. 常见问题</h2>
+  <span class="eyebrow">SECTION 11</span>
+  <h2>11. 常见问题</h2>
   <dl class="faq">
     <dt>登录时下拉框里没有我要的公司？</dt>
     <dd>管理员还没给你授权这家公司。账号是两家共用的，但需要逐家开授权。</dd>
@@ -353,11 +685,14 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
     <dt>客户下拉框里找不到某个客户？</dt>
     <dd>三种可能：① 客户还没在<b>这家公司</b>建档（另一家有不算）；② 客户没分配给你；③ 客户被停用了。都需要管理员处理。</dd>
 
-    <dt>为什么明明录过的日报，切换公司后看不到了？</dt>
-    <dd>正常。日报属于录入时所在的那家公司，切回去就能看到。</dd>
+    <dt>为什么我能看到同事的日报，却点不了「编辑」？</dt>
+    <dd>日报在本公司内全员可见，便于核对；但写权限只属于该客户的负责业务员（采购看供应商负责人）和管理员。需要代录或修改时，请找对应的负责人。</dd>
 
     <dt>保存时提示缺少汇率？</dt>
-    <dd>外销/国外采购需要当月汇率，而汇率按公司分别维护。请管理员在「汇率」里补录这家公司这个月的汇率。</dd>
+    <dd>外销/国外采购需要业务日期所在月份的汇率，而汇率按公司分别维护。请管理员在「汇率」里补录这家公司这个月的汇率。</dd>
+
+    <dt>上传 Excel 后提示姓名没有匹配到账号？</dt>
+    <dd>「业务跟单/采购员」必须对应系统已有账号，系统不会自动建号。请先建账号，或把源表姓名改成系统里的姓名/用户名；如果提示重名歧义，说明有两个同名账号，需要管理员先区分。</dd>
 
     <dt>上传 Excel 提示格式或数值无效？</dt>
     <dd>先下载模板对照列名。常见原因：日期格式不对、数量填了小数或 0、金额是文本（单元格左上角有绿色小三角）、销售类型写了「内销售」之类不认的词。</dd>
@@ -367,10 +702,47 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding-top:10px}
 
     <dt>能同时开两个浏览器窗口，一个看飞诺斯一个看宁波汇慧吗？</dt>
     <dd>不行。当前公司记录在同一个登录会话里，切换会影响所有已打开的页面。需要对比两家数据时，请分别导出 Excel。</dd>
+
+    <dt>没收到每日推送怎么办？</dt>
+    <dd>先看垃圾邮件箱和钉钉群消息是否被折叠；再确认当天是否有数据、金蝶同步是否正常；仍没有就联系管理员查「发送记录」，里面能看到每次发送的成败和失败原因。</dd>
+
+    <dt>在哪里打开这份指南？</dt>
+    <dd>登录按钮右侧的 <b>?</b>、系统内主题开关旁的 <b>?</b>，或头像菜单里的「帮助」，都会新开标签页打开。</dd>
   </dl>
 </section>
 
 <footer>FINOSSReportSystem · 用户使用指南　|　遇到本指南没写到的问题，请联系系统管理员</footer>
 </div>
+<script>
+(function () {
+  function copyText(text) {
+    // 内网是 HTTP，navigator.clipboard 在非安全上下文里不可用，需要走后备方案。
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    var area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    try { document.execCommand("copy"); } finally { area.remove(); }
+    return Promise.resolve();
+  }
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      copyText(button.dataset.copy).then(function () {
+        var hint = button.querySelector("em");
+        button.classList.add("copied");
+        if (hint) hint.textContent = "已复制";
+        setTimeout(function () {
+          button.classList.remove("copied");
+          if (hint) hint.textContent = "点击复制";
+        }, 1500);
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>

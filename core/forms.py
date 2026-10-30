@@ -26,7 +26,6 @@ class CompanyAuthenticationForm(AuthenticationForm):
         label="公司",
         queryset=Company.objects.filter(is_active=True),
         empty_label=None,
-        help_text="选择本次登录要进入的公司，登录后可在导航栏切换。",
     )
 
     field_order = ["company", "username", "password"]

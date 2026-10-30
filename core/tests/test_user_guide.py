@@ -30,11 +30,20 @@ class UserGuideTests(TestCase):
         self.assertContains(response, "帮助信息")
         self.assertContains(response, "help-icon")
 
-    def test_login_page_explains_what_to_do_without_company_access(self):
-        response = self.client.get(reverse("login"))
+    def test_guide_explains_what_to_do_without_company_access(self):
+        """登录页不再堆说明文字，权限问题统一放到指南的常见问题里。"""
+        response = self.client.get(reverse("core:user_guide"))
 
-        self.assertContains(response, "没有可选的公司")
+        self.assertContains(response, "没有可进入的公司")
         self.assertContains(response, "用户公司授权")
+
+    def test_guide_shows_default_credentials(self):
+        """新同事第一次登录要用：用户名是姓名全拼，默认密码可点击复制。"""
+        response = self.client.get(reverse("core:user_guide"))
+
+        self.assertContains(response, "姓名全拼")
+        self.assertContains(response, "fns112233.")
+        self.assertContains(response, 'data-copy="fns112233."')
 
     def test_login_page_shows_the_new_brand(self):
         response = self.client.get(reverse("login"))

@@ -47,7 +47,7 @@
 <header class="topbar" x-data="{ nav: false }" :data-nav="nav ? 'open' : 'closed'">
   <div class="topbar-inner">
     <a class="brand" href="/">
-      <span class="brand-mark"><i data-lucide="zap"></i></span>
+      <span class="brand-mark"><img src="{% static 'images/logo-fns.png' %}" alt="FNS"></span>
       <span class="brand-text">FINOSS<em>Report</em></span>
     </a>
 
@@ -141,6 +141,10 @@
           {% endif %}
         </div>
       </div>
+
+      <a class="icon-btn" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="帮助信息" aria-label="帮助信息">
+        <span class="help-icon" aria-hidden="true">?</span>
+      </a>
 
       <button type="button" class="icon-btn" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
         <i data-lucide="sun-moon">☾</i>

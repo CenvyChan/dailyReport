@@ -49,12 +49,6 @@ class LoginPageLayoutTests(TestCase):
 
         self.assertContains(response, 'class="req"')
 
-    def test_the_company_help_text_is_shown(self):
-        response = self.client.get(reverse("login"))
-
-        self.assertContains(response, "登录后可在导航栏切换")
-
-
 class LoginErrorTests(TestCase):
     def test_a_wrong_password_explains_itself_on_the_page(self):
         """非字段错误必须显示在表单上方，否则用户只觉得点了没反应。"""

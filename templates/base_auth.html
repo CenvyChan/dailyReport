@@ -22,8 +22,10 @@
   {# 左侧品牌区：延续系统内部的发光网格与品牌渐变，让登录页和里面是一套视觉 #}
   <section class="auth-brand">
     <div class="auth-mark">
-      <span class="auth-logo" aria-hidden="true">F</span>
-      <span>FINOSS 飞诺斯</span>
+      <span class="auth-logo" aria-hidden="true">
+        <img src="{% static 'images/logo-fns.png' %}" alt="">
+      </span>
+      <span>FINOSS 飞诺斯 <span class="amp">&amp;</span> 汇慧</span>
     </div>
     <div class="auth-title">
       <h1>采购销售日报<br>数据管理平台</h1>
@@ -38,12 +40,17 @@
 
   <section class="auth-panel">
     <div class="auth-card">
-      {% comment %} 明暗开关放在卡片内的右上角，和标题同一条水平线上。
-         放在卡片外面时它离标题太远、又没有任何东西把它和表单联系起来，
-         看着像块孤立的装饰。 {% endcomment %}
+      {% comment %} 登录页把这两个按钮放到登录按钮同一行（靠右），改密页仍放在
+         卡片右上角：那个页面没有提交按钮以外的地方可放，且用户此时也不会
+         去点帮助。 {% endcomment %}
+      {% block auth_actions %}
+      <a class="icon-btn auth-help" href="{% url 'core:user_guide' %}" target="_blank" rel="noopener" title="帮助信息" aria-label="帮助信息">
+        <span class="help-icon" aria-hidden="true">?</span>
+      </a>
       <button type="button" class="icon-btn auth-theme" data-theme-toggle title="切换明暗主题" aria-label="切换明暗主题">
         <i data-lucide="sun-moon">☾</i>
       </button>
+      {% endblock %}
       {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
       {% block content %}{% endblock %}
     </div>
