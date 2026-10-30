@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth.models import User
@@ -164,4 +165,33 @@ class PublicSnapshotLinkTests(TestCase):
         self.assertEqual(self.client.get(url, {"token": "bad"}).status_code, 403)
         self.assertEqual(
             self.client.get(url, {"token": self._token(self.other)}).status_code, 403
+        )
+
+    def test_public_page_offers_pdf_and_excel_download_links(self):
+        response = self.client.get(
+            reverse("integrations:snapshot_public", args=[self.snapshot.pk]),
+            {"token": self._token(self.snapshot)},
+        )
+        body = response.content.decode("utf-8")
+        self.assertIn("下载 PDF", body)
+        self.assertIn("下载 Excel", body)
+        self.assertIn("download=pdf", body)
+        self.assertIn("download=excel", body)
+
+    def test_public_downloads_require_the_same_token(self):
+        url = reverse("integrations:snapshot_public", args=[self.snapshot.pk])
+        token = self._token(self.snapshot)
+        excel = self.client.get(url, {"token": token, "download": "excel"})
+        self.assertEqual(excel.status_code, 200)
+        self.assertIn("spreadsheetml", excel["Content-Type"])
+        with patch(
+            "integrations.views_snapshot._pdf_bytes", return_value=b"%PDF-test"
+        ):
+            pdf = self.client.get(url, {"token": token, "download": "pdf"})
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(pdf["Content-Type"], "application/pdf")
+        self.assertEqual(pdf.content, b"%PDF-test")
+        self.assertEqual(
+            self.client.get(url, {"token": "bad", "download": "excel"}).status_code,
+            403,
         )

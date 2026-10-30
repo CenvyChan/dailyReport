@@ -747,6 +747,11 @@ class DingtalkGroupConfig(models.Model):
         default="",
         help_text="该群对应的钉钉群文件空间 spaceId。测试群和正式群各填各的，避免文件发错群；留空时按 openConversationId 自动查询。",
     )
+    send_files = models.BooleanField(
+        "发送 PDF/Excel 附件",
+        default=False,
+        help_text="关闭时只发日报卡片和在线链接；打开后按群文件卡片发送 PDF/Excel。",
+    )
     content_types = models.JSONField(
         "推送内容",
         default=list,

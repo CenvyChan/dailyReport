@@ -9,8 +9,10 @@ from django.template.loader import render_to_string
 from integrations.services.operations_summary import operations_context
 
 
-def render_snapshot_public_html(snapshot) -> str:
+def render_snapshot_public_html(snapshot, **extra) -> str:
+    context = operations_context(snapshot)
+    context.update(extra)
     return render_to_string(
         "integrations/report_snapshot_public.html",
-        operations_context(snapshot),
+        context,
     )

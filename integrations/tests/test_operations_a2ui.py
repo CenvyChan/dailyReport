@@ -163,6 +163,7 @@ class OperationsA2UIDeliveryTests(TestCase):
                                              app_secret="secret", robot_code="robot-code")
         self.group = DingtalkGroupConfig.objects.create(company=self.company, app=self.app, name="日报群",
                                                         open_conversation_id="cid-test", send_at=time(18),
+                                                        send_files=True,
                                                         content_types=["SALES", "PURCHASE"])
         self.group.companies.set([self.company])
         # 这些用例验证的是投递阶段本身，配置视为早已启用。
@@ -218,6 +219,21 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.assertFalse(state["inProgress"])
         self.assertEqual(self.send()[0][1], "SKIPPED")
         self.assertEqual(self.client_mock.post.call_count, 4)
+
+    def test_files_can_be_disabled_for_card_and_link_only(self):
+        self.group.send_files = False
+        self.group.save(update_fields=["send_files"])
+
+        self.assertEqual(self.send()[0][1], "SENT")
+
+        self.pdf.assert_not_called()
+        self.excel.assert_not_called()
+        self.assertEqual(self.client_mock.post.call_count, 2)
+        state = self.delivery().delivery_state
+        self.assertEqual(state["card"]["status"], "SENT")
+        self.assertEqual(state["link"]["status"], "SENT")
+        self.assertNotIn("pdf", state)
+        self.assertNotIn("excel", state)
 
     @override_settings(DINGTALK_OPERATOR_UNION_ID="union-test")
     def test_group_file_cards_are_sent_last_and_use_configured_space(self):

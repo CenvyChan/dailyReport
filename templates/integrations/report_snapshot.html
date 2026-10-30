@@ -1,3 +1,9 @@
 {% extends "base.html" %}
 {% block title %}采销汇总日报{% endblock %}
-{% block content %}{% include "integrations/operations_summary.html" %}{% endblock %}
+{% block content %}
+<div style="max-width:1040px;margin:18px auto 0;padding:0 28px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap">
+  <a class="button secondary" href="?download=pdf">下载 PDF</a>
+  <a class="button secondary" href="?download=excel">下载 Excel</a>
+</div>
+{% include "integrations/operations_summary.html" %}
+{% endblock %}

@@ -58,10 +58,12 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
         raise OperationsDeliveryUncertain("旧版失败记录无法确认已发送内容，请先核对群消息，再决定是否强制重发。")
     fingerprint = _fingerprint(snapshot)
     target = {"appId": group.app_id, "groupId": group.open_conversation_id}
+    send_files = bool(getattr(group, "send_files", False))
     if state and (state.get("fingerprint") != fingerprint or state.get("target") != target):
         raise OperationsDeliveryUncertain("重试期间快照或推送范围/目标已变更，禁止混用原投递回执，请人工核对。")
+    blocking_keys = ["card"] + (["pdf", "excel"] if send_files else [])
     if any((state.get(key) or {}).get("status") in ("SENDING", "UNCERTAIN")
-           for key in ("card", "pdf", "excel")):
+           for key in blocking_keys):
         raise OperationsDeliveryUncertain("存在正在发送或结果不明的阶段，请核对回执，不自动重复发送。")
     previous = delivery.delivery_state or {}
     claimed = {**state, "version": 1, "fingerprint": fingerprint, "target": target,
@@ -84,17 +86,18 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
         pdf_path, excel_path = directory / (base + ".pdf"), directory / (base + ".xlsx")
         operator_union_id = getattr(settings, "DINGTALK_OPERATOR_UNION_ID", "")
         use_group_file = bool(operator_union_id)
-        # 必须同时保留 PDF 和 Excel，渲染失败时停止，不以 HTML 静默替代 PDF。
-        if not pdf_path.exists():
-            pdf_bytes = render_pdf(snapshot, style="book")
-            if not pdf_bytes.startswith(b"%PDF-"):
-                raise ValueError("PDF 渲染结果不是有效 PDF 文件。")
-            pdf_path.write_bytes(pdf_bytes)
-        if not excel_path.exists():
-            excel_bytes = render_excel(snapshot)
-            if not excel_bytes.startswith(b"PK"):
-                raise ValueError("Excel 导出结果不是 XLSX 文件。")
-            excel_path.write_bytes(excel_bytes)
+        # 附件开关关闭时只发卡片和在线链接，不渲染 PDF/Excel。
+        if send_files:
+            if not pdf_path.exists():
+                pdf_bytes = render_pdf(snapshot, style="book")
+                if not pdf_bytes.startswith(b"%PDF-"):
+                    raise ValueError("PDF 渲染结果不是有效 PDF 文件。")
+                pdf_path.write_bytes(pdf_bytes)
+            if not excel_path.exists():
+                excel_bytes = render_excel(snapshot)
+                if not excel_bytes.startswith(b"PK"):
+                    raise ValueError("Excel 导出结果不是 XLSX 文件。")
+                excel_path.write_bytes(excel_bytes)
         card_path = directory / "card.a2ui.json"
         if card_path.exists():
             frames = json.loads(card_path.read_text(encoding="utf-8"))
@@ -108,7 +111,7 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
             frames = build_operations_a2ui_messages(snapshot, metrics_image=metrics_image)
             card_path.write_text(json.dumps(frames, ensure_ascii=False, indent=2), encoding="utf-8")
         # 旧 sampleFile 通道才需要先传媒体库；群文件卡片通道直接读文件字节上传。
-        if not use_group_file:
+        if send_files and not use_group_file:
             for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
                 phase = state.setdefault(kind, {})
                 if phase.get("status") != "SENT" and not phase.get("mediaId"):
@@ -157,6 +160,8 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
             save()
 
         for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
+            if not send_files:
+                break
             phase = state.setdefault(kind, {})
             if phase.get("status") == "SENT":
                 continue

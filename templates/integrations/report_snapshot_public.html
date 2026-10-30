@@ -7,9 +7,35 @@
 <style>
   html, body { margin: 0; padding: 0; background: #f5f7fb; }
   body { -webkit-text-size-adjust: 100%; }
+  .report-actions {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 10px;
+    max-width: 1040px; margin: 0 auto; padding: 12px 28px;
+    background: rgba(245, 247, 251, .94);
+    border-bottom: 1px solid #dce4ee;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .report-actions .hint { margin-right: auto; font-size: 13px; color: #52627a; }
+  .report-actions a {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border: 1px solid #c7d2fe; border-radius: 8px;
+    background: #fff; color: #1e40af; font-size: 13px; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+  }
+  .report-actions a:hover { background: #eef2ff; }
+  @media (max-width: 650px) {
+    .report-actions { padding: 10px 16px; flex-wrap: wrap; }
+    .report-actions .hint { width: 100%; margin: 0 0 4px; }
+    .report-actions a { flex: 1; justify-content: center; }
+  }
 </style>
 </head>
 <body>
+<div class="report-actions">
+  <span class="hint">在线日报 · 手机端可直接查看图表与明细</span>
+  {% if download_pdf_url %}<a href="{{ download_pdf_url }}">下载 PDF</a>{% endif %}
+  {% if download_excel_url %}<a href="{{ download_excel_url }}">下载 Excel</a>{% endif %}
+</div>
 {% include "integrations/operations_summary.html" %}
 </body>
 </html>
