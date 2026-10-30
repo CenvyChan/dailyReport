@@ -22,10 +22,16 @@ class FirstLoginEmailTests(TestCase):
         self.assertContains(response, "本人邮箱")
         self.assertContains(response, "用于接收日报推送")
 
+    def test_the_form_does_not_ask_for_the_current_password(self):
+        """登录页已完成密码认证，改密页再要一次旧密码只是重复劳动。"""
+        response = self.client.get(reverse("core:password_change"))
+
+        self.assertNotContains(response, "id_old_password")
+
     def test_password_change_without_an_email_is_rejected(self):
         response = self.client.post(
             reverse("core:password_change"),
-            {"old_password": "Initial@123", "new_password1": "New@123456", "new_password2": "New@123456"},
+            {"new_password1": "New@123456", "new_password2": "New@123456"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -38,7 +44,6 @@ class FirstLoginEmailTests(TestCase):
             reverse("core:password_change"),
             {
                 "email": "not-an-email",
-                "old_password": "Initial@123",
                 "new_password1": "New@123456",
                 "new_password2": "New@123456",
             },
@@ -54,7 +59,6 @@ class FirstLoginEmailTests(TestCase):
             reverse("core:password_change"),
             {
                 "email": "taken@example.com",
-                "old_password": "Initial@123",
                 "new_password1": "New@123456",
                 "new_password2": "New@123456",
             },
@@ -67,7 +71,6 @@ class FirstLoginEmailTests(TestCase):
             reverse("core:password_change"),
             {
                 "email": "sales-a@example.com",
-                "old_password": "Initial@123",
                 "new_password1": "New@123456",
                 "new_password2": "New@123456",
             },

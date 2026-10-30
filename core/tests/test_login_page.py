@@ -108,3 +108,9 @@ class PasswordChangePageTests(TestCase):
 
         self.assertIn('for="id_email"', body)
         self.assertLess(body.index("id_email"), body.index("id_new_password1"))
+
+    def test_the_page_does_not_require_the_current_password(self):
+        """是否必须改密在登录时已经判定，改密页只需要新密码和邮箱。"""
+        response = self.client.get(reverse("core:password_change"))
+
+        self.assertNotContains(response, "id_old_password")

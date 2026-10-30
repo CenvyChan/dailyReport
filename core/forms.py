@@ -2,7 +2,7 @@ import re
 from datetime import date
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -133,15 +133,20 @@ def _validated_password(password):
     return password
 
 
-class FirstLoginPasswordChangeForm(PasswordChangeForm):
-    """首次登录顺带收集本人邮箱，否则后续没有地址可用于推送和通知。"""
+class FirstLoginPasswordChangeForm(SetPasswordForm):
+    """首次登录顺带收集本人邮箱，否则后续没有地址可用于推送和通知。
+
+    不要求再次输入当前密码：用户刚在登录页通过密码认证，会话本身就是
+    身份凭证。登录视图已经根据 must_change_password 决定是否跳到这里，
+    再让用户重复输入旧密码只是多一道无意义的门槛。
+    """
 
     email = forms.EmailField(
         label="本人邮箱",
         help_text="用于接收日报推送和系统通知，请填写常用的公司邮箱。",
     )
 
-    field_order = ["email", "old_password", "new_password1", "new_password2"]
+    field_order = ["email", "new_password1", "new_password2"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

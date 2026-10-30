@@ -68,7 +68,6 @@ class UserManagementTests(TestCase):
             reverse("core:password_change"),
             {
                 "email": "sales-a@example.com",
-                "old_password": "Initial@123",
                 "new_password1": "New@123456",
                 "new_password2": "New@123456",
             },
