@@ -6,66 +6,79 @@
 <title>FINOSSReportSystem · 用户使用指南</title>
 <style>
 :root{
-  --ink:#1f2328; --muted:#667085; --line:#e4e9f0; --bg:#f4f6fb;
-  --brand:#4f46e5; --brand-2:#06b6d4; --brand-soft:#eef2ff;
-  --ok:#0f7b4f; --ok-bg:#e8f7ef; --warn:#9a6700; --warn-bg:#fff7e6;
-  --danger:#c62828; --danger-bg:#fdecec; --panel:#ffffff; --soft:#f8fafc;
+  --ink:#e6edf3; --muted:#94a3b8; --muted-2:#64748b;
+  --line:#1f2a3a; --line-hi:#2b3a50;
+  --bg:#0b0f17; --panel:#111827; --panel-2:#0d1320; --soft:#0f1724;
+  --brand:#818cf8; --brand-2:#22d3ee; --brand-soft:rgba(99,102,241,.15);
+  --ok:#34d399; --ok-bg:rgba(16,185,129,.12);
+  --warn:#fbbf24; --warn-bg:rgba(245,158,11,.12);
+  --danger:#f87171; --danger-bg:rgba(239,68,68,.12);
 }
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.75 "Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink);background:var(--bg)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 24px 72px}
+html{scroll-behavior:smooth}
+body{margin:0;font:15px/1.75 "Microsoft YaHei","PingFang SC",Arial,sans-serif;color:var(--ink);
+  background:radial-gradient(1100px 520px at 82% -8%,rgba(99,102,241,.12),transparent 62%),var(--bg)}
+a{color:var(--brand)}
 
-/* ---- 顶部品牌区：与登录页同一套深色渐变 ---- */
-header.top{
-  position:relative;overflow:hidden;color:#eef2ff;
-  background:linear-gradient(135deg,#0b1220 0%,#111a33 55%,#0e2b3a 100%);
-  padding:42px 0 38px;margin-bottom:-34px;
+/* ---- 左侧固定目录 ---- */
+.sidebar{
+  position:fixed;inset:0 auto 0 0;width:264px;z-index:20;
+  display:flex;flex-direction:column;padding:22px 16px 18px;
+  background:#080c13;border-right:1px solid var(--line);overflow-y:auto;
 }
-header.top::before{
-  content:"";position:absolute;inset:0;pointer-events:none;
-  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
-  background-size:38px 38px;
-  mask-image:radial-gradient(85% 85% at 50% 40%,#000 40%,transparent 100%);
-  -webkit-mask-image:radial-gradient(85% 85% at 50% 40%,#000 40%,transparent 100%);
-}
-header.top .wrap{position:relative;z-index:1;padding-bottom:0}
-.mark{display:flex;align-items:center;gap:12px;font-size:14.5px;font-weight:600;letter-spacing:.6px}
-.mark .logo{
-  display:grid;place-items:center;width:96px;height:54px;padding:4px 6px;
-  border-radius:10px;border:1px solid rgba(255,255,255,.4);background:#fff;
-  box-shadow:0 0 22px -5px rgba(99,102,241,.8);
-}
-.mark .logo img{width:100%;height:100%;object-fit:contain;display:block}
-.mark .amp{font-weight:400;color:#94a3b8}
-h1{margin:26px 0 6px;font-size:30px;letter-spacing:-.4px}
-.sub{margin:0;color:#a5b4fc;font-size:14px}
-.sub code{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);color:#e0e7ff}
+.side-brand{display:flex;align-items:center;gap:9px;padding:0 6px 18px;border-bottom:1px solid var(--line)}
+.side-brand img{height:32px;width:auto;padding:2px 4px;border-radius:7px;background:#fff;display:block;flex:none}
+.side-brand strong{display:block;font-size:12.5px;line-height:1.35;color:#e6edf3;white-space:nowrap}
+.side-brand span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+nav.toc{margin-top:6px}
+.toc-group{margin-top:16px}
+.toc-label{display:block;margin:0 10px 6px;font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:var(--muted-2)}
+nav.toc a{display:block;padding:7px 10px;margin:1px 0;border-left:2px solid transparent;border-radius:0 7px 7px 0;
+  color:#cbd5e1;font-size:13.5px;text-decoration:none;line-height:1.5}
+nav.toc a:hover{background:rgba(148,163,184,.08);color:#fff}
+nav.toc a.on{background:var(--brand-soft);border-left-color:var(--brand);color:#fff;font-weight:600}
+nav.toc a.hide{display:none}
+.side-foot{margin-top:auto;padding:16px 10px 0;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--muted-2);line-height:1.7}
+.toc-empty{display:none;margin:8px 10px;font-size:12px;color:var(--muted-2)}
+.toc-empty.show{display:block}
 
-.container{position:relative;z-index:2}
-
-/* ---- 目录 ---- */
-nav.toc{
-  background:var(--panel);border:1px solid var(--line);border-radius:16px;
-  padding:20px 24px;margin-bottom:22px;box-shadow:0 20px 40px -30px rgba(15,23,42,.45);
+/* ---- 主区域与顶栏 ---- */
+.main{margin-left:264px;min-height:100vh}
+.doc-top{
+  position:sticky;top:0;z-index:15;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;height:64px;padding:0 40px;background:rgba(11,15,23,.84);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
 }
-nav.toc strong{display:block;margin-bottom:10px;font-size:14px;color:var(--muted);letter-spacing:.5px}
-nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:36px;font-size:14px}
-nav.toc li{margin:5px 0}
-nav.toc a{color:var(--brand);text-decoration:none}
-nav.toc a:hover{text-decoration:underline}
+.doc-search{display:flex;align-items:center;gap:9px;width:340px;max-width:52%;
+  padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);color:var(--muted)}
+.doc-search span{font-size:14px;line-height:1}
+.doc-search input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);
+  font:inherit;font-size:13px;outline:none}
+.doc-search input::placeholder{color:var(--muted-2)}
+.doc-search kbd{padding:1px 6px;border:1px solid var(--line-hi);border-radius:5px;background:#0b111c;
+  color:var(--muted);font:10.5px Consolas,monospace;white-space:nowrap}
+.doc-links{display:flex;align-items:center;gap:20px;font-size:13px;white-space:nowrap}
+.doc-links a{color:var(--muted);text-decoration:none}
+.doc-links a:hover{color:#fff}
+.doc{max-width:920px;margin:0 auto;padding:54px 44px 90px}
+.doc>h1{margin:0 0 10px;font-size:34px;line-height:1.3;letter-spacing:-.6px}
+.lead{margin:0 0 34px;color:var(--muted);font-size:14.5px}
+.lead code{background:var(--soft);border:1px solid var(--line);color:#c7d2fe}
 
 section{
-  background:var(--panel);border:1px solid var(--line);border-radius:16px;
-  padding:28px 32px;margin-bottom:20px;box-shadow:0 20px 40px -34px rgba(15,23,42,.4);
+  margin:0 0 46px;padding:0;scroll-margin-top:84px;
+  background:none;border:0;box-shadow:none;border-radius:0;
 }
-.eyebrow{display:block;font-size:11px;letter-spacing:2px;color:var(--brand);font-weight:700;margin-bottom:4px}
-h2{margin:0 0 14px;font-size:21px;letter-spacing:-.2px}
-h3{font-size:16px;margin:26px 0 8px}
-h4{font-size:14.5px;margin:18px 0 6px}
-p{margin:10px 0}
-ul,ol{padding-left:22px}
+.eyebrow{display:block;font-size:11px;letter-spacing:2px;color:var(--brand);font-weight:700;margin-bottom:6px}
+h2{margin:0 0 14px;padding-bottom:10px;font-size:23px;letter-spacing:-.2px;border-bottom:1px solid var(--line)}
+h2::before{content:"# ";color:var(--brand);font-weight:600}
+h3{font-size:16.5px;margin:26px 0 8px;color:#eef2f7}
+h4{font-size:14.5px;margin:18px 0 6px;color:#e2e8f0}
+p{margin:10px 0;color:#cbd5e1}
+ul,ol{padding-left:22px;color:#cbd5e1}
 li{margin:5px 0}
+strong,b{color:#f1f5f9}
 
 .note,.warn,.tip{border-left:4px solid;padding:13px 16px;border-radius:0 10px 10px 0;margin:16px 0;font-size:14px}
 .note{border-color:var(--brand);background:var(--brand-soft)}
@@ -74,11 +87,11 @@ li{margin:5px 0}
 .note>b:first-child,.warn>b:first-child,.tip>b:first-child{display:block;margin-bottom:2px}
 
 table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
-th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
-th{background:var(--soft);font-weight:600}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top;color:#cbd5e1}
+th{background:var(--soft);font-weight:600;color:#e2e8f0}
 td.num,th.num{text-align:right}
 code{background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;
-  font-family:Consolas,"Courier New",monospace}
+  color:#c7d2fe;font-family:Consolas,"Courier New",monospace}
 
 ol.steps{padding-left:0;list-style:none;counter-reset:s;margin:12px 0}
 ol.steps>li{counter-increment:s;position:relative;padding:0 0 14px 40px;margin:0}
@@ -90,14 +103,14 @@ ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:26px
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
 .pill.info{background:var(--brand-soft);color:var(--brand)}
-.pill.off{background:#f1f3f5;color:#868e96}
+.pill.off{background:#1e293b;color:#94a3b8}
 
 /* ---- 界面原型 ---- */
-.mock{border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;margin:18px 0;background:#fff;
-  box-shadow:0 18px 36px -28px rgba(15,23,42,.55)}
-.mock .bar{background:#e9eef5;border-bottom:1px solid #cbd5e1;padding:7px 12px;display:flex;align-items:center;gap:7px}
-.mock .dot{width:10px;height:10px;border-radius:50%;background:#cbd5e1}
-.mock .url{flex:1;background:#fff;border:1px solid #dbe2ea;border-radius:5px;padding:3px 10px;
+.mock{border:1px solid var(--line-hi);border-radius:12px;overflow:hidden;margin:18px 0;background:var(--panel-2);
+  box-shadow:0 18px 36px -24px rgba(0,0,0,.65)}
+.mock .bar{background:#0b111c;border-bottom:1px solid var(--line);padding:7px 12px;display:flex;align-items:center;gap:7px}
+.mock .dot{width:10px;height:10px;border-radius:50%;background:#334155}
+.mock .url{flex:1;background:var(--soft);border:1px solid var(--line);border-radius:5px;padding:3px 10px;
   font:12px Consolas,monospace;color:var(--muted)}
 .mock .body{padding:0}
 .appnav{background:#0b1220;color:#e6edf3;padding:9px 14px;display:flex;align-items:center;gap:15px;
@@ -117,102 +130,141 @@ ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:26px
   padding:2px 10px;border-radius:999px;font-size:11.5px;white-space:nowrap}
 .iconpill{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;
   border:1px solid rgba(255,255,255,.2);font-size:11px;color:#cbd5e1}
-.screen{padding:20px 22px;background:#f8fafc}
-.screen h5{margin:0 0 12px;font-size:16px}
+.screen{padding:20px 22px;background:#0b111c;color:#cbd5e1}
+.screen h5{margin:0 0 12px;font-size:16px;color:#eef2f7}
 .statrow{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
-.stat{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff}
+.stat{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--panel)}
 .stat span{display:block;font-size:11.5px;color:var(--muted)}
-.stat b{font-size:17px}
-.stat.key{border-color:#c7d2fe;background:#f5f7ff}
+.stat b{font-size:17px;color:#eef2f7}
+.stat.key{border-color:#3730a3;background:rgba(99,102,241,.12)}
 .filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px solid var(--line);
-  border-radius:10px;padding:10px 12px;background:#fff;margin-bottom:14px;font-size:12px}
-.filterbar .f{border:1px solid #d7dee8;border-radius:6px;padding:4px 9px;background:#fff;color:#475467}
-.filterbar .f.on{background:var(--brand);border-color:var(--brand);color:#fff}
-table.data{margin:0;font-size:12.5px;background:#fff}
-table.data th{background:#f8fafc}
+  border-radius:10px;padding:10px 12px;background:var(--panel);margin-bottom:14px;font-size:12px}
+.filterbar .f{border:1px solid var(--line-hi);border-radius:6px;padding:4px 9px;background:var(--panel-2);color:#cbd5e1}
+.filterbar .f.on{background:var(--brand);border-color:var(--brand);color:#0b0f17}
+table.data{margin:0;font-size:12.5px;background:var(--panel-2)}
+table.data th{background:var(--soft)}
 table.data td{padding:7px 10px}
 .btn{display:inline-block;border-radius:7px;padding:5px 12px;font-size:12.5px;font-weight:600;
-  background:var(--brand);color:#fff}
-.btn.gray{background:#fff;color:#344054;border:1px solid #d7dee8}
-.btn.dim{background:#c7d2fe;color:#fff}
+  background:var(--brand);color:#0b0f17}
+.btn.gray{background:var(--panel);color:#cbd5e1;border:1px solid var(--line-hi)}
+.btn.dim{background:#334155;color:#94a3b8}
 .pager{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);margin-top:12px;flex-wrap:wrap}
-.pager span{border:1px solid var(--line);border-radius:5px;padding:2px 7px;background:#fff}
-.pager span.cur{background:var(--brand-soft);border-color:#c7d2fe;color:var(--brand);font-weight:700}
+.pager span{border:1px solid var(--line);border-radius:5px;padding:2px 7px;background:var(--panel)}
+.pager span.cur{background:var(--brand-soft);border-color:#3730a3;color:var(--brand);font-weight:700}
 
 .kpi{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.kpi div{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:#fff}
+.kpi div{flex:1;min-width:120px;border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:var(--panel)}
 .kpi span{display:block;font-size:11.5px;color:var(--muted)}
-.kpi b{font-size:18px}
-.chartbox{border:1px dashed #c7d2fe;border-radius:10px;height:104px;display:flex;align-items:center;
-  justify-content:center;color:#818cf8;font-size:13px;background:#f8faff}
+.kpi b{font-size:18px;color:#eef2f7}
+.chartbox{border:1px dashed #3730a3;border-radius:10px;height:104px;display:flex;align-items:center;
+  justify-content:center;color:#a5b4fc;font-size:13px;background:rgba(99,102,241,.07)}
 
 .legend{margin:10px 0 0;padding-left:0;list-style:none;font-size:14px}
 .legend li{margin:6px 0;padding-left:26px;position:relative}
 .legend li::before{content:"→";position:absolute;left:0;color:var(--brand);font-weight:700}
 /* ---- 初始账号 ---- */
 .cred{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
-.cred-item{border:1px solid #c7d2fe;border-radius:12px;padding:14px 16px;
-  background:linear-gradient(135deg,#eef2ff,#f0fdff)}
+.cred-item{border:1px solid #3730a3;border-radius:12px;padding:14px 16px;
+  background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(34,211,238,.06))}
 .cred-item .k{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
-.cred-item b{font-size:18px}
+.cred-item b{font-size:18px;color:#eef2f7}
 .cred-item small{display:block;color:var(--muted);margin-top:4px;font-size:12.5px}
-.copy{display:inline-flex;align-items:center;gap:10px;border:1px dashed #a5b4fc;border-radius:9px;
-  background:#fff;color:var(--brand);font:600 18px/1.4 Consolas,monospace;padding:6px 12px;cursor:pointer}
+.copy{display:inline-flex;align-items:center;gap:10px;border:1px dashed #4f46e5;border-radius:9px;
+  background:var(--panel);color:#c7d2fe;font:600 18px/1.4 Consolas,monospace;padding:6px 12px;cursor:pointer}
 .copy em{font:400 12px "Microsoft YaHei",sans-serif;color:var(--muted);font-style:normal}
-.copy:hover{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.1);filter:none}
+.copy:hover{border-color:var(--brand);box-shadow:0 0 0 3px rgba(99,102,241,.15);filter:none}
 .copy.copied{border-style:solid;border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
-.faq dt{font-weight:700;margin-top:16px}
-.faq dd{margin:4px 0 0;color:#344054}
+.faq dt{font-weight:700;margin-top:16px;color:#eef2f7}
+.faq dd{margin:4px 0 0;color:#cbd5e1}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .mini-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--soft)}
 .mini-card h4{margin:0 0 6px}
-footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
-@media(max-width:760px){
-  nav.toc ol{columns:1}
-  section{padding:22px 20px}
-  .grid2{grid-template-columns:1fr}
-  .cred{grid-template-columns:1fr}
-  h1{font-size:25px}
+footer{margin-top:40px;padding:22px 0 0;border-top:1px solid var(--line);
+  color:var(--muted-2);font-size:12.5px;text-align:center}
+@media(max-width:1100px){
+  .sidebar{width:230px}
+  .main{margin-left:230px}
+  .doc{padding:44px 30px 80px}
+}
+@media(max-width:900px){
+  .sidebar{position:static;width:auto;height:auto;border-right:0;border-bottom:1px solid var(--line);overflow:visible}
+  .main{margin-left:0}
+  .doc-top{padding:0 20px}
+  nav.toc{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+  .toc-group{margin-top:12px}
+  .doc{padding:34px 20px 70px}
+  .doc-search{width:auto;flex:1}
+  .side-foot{margin-top:16px}
+}
+@media(max-width:620px){
+  nav.toc{grid-template-columns:1fr}
+  .doc-top{height:auto;padding:12px 16px;flex-wrap:wrap}
+  .doc-search{width:100%;max-width:none}
+  .doc>h1{font-size:27px}
+  .grid2,.cred{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap">
-  <div class="mark">
-    <span class="logo" aria-hidden="true">
-      <img src="/static/images/logo-fns.png" alt="">
-    </span>
-    <span>FINOSS 飞诺斯 <span class="amp">&amp;</span> 汇慧</span>
+<aside class="sidebar">
+  <div class="side-brand">
+    <img src="/static/images/logo-fns.png" alt="">
+    <div><strong>FINOSS 飞诺斯 &amp; 汇慧</strong><span>用户使用指南</span></div>
   </div>
-  <h1>用户使用指南</h1>
-  <p class="sub">面向销售、采购与管理人员　·　访问地址 <code>http://172.16.77.80:8001/</code>　·　更新于 2026-10-30</p>
-</div></header>
+  <nav class="toc" aria-label="目录">
+    <div class="toc-group">
+      <span class="toc-label">快速开始</span>
+      <a href="#login">登录与选择公司</a>
+      <a href="#nav">导航、快捷搜索与个人设置</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">日常操作</span>
+      <a href="#switch">切换公司</a>
+      <a href="#entry">录入日报</a>
+      <a href="#master">维护客户、供应商与汇率</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">分析与集成</span>
+      <a href="#report">报表与分析</a>
+      <a href="#kingdee">金蝶数据与客商映射</a>
+      <a href="#payment">钉钉付款申请</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">推送与导入</span>
+      <a href="#push">每日日报推送</a>
+      <a href="#import">导入历史数据</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">其他</span>
+      <a href="#faq">常见问题</a>
+    </div>
+    <p class="toc-empty" id="toc-empty">没有匹配的条目</p>
+  </nav>
+  <div class="side-foot">更新于 2026-10-30<br>内部系统 · 请勿外传</div>
+</aside>
 
-<div class="wrap container">
+<div class="main">
+  <header class="doc-top">
+    <label class="doc-search">
+      <span aria-hidden="true">⌕</span>
+      <input id="guide-search" type="search" placeholder="搜索指南" autocomplete="off" aria-label="搜索指南">
+      <kbd>Ctrl K</kbd>
+    </label>
+    <div class="doc-links">
+      <a href="/">返回系统</a>
+      <a href="http://172.16.77.80:8001/" target="_blank" rel="noopener">访问地址</a>
+    </div>
+  </header>
+  <article class="doc">
+    <h1>用户使用指南</h1>
+    <p class="lead">面向销售、采购与管理人员　·　访问地址 <code>http://172.16.77.80:8001/</code>　·　更新于 2026-10-30</p>
 
-<nav class="toc">
-  <strong>目录</strong>
-  <ol>
-    <li><a href="#login">登录与选择公司</a></li>
-    <li><a href="#nav">导航、快捷搜索与个人设置</a></li>
-    <li><a href="#switch">切换公司</a></li>
-    <li><a href="#entry">录入日报</a></li>
-    <li><a href="#master">维护客户、供应商与汇率</a></li>
-    <li><a href="#report">报表与分析</a></li>
-    <li><a href="#kingdee">金蝶数据：核对、出入库与客商映射</a></li>
-    <li><a href="#payment">钉钉付款申请</a></li>
-    <li><a href="#push">每日日报推送</a></li>
-    <li><a href="#import">导入历史数据</a></li>
-    <li><a href="#faq">常见问题</a></li>
-  </ol>
-</nav>
-
-<div class="note">
-  <b>先理解一件事：数据按公司隔离</b>
-  系统里有<b>飞诺斯电子科技有限公司</b>和<b>宁波汇慧有限公司</b>两家公司。你的账号和密码两家共用，
-  但<b>业务数据完全分开</b>——登录飞诺斯时看到的客户、日报、报表，都只属于飞诺斯。
-  所以每次操作前，先确认导航栏上的「当前公司」是不是你要的那家。
-</div>
+    <div class="note">
+      <b>先理解一件事：数据按公司隔离</b>
+      系统里有<b>飞诺斯电子科技有限公司</b>和<b>宁波汇慧有限公司</b>两家公司。你的账号和密码两家共用，
+      但<b>业务数据完全分开</b>——登录飞诺斯时看到的客户、日报、报表，都只属于飞诺斯。
+      所以每次操作前，先确认导航栏上的「当前公司」是不是你要的那家。
+    </div>
 
 <!-- 1 登录 -->
 <section id="login">
@@ -233,18 +285,18 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
           <div style="margin-top:34px;font-size:20px;font-weight:700;line-height:1.5">采购销售日报<br>数据管理平台</div>
           <div style="margin-top:16px;font-size:10.5px;color:#94a3b8">多公司数据隔离 · 采销实时对比 · 日报自动推送</div>
         </div>
-        <div style="flex:1;padding:22px 24px;background:#fff">
+        <div style="flex:1;padding:22px 24px;background:#0f1724">
           <b style="font-size:17px">登录</b>
-          <div style="font-size:11.5px;color:#667085;margin:12px 0 4px">公司 <span style="color:#c62828">*</span></div>
-          <div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">飞诺斯电子科技有限公司 ▾</div>
-          <div style="font-size:11.5px;color:#667085;margin:10px 0 4px">用户名 <span style="color:#c62828">*</span></div>
-          <div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;height:34px"></div>
-          <div style="font-size:11.5px;color:#667085;margin:10px 0 4px">密码 <span style="color:#c62828">*</span></div>
-          <div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;height:34px"></div>
+          <div style="font-size:11.5px;color:#94a3b8;margin:12px 0 4px">公司 <span style="color:#f87171">*</span></div>
+          <div class="f" style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px">飞诺斯电子科技有限公司 ▾</div>
+          <div style="font-size:11.5px;color:#94a3b8;margin:10px 0 4px">用户名 <span style="color:#f87171">*</span></div>
+          <div style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;height:34px"></div>
+          <div style="font-size:11.5px;color:#94a3b8;margin:10px 0 4px">密码 <span style="color:#f87171">*</span></div>
+          <div style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;height:34px"></div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
             <div class="btn" style="flex:1;text-align:center;padding:9px">登录</div>
-            <span class="iconpill" style="border-color:#d7dee8;color:#667085">?</span>
-            <span class="iconpill" style="border-color:#d7dee8;color:#667085">☾</span>
+            <span class="iconpill" style="border-color:#2b3a50;color:#94a3b8">?</span>
+            <span class="iconpill" style="border-color:#2b3a50;color:#94a3b8">☾</span>
           </div>
         </div>
       </div>
@@ -381,24 +433,24 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
       <div class="appnav"><a class="on" href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
       <div class="screen">
         <h5>新增销售日报</h5>
-        <p style="font-size:12px;color:#667085;margin-top:0">客户与负责人的对应关系决定这笔单归谁；金额填原币，人民币由系统折算。</p>
+        <p style="font-size:12px;color:#94a3b8;margin-top:0">客户与负责人的对应关系决定这笔单归谁；金额填原币，人民币由系统折算。</p>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
           <div style="flex:2;min-width:260px">
-            <div style="font-size:12px;color:#667085;margin-bottom:4px">客户</div>
-            <div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px;color:#98a2b3">输入客户名称或业务员后从下拉中选择…</div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:4px">客户</div>
+            <div class="f" style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px;color:#64748b">输入客户名称或业务员后从下拉中选择…</div>
             <div style="display:flex;gap:10px;margin-top:12px">
-              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">销售类型</div><div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">内销 ▾</div></div>
-              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">出货日期</div><div class="f" style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">2026-10-29</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">销售类型</div><div class="f" style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px">内销 ▾</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">出货日期</div><div class="f" style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px">2026-10-29</div></div>
             </div>
             <div style="display:flex;gap:10px;margin-top:12px">
-              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">数量</div><div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">100</div></div>
-              <div style="flex:1"><div style="font-size:12px;color:#667085;margin-bottom:4px">金额（原币）</div><div style="border:1px solid #d7dee8;border-radius:7px;padding:7px 10px;font-size:12.5px">12345.67</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">数量</div><div style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px">100</div></div>
+              <div style="flex:1"><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">金额（原币）</div><div style="border:1px solid #2b3a50;border-radius:7px;padding:7px 10px;font-size:12.5px">12345.67</div></div>
             </div>
             <div class="btn" style="margin-top:14px">保存</div>
           </div>
-          <div style="flex:1;min-width:200px;border:1px dashed #c7d2fe;border-radius:10px;padding:12px;background:#f8faff">
+          <div style="flex:1;min-width:200px;border:1px dashed #3730a3;border-radius:10px;padding:12px;background:rgba(99,102,241,.07)">
             <b style="font-size:12.5px">金蝶明细关联（可选）</b>
-            <p style="font-size:11.5px;color:#667085;margin:6px 0">搜索并选择金蝶出库明细，可把本次金额分摊到多行，用于后续金额核对。</p>
+            <p style="font-size:11.5px;color:#94a3b8;margin:6px 0">搜索并选择金蝶出库明细，可把本次金额分摊到多行，用于后续金额核对。</p>
             <div class="btn gray" style="font-size:11.5px">＋ 选择金蝶明细</div>
           </div>
         </div>
@@ -570,17 +622,17 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
   <div class="mock">
     <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span class="url">钉钉群 · 经营日报卡片</span></div>
-    <div class="body" style="padding:16px 18px;background:#f8fafc">
-      <div style="border:1px solid #e4e9f0;border-radius:12px;background:#fff;padding:14px 16px">
+    <div class="body" style="padding:16px 18px;background:#0b111c">
+      <div style="border:1px solid #1f2a3a;border-radius:12px;background:#0f1724;padding:14px 16px">
         <b style="font-size:13.5px">飞诺斯电子科技有限公司 · 2026-10-29 经营日报</b>
-        <p style="font-size:11.5px;color:#667085;margin:4px 0 10px">金额单位：万元</p>
+        <p style="font-size:11.5px;color:#94a3b8;margin:4px 0 10px">金额单位：万元</p>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11.5px">
-          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">采购</span><br><b style="font-size:17px">126.42</b></div>
-          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">销售</span><br><b style="font-size:17px">221.08</b></div>
-          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">占比</span><br><b style="font-size:17px">57.2%</b></div>
-          <div style="background:#f2f4f6;border-radius:8px;padding:8px"><span style="color:#667085">本月累计</span><br><b style="font-size:17px">3,486.9</b></div>
+          <div style="background:#111827;border-radius:8px;padding:8px"><span style="color:#94a3b8">采购</span><br><b style="font-size:17px">126.42</b></div>
+          <div style="background:#111827;border-radius:8px;padding:8px"><span style="color:#94a3b8">销售</span><br><b style="font-size:17px">221.08</b></div>
+          <div style="background:#111827;border-radius:8px;padding:8px"><span style="color:#94a3b8">占比</span><br><b style="font-size:17px">57.2%</b></div>
+          <div style="background:#111827;border-radius:8px;padding:8px"><span style="color:#94a3b8">本月累计</span><br><b style="font-size:17px">3,486.9</b></div>
         </div>
-        <div style="margin-top:10px;font-size:11.5px;color:#475467">📎 经营日报.pdf　　📎 经营日报.xlsx</div>
+        <div style="margin-top:10px;font-size:11.5px;color:#94a3b8">📎 经营日报.pdf　　📎 经营日报.xlsx</div>
       </div>
     </div>
   </div>
@@ -620,14 +672,14 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
       <div class="appnav"><a href="#">销售</a><a href="#">采购</a><span class="spacer"></span><span class="chip">当前公司：飞诺斯</span></div>
       <div class="screen">
         <h5>销售数据导入</h5>
-        <p style="font-size:12px;color:#667085;margin-top:0">数据将导入当前公司「飞诺斯电子科技有限公司」，切换公司后重新导入不会互相覆盖。</p>
+        <p style="font-size:12px;color:#94a3b8;margin-top:0">数据将导入当前公司「飞诺斯电子科技有限公司」，切换公司后重新导入不会互相覆盖。</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
           <span class="btn gray">下载导入模板</span>
-          <span style="border:1px solid #d7dee8;border-radius:7px;padding:5px 12px;font-size:12px;color:#98a2b3">选择文件（.xls 或 .xlsx）</span>
+          <span style="border:1px solid #2b3a50;border-radius:7px;padding:5px 12px;font-size:12px;color:#64748b">选择文件（.xls 或 .xlsx）</span>
           <span class="btn">预览</span>
           <span class="btn dim">正式导入</span>
         </div>
-        <div style="border:1px solid #e4e9f0;border-radius:10px;background:#fff;padding:12px 14px;font-size:12px">
+        <div style="border:1px solid #1f2a3a;border-radius:10px;background:#0f1724;padding:12px 14px;font-size:12px">
           <b>预览结果：可导入 128 行，发现 2 处问题</b>
           <table class="data" style="margin-top:8px">
             <tr><th>行号</th><th>字段</th><th>问题</th></tr>
@@ -712,6 +764,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
 </section>
 
 <footer>FINOSSReportSystem · 用户使用指南　|　遇到本指南没写到的问题，请联系系统管理员</footer>
+  </article>
 </div>
 <script>
 (function () {
@@ -741,6 +794,74 @@ footer{color:var(--muted);font-size:13px;text-align:center;padding:18px 0 0}
         }, 1500);
       });
     });
+  });
+})();
+
+/* 侧栏滚动高亮 + 搜索（Ctrl+K） */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll("nav.toc a[href^='#']"));
+  var sections = links.map(function (a) {
+    return document.getElementById(a.getAttribute("href").slice(1));
+  }).filter(Boolean);
+  if (!sections.length) return;
+
+  function setActive(id) {
+    links.forEach(function (a) {
+      a.classList.toggle("on", a.getAttribute("href") === "#" + id);
+    });
+  }
+  function spy() {
+    var line = window.scrollY + 120;
+    var current = sections[0];
+    sections.forEach(function (section) {
+      if (section.getBoundingClientRect().top + window.scrollY <= line) current = section;
+    });
+    setActive(current.id);
+  }
+  window.addEventListener("scroll", spy, { passive: true });
+  window.addEventListener("resize", spy);
+  spy();
+
+  var input = document.getElementById("guide-search");
+  var empty = document.getElementById("toc-empty");
+  if (!input) return;
+
+  function filter() {
+    var q = input.value.trim().toLowerCase();
+    var visible = 0;
+    links.forEach(function (a) {
+      var hit = !q || a.textContent.toLowerCase().indexOf(q) !== -1;
+      a.classList.toggle("hide", !hit);
+      if (hit) visible += 1;
+    });
+    document.querySelectorAll(".toc-group").forEach(function (group) {
+      group.style.display = group.querySelector("a:not(.hide)") ? "" : "none";
+    });
+    if (empty) empty.classList.toggle("show", visible === 0);
+  }
+
+  input.addEventListener("input", filter);
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      input.value = "";
+      filter();
+      input.blur();
+    }
+    if (event.key === "Enter") {
+      var first = links.filter(function (a) { return !a.classList.contains("hide"); })[0];
+      if (first) {
+        event.preventDefault();
+        document.querySelector(first.getAttribute("href")).scrollIntoView({ behavior: "smooth", block: "start" });
+        input.blur();
+      }
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      input.focus();
+      input.select();
+    }
   });
 })();
 </script>

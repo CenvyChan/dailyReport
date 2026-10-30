@@ -37,6 +37,16 @@ class UserGuideTests(TestCase):
         self.assertContains(response, "没有可进入的公司")
         self.assertContains(response, "用户公司授权")
 
+    def test_guide_uses_sticky_sidebar_layout(self):
+        """目录固定在左侧，长文滚动时仍然可见；顶栏提供 Ctrl+K 搜索。"""
+        response = self.client.get(reverse("core:user_guide"))
+
+        self.assertContains(response, 'class="sidebar"')
+        self.assertContains(response, 'class="doc-search"')
+        self.assertContains(response, 'id="guide-search"')
+        self.assertContains(response, "toc-group")
+        self.assertContains(response, "Ctrl K")
+
     def test_guide_shows_default_credentials(self):
         """新同事第一次登录要用：用户名是姓名全拼，默认密码可点击复制。"""
         response = self.client.get(reverse("core:user_guide"))
