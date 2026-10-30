@@ -1,0 +1,11 @@
+{% load display %}
+{% if pie.has_data %}
+<div class="donut-wrap">
+  <svg class="donut-svg" viewBox="0 0 120 120" role="img" aria-label="采销构成">
+    <circle cx="60" cy="60" r="46" fill="none" stroke="#e2e8f0" stroke-width="18"/>
+    {% for segment in pie.segments %}<circle cx="60" cy="60" r="46" fill="none" stroke="{{ segment.color }}" stroke-width="18" stroke-dasharray="{{ segment.length }} {{ pie.circumference }}" stroke-dashoffset="{{ segment.offset }}"/>{% endfor %}
+  </svg>
+  <div class="donut-center"><span>合计</span><strong>¥{{ pie.total|money }}</strong></div>
+</div>
+<div class="pie-legend">{% for segment in pie.segments %}<span><i style="background:{{ segment.color }}"></i>{{ segment.label }} ¥{{ segment.value|money }}（{{ segment.percent|floatformat:1 }}%）</span>{% endfor %}</div>
+{% else %}<p class="empty">暂无构成数据（采购或销售当日为 0 或缺失）。</p>{% endif %}

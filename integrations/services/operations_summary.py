@@ -1,6 +1,7 @@
 """采销经营汇总：金蝶业务日期金额，与手工月度对比表分别冻结入快照。"""
 
 import copy
+import math
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from django.db.models import Sum, Count
@@ -25,6 +26,19 @@ def _share(purchase, sales):
         if sales
         else None
     )
+
+
+def _report_daily_amount(snapshot, name):
+    """人员日报当日金额；与 A2UI 卡片同口径，没有提交记录时为 None。"""
+    coverage = ((snapshot.data or {}).get(name) or {}).get("daily_coverage") or {}
+    value = coverage.get("total_amount")
+    return None if value is None else _money(value)
+
+
+def _share_or_none(purchase, sales):
+    if purchase is None or sales is None:
+        return None
+    return _share(_money(purchase), _money(sales))
 
 
 def build_operations_summary(company, report_date, scope="BOTH"):
@@ -289,6 +303,12 @@ def snapshot_detail_context(snapshot):
     }
 
 
+CHART_LEFT = 52
+CHART_RIGHT = 676
+CHART_TOP = 28
+CHART_BOTTOM = 168
+
+
 def chart_geometry(rows, names):
     values = [_money(row.get(name + "_amount")) for row in rows for name in names]
     low = min([Decimal(0)] + values)
@@ -296,28 +316,120 @@ def chart_geometry(rows, names):
     span = high - low or Decimal(1)
 
     def y(value):
-        return round(28 + float((high - value) / span) * 140, 2)
+        return round(
+            CHART_TOP + float((high - value) / span) * (CHART_BOTTOM - CHART_TOP), 2
+        )
+
+    def x(index):
+        return round(
+            CHART_LEFT
+            + index * (CHART_RIGHT - CHART_LEFT) / max(len(rows) - 1, 1),
+            2,
+        )
 
     series = []
     for name in names:
-        points = " ".join(
-            f"{round(24+index*652/max(len(rows)-1,1),2)},{y(_money(row.get(name+'_amount')))}"
+        points_list = [
+            {
+                "x": x(index),
+                "y": y(_money(row.get(name + "_amount"))),
+                "date": row["date"],
+                "value": round(
+                    float(_money(row.get(name + "_amount")) / 10000), 2
+                ),
+            }
             for index, row in enumerate(rows)
-        )
+        ]
         series.append(
             {
                 "name": name,
                 "label": "采购" if name == "purchase" else "销售",
                 "color": "#d97706" if name == "purchase" else "#2563eb",
-                "points": points,
+                "points": " ".join(
+                    f"{point['x']},{point['y']}" for point in points_list
+                ),
+                "points_list": points_list,
             }
         )
+
+    tick_count = 5
+    tick_span_wan = float((high - low) / 10000) / (tick_count - 1)
+    if tick_span_wan >= 10:
+        decimals = 0
+    elif tick_span_wan >= 1:
+        decimals = 1
+    else:
+        decimals = max(
+            1, int(-math.floor(math.log10(max(tick_span_wan, 1e-9))))
+        )
+    y_ticks = []
+    for index in range(tick_count):
+        value = low + (high - low) * Decimal(index) / Decimal(tick_count - 1)
+        y_ticks.append(
+            {
+                "y": y(value),
+                "label": f"{float(value / 10000):,.{decimals}f}",
+            }
+        )
+
+    x_tick_count = min(6, len(rows))
+    x_labels = []
+    for index in range(x_tick_count):
+        row_index = round(
+            index * (len(rows) - 1) / max(x_tick_count - 1, 1)
+        )
+        x_labels.append(
+            {"x": x(row_index), "label": rows[row_index]["date"][5:]}
+        )
+
     return {
         "series": series,
+        "y_ticks": y_ticks,
+        "x_labels": x_labels,
         "zero_y": y(Decimal(0)),
+        "has_negative": low < 0,
         "has_data": bool(rows),
         "high": float(high / 10000),
         "low": float(low / 10000),
+    }
+
+
+def _donut(amounts):
+    """采销构成环形图数据；采购或销售缺失/全为 0 时不展示。"""
+    purchase = amounts.get("purchase")
+    sales = amounts.get("sales")
+    if purchase is None or sales is None:
+        return {"has_data": False}
+    purchase = max(_money(purchase), Decimal(0))
+    sales = max(_money(sales), Decimal(0))
+    total = purchase + sales
+    if total <= 0:
+        return {"has_data": False}
+    circumference = 2 * math.pi * 46
+    purchase_percent = float(purchase / total * 100)
+    sales_percent = 100 - purchase_percent
+    return {
+        "has_data": True,
+        "total": total,
+        "circumference": round(circumference, 2),
+        "segments": [
+            {
+                "label": "采购",
+                "value": purchase,
+                "percent": purchase_percent,
+                "color": "#d97706",
+                "length": round(circumference * purchase_percent / 100, 2),
+                "offset": 0,
+            },
+            {
+                "label": "销售",
+                "value": sales,
+                "percent": sales_percent,
+                "color": "#2563eb",
+                "length": round(circumference * sales_percent / 100, 2),
+                "offset": round(-circumference * purchase_percent / 100, 2),
+            },
+        ],
     }
 
 
@@ -348,12 +460,53 @@ def operations_context(snapshot):
         }
         for name in names
     ]
+    has_purchase = "purchase" in names
+    has_sales = "sales" in names
+    has_share = has_purchase and has_sales
+    report_amounts = {
+        name: _report_daily_amount(snapshot, name) for name in names
+    }
+    metric_rows = [
+        {
+            "label": "当月累计",
+            "purchase": summary.get("purchase_total"),
+            "sales": summary.get("sales_total"),
+            "share": summary.get("share_total"),
+        },
+        {
+            "label": "人员日报（当日）",
+            "purchase": report_amounts.get("purchase"),
+            "sales": report_amounts.get("sales"),
+            "share": _share_or_none(
+                report_amounts.get("purchase"), report_amounts.get("sales")
+            ),
+        },
+        {
+            "label": "金蝶 K3Cloud（当日）",
+            "purchase": summary.get("purchase_daily"),
+            "sales": summary.get("sales_daily"),
+            "share": _share_or_none(
+                summary.get("purchase_daily"), summary.get("sales_daily")
+            ),
+        },
+    ]
     return {
         "snapshot": snapshot,
         **snapshot_detail_context(snapshot),
         "operations": summary,
         "summary_metrics": metrics,
         "daily_metrics": daily,
+        "metric_rows": metric_rows,
+        "has_purchase": has_purchase,
+        "has_sales": has_sales,
+        "has_share": has_share,
+        "report_pie": _donut(report_amounts),
+        "kingdee_pie": _donut(
+            {
+                "purchase": summary.get("purchase_daily"),
+                "sales": summary.get("sales_daily"),
+            }
+        ),
         "month_chart": chart_geometry(summary.get("month_rows", []), names),
         "trend_chart": chart_geometry(summary.get("trend_rows", []), names),
     }

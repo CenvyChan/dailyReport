@@ -20,6 +20,7 @@ from integrations.services.operations_a2ui import (
     filter_snapshot_for_contents,
 )
 from integrations.services.snapshot_export import export_snapshot_to_excel
+from integrations.services.snapshot_public import render_snapshot_public_html
 from reports.tests.test_comparison import add_sale, add_purchase
 
 
@@ -136,6 +137,32 @@ class OperationsSummaryTests(TestCase):
                 "销售日报</h2>",
             ]:
                 self.assertNotIn(text, html)
+
+    def test_public_report_aligns_with_card_metrics_charts_and_pie(self):
+        snap = self.snapshot()
+        html = render_snapshot_public_html(snap)
+        for text in [
+            "关键指标",
+            "当月累计",
+            "人员日报（当日）",
+            "金蝶 K3Cloud（当日）",
+            "采销构成",
+            "人员日报当日",
+            "金蝶 K3Cloud 当日",
+            "chart-point",
+            "data-series",
+            "data-value",
+            "stroke-dasharray",
+            "悬停",
+        ]:
+            self.assertIn(text, html)
+
+    def test_pdf_manual_ledger_has_no_unit_column(self):
+        snap = self.snapshot()
+        html = render_snapshot_book_html(snap)
+        self.assertNotIn('<th style="width:64px">单位</th>', html)
+        # 金蝶单据明细仍保留单位列，便于核对数量口径。
+        self.assertIn('<th style="width:44px">单位</th>', html)
 
     def test_content_selection_never_leaks_other_business_in_charts_or_excel(self):
         selected = filter_snapshot_for_contents(self.snapshot(), ["PURCHASE"])

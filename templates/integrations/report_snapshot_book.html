@@ -281,11 +281,11 @@
 {% for ledger in manual_pages %}
 <section class="page">
   <div class="sec-head"><div><span class="eyebrow">MANUAL DAILY LEDGER · SECTION 03</span><h2 class="serif">{{ ledger.label }}日报明细账簿{% if ledger.continuation %} · 明细续页{% endif %}</h2></div><span class="ledger-badge">共 {{ ledger.count }} 笔 · ¥{{ ledger.total|money }}</span></div>
-  <p class="detail-note">{{ snapshot.report_date|date:"Y-m-d" }} · 人员填报／历史导入记录，非金蝶单据。无提交时仍保留全部列。数量按源记录求和，单位未记录时不作实物单位推断。</p>
+  <p class="detail-note">{{ snapshot.report_date|date:"Y-m-d" }} · 人员填报／历史导入记录，非金蝶单据。无提交时仍保留全部列。数量按源记录求和。</p>
   <div class="ledger-wrap"><table class="ledger">
-    <thead><tr><th style="width:30px">#</th><th>{{ ledger.party_label }}</th><th style="width:70px">提报人</th><th style="width:78px">日期</th><th class="num" style="width:68px">数量</th><th style="width:64px">单位</th><th class="num" style="width:95px">金额（元）</th></tr></thead>
-    <tbody>{% for row in ledger.rows %}<tr><td class="idx">{{ forloop.counter|add:ledger.offset }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td>{{ row.unit }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="7" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
-    {% if ledger.last %}<tfoot><tr><td colspan="4">{{ ledger.label }}日报合计</td><td class="num">{{ ledger.quantity_total_text }}</td><td>{{ ledger.quantity_unit }}</td><td class="num">{{ ledger.total|money }}</td></tr></tfoot>{% endif %}
+    <thead><tr><th style="width:30px">#</th><th>{{ ledger.party_label }}</th><th style="width:70px">提报人</th><th style="width:78px">日期</th><th class="num" style="width:68px">数量</th><th class="num" style="width:95px">金额（元）</th></tr></thead>
+    <tbody>{% for row in ledger.rows %}<tr><td class="idx">{{ forloop.counter|add:ledger.offset }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="6" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
+    {% if ledger.last %}<tfoot><tr><td colspan="4">{{ ledger.label }}日报合计</td><td class="num">{{ ledger.quantity_total_text }}</td><td class="num">{{ ledger.total|money }}</td></tr></tfoot>{% endif %}
   </table></div>
   <div class="page-foot"><span>{{ snapshot.company.name }} · 经营日报</span><span>{{ ledger.label }}日报提交明细{% if ledger.continuation %} · 续{% endif %}</span></div>
 </section>

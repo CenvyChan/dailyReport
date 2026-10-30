@@ -25,13 +25,15 @@ logger = logging.getLogger("integrations")
 XLSX_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+# PDF 模板结构变化时递增，避免继续命中旧缓存（如去掉单位列）。
+PDF_CACHE_VERSION = "v2"
 
 
 def _pdf_bytes(snapshot):
     """按需渲染 PDF，并按快照生成时间缓存，避免每次点下载都起一次 Chromium。"""
     cache_dir = Path(settings.BASE_DIR) / "data" / "report_downloads"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    path = cache_dir / f"{snapshot.pk}.pdf"
+    path = cache_dir / f"{snapshot.pk}-{PDF_CACHE_VERSION}.pdf"
     if path.exists() and path.stat().st_mtime >= snapshot.generated_at.timestamp():
         return path.read_bytes()
     content = render_snapshot_pdf(snapshot, style="book")
