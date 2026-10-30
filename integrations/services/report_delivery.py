@@ -23,6 +23,19 @@ from integrations.services.reconciliation import generate_reconciliation_report
 logger = logging.getLogger("integrations")
 
 MAX_RETRY_ATTEMPTS = 5
+SNAPSHOT_LINK_SALT = "report-snapshot-link"
+
+
+def public_snapshot_url(snapshot: ReportSnapshot) -> str:
+    """生成无需登录的在线日报链接（签名带时效），供钉钉手机端直接打开。"""
+    from urllib.parse import quote
+
+    from django.conf import settings
+    from django.core import signing
+
+    token = signing.dumps({"snapshot": snapshot.pk}, salt=SNAPSHOT_LINK_SALT)
+    base = (getattr(settings, "PUBLIC_BASE_URL", "") or "http://172.16.77.80:8001").rstrip("/")
+    return f"{base}/integrations/snapshots/{snapshot.pk}/public/?token={quote(token)}"
 
 
 def render_snapshot_html(snapshot: ReportSnapshot, *, standalone: bool = True) -> str:

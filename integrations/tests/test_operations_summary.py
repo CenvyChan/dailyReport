@@ -115,7 +115,8 @@ class OperationsSummaryTests(TestCase):
         self.assertTrue(
             any(r[0] == "月度合计" and r[1] == 333 and r[2] == 999 for r in rows)
         )
-        self.assertTrue(wb["采销汇总"]._charts)
+        # 手机端 Excel 预览器不渲染原生 chart，改为嵌入静态 PNG。
+        self.assertTrue(wb["采销汇总"]._images)
 
     def test_html_pdf_use_one_combined_report_without_reconciliation_metrics(self):
         snap = self.snapshot()

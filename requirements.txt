@@ -8,6 +8,9 @@ numpy==1.26.4
 pandas==2.2.3
 xlrd==2.0.1
 openpyxl==3.1.5
+# Excel 里嵌入静态图表图片：手机端钉钉/WPS 预览器不渲染 openpyxl 原生折线图，
+# 只有图片能稳定显示。Pillow 是 openpyxl 插入图片的前置依赖。
+Pillow==12.3.0
 whitenoise==6.7.0
 # 对外集成：钉钉用 requests 调 OA 审批接口；金蝶用官方 WebAPI SDK（纯 Python，
 # 无原生扩展，老 CPU 可装）。应用运行时凭证存 DB 配置表，不从环境变量读取。

@@ -123,6 +123,9 @@ LOGIN_URL = "/accounts/login/"
 # 直接落到业务页面，省掉根路径的一次重定向。
 LOGIN_REDIRECT_URL = "/sales/shipments/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
+# 报表在线查看链接的对外基地址。定时投递在容器里跑，没有 request 可推导 Host，
+# 所以用环境变量固定；换域名或端口时改这里即可。
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://172.16.77.80:8001").rstrip("/")
 BACKUP_DIRECTORY = Path(os.getenv("BACKUP_DIRECTORY", BASE_DIR / "backups"))
 
 # 阿里云企业邮箱 SMTP：465 用 SSL，25/80 用明文，587 用 STARTTLS。

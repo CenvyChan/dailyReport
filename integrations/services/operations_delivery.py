@@ -125,6 +125,33 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                 raise OperationsDeliveryUncertain(f"A2UI 发送结果待核对：{card['outTrackId']}；{exc}") from exc
             card.update({"status": "SENT", "receipt": receipt, "sentAt": timezone.now().isoformat()})
             save()
+
+        # 在线日报链接：手机端不下载附件也能直接看完整 HTML（图表、明细都在里面）。
+        # 这是补充消息，失败只记录、不阻断 PDF/Excel 投递，也不自动重试。
+        link = state.setdefault("link", {})
+        if not link.get("attempted"):
+            link["attempted"] = True
+            try:
+                from integrations.services.report_delivery import public_snapshot_url
+
+                link["url"] = public_snapshot_url(snapshot)
+                save()
+                response = client.post("/v1.0/robot/groupMessages/send", {
+                    "robotCode": client.app.robot_code,
+                    "openConversationId": group.open_conversation_id,
+                    "msgKey": "sampleLink",
+                    "msgParam": json.dumps({
+                        "title": f"{snapshot.company.name} {snapshot.report_date:%Y-%m-%d} 在线日报",
+                        "text": "点击查看完整日报（含图表与明细），手机端无需下载附件",
+                        "messageUrl": link["url"],
+                    }, ensure_ascii=False),
+                })
+                link.update({"status": "SENT", "receipt": response, "sentAt": timezone.now().isoformat()})
+            except Exception as exc:
+                link.update({"status": "FAILED", "error": str(exc)})
+                logger.exception("在线日报链接发送失败：snapshot=%s", snapshot.pk)
+            save()
+
         for kind in ("pdf", "excel"):
             phase = state[kind]
             if phase.get("status") == "SENT":
@@ -136,7 +163,13 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                     "robotCode": client.app.robot_code,
                     "openConversationId": group.open_conversation_id,
                     "msgKey": "sampleFile",
-                    "msgParam": json.dumps({"mediaId": phase["mediaId"], "fileName": phase["fileName"]}, ensure_ascii=False),
+                    "msgParam": json.dumps({
+                        "mediaId": phase["mediaId"],
+                        "fileName": phase["fileName"],
+                        # 不传 fileType 时钉钉手机端只当普通文件下载，PDF/Excel
+                        # 都不会走内置预览；必须显式声明扩展名。
+                        "fileType": "pdf" if kind == "pdf" else "xlsx",
+                    }, ensure_ascii=False),
                 })
                 if response.get("errcode", 0) != 0:
                     raise RuntimeError(f"附件发送被拒绝：{response.get('errmsg', response)}")

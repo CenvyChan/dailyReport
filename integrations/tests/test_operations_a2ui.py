@@ -1,7 +1,7 @@
 """经营日报 A2UI 与 PDF/Excel 三件套投递回归。"""
 import copy
 import json
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from openpyxl import load_workbook
 
 from core.testing import company_a
@@ -164,6 +165,11 @@ class OperationsA2UIDeliveryTests(TestCase):
                                                         open_conversation_id="cid-test", send_at=time(18),
                                                         content_types=["SALES", "PURCHASE"])
         self.group.companies.set([self.company])
+        # 这些用例验证的是投递阶段本身，配置视为早已启用。
+        DingtalkGroupConfig.objects.filter(pk=self.group.pk).update(
+            enabled_at=timezone.make_aware(datetime(2026, 1, 1))
+        )
+        self.group.refresh_from_db()  # 同步内存值，避免后续 save() 用旧值覆盖基线
         self.snapshot = ReportSnapshot.objects.create(company=self.company, report_date=date(2026, 10, 27),
                                                       scope="BOTH", data=fixture_data(), is_complete=True)
         self.client_mock = Mock()
@@ -192,18 +198,26 @@ class OperationsA2UIDeliveryTests(TestCase):
     def test_three_deliveries_use_robot_identity_and_are_not_duplicated(self):
         self.assertEqual(self.send()[0][1], "SENT")
         calls = self.client_mock.post.call_args_list
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(len(calls), 4)
         self.assertTrue(calls[0].args[0].endswith("createAndDeliver"))
         self.assertEqual(calls[0].args[1]["imGroupOpenDeliverModel"], {"robotCode": "robot-code"})
-        filenames = [json.loads(c.args[1]["msgParam"])["fileName"] for c in calls[1:]]
-        self.assertTrue(filenames[0].endswith(".pdf"))
-        self.assertTrue(filenames[1].endswith(".xlsx"))
+        file_calls = [c for c in calls if c.args[1].get("msgKey") == "sampleFile"]
+        self.assertEqual(len(file_calls), 2)
+        file_params = [json.loads(c.args[1]["msgParam"]) for c in file_calls]
+        self.assertTrue(file_params[0]["fileName"].endswith(".pdf"))
+        self.assertEqual(file_params[0]["fileType"], "pdf")
+        self.assertTrue(file_params[1]["fileName"].endswith(".xlsx"))
+        self.assertEqual(file_params[1]["fileType"], "xlsx")
         self.assertTrue(all(c.args[1]["robotCode"] == "robot-code" for c in calls[1:]))
         state = self.delivery().delivery_state
-        self.assertEqual([state[k]["status"] for k in ("card", "pdf", "excel")], ["SENT"] * 3)
+        self.assertEqual(
+            [state[k]["status"] for k in ("card", "link", "pdf", "excel")],
+            ["SENT"] * 4,
+        )
+        self.assertIn("/snapshots/", state["link"]["url"])
         self.assertFalse(state["inProgress"])
         self.assertEqual(self.send()[0][1], "SKIPPED")
-        self.assertEqual(self.client_mock.post.call_count, 3)
+        self.assertEqual(self.client_mock.post.call_count, 4)
 
     def test_pdf_failure_prevents_partial_card_and_can_retry(self):
         self.pdf.side_effect = RuntimeError("Chromium unavailable")
@@ -212,7 +226,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.upload_media.assert_not_called()
         self.pdf.side_effect = None
         self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 3)
+        self.assertEqual(self.client_mock.post.call_count, 4)
 
     def test_upload_failure_is_retryable_without_duplicate_group_messages(self):
         self.client_mock.upload_media.side_effect = RuntimeError("upload failed")
@@ -220,7 +234,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.post.assert_not_called()
         self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-" + Path(name).suffix
         self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 3)
+        self.assertEqual(self.client_mock.post.call_count, 4)
 
     def test_card_timeout_is_uncertain_and_never_automatically_resent(self):
         self.client_mock.post.side_effect = TimeoutError("network timeout")
@@ -240,10 +254,11 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.assertEqual(self.send()[0][1], "UNCERTAIN")
         state = self.delivery().delivery_state
         self.assertEqual(state["card"]["status"], "SENT")
+        self.assertEqual(state["link"]["status"], "SENT")
         self.assertEqual(state["pdf"]["status"], "SENT")
         self.assertEqual(state["excel"]["status"], "UNCERTAIN")
         self.assertEqual(self.send()[0][1], "SKIPPED")
-        self.assertEqual(self.client_mock.post.call_count, 3)
+        self.assertEqual(self.client_mock.post.call_count, 4)
 
     def test_manual_resolution_resumes_only_missing_excel(self):
         def responder(path, payload):
@@ -261,7 +276,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.post.side_effect = success_response
         self.assertEqual(self.send()[0][1], "SENT")
         self.assertEqual(card_path.read_bytes(), original_card)
-        self.assertEqual(self.client_mock.post.call_count, 4)
+        self.assertEqual(self.client_mock.post.call_count, 5)
         self.assertTrue(json.loads(self.client_mock.post.call_args.args[1]["msgParam"])["fileName"].endswith(".xlsx"))
 
     def test_sales_only_filter_applies_to_card_pdf_and_excel(self):
@@ -336,7 +351,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.assertEqual(self.send()[0][1], "FAILED")
         self.app.robot_code = "robot-code"
         self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 3)
+        self.assertEqual(self.client_mock.post.call_count, 4)
 
     def test_invalid_pdf_is_not_sent_or_replaced_with_html(self):
         self.pdf.return_value = b"<html>error</html>"
