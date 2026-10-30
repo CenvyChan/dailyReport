@@ -1,7 +1,9 @@
-"""把卡片指标渲染成图片：桌面端与移动端都能点开查看完整数值。
+"""把卡片指标渲染成图片：桌面端与移动端都能看到完整数值。
 
-A2UI 没有屏幕宽度函数，三列指标在移动端会被压缩截断。图片走钉钉媒体库
-（media_id），两端渲染器都能加载，且 Image 默认支持点击放大。
+A2UI 没有屏幕宽度函数，三列文字指标在移动端会被截断。图片走钉钉媒体库
+（media_id），两端渲染器都能加载；ImageList 在桌面端还支持点击放大。
+
+金额统一用万元：四列完整金额在移动端放不下，万元能把列宽压到可读范围。
 """
 
 from html import escape
@@ -11,19 +13,32 @@ TEMPLATE = """<!doctype html>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ margin: 0; background: transparent; }}
   .card {{
-    width: 620px; padding: 14px; border-radius: 12px;
+    display: inline-block; padding: 14px; border-radius: 12px;
     background: {background}; color: {text};
     font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-    display: grid; grid-template-columns: 84px repeat({columns}, 1fr);
-    gap: 8px; align-items: stretch;
   }}
-  .head {{ font-size: 13px; color: {muted}; padding: 0 2px 1px; }}
-  .row-label {{ font-size: 16px; font-weight: 700; display: flex; align-items: center; }}
-  .metric {{ background: {surface}; border-radius: 8px; padding: 8px 10px; }}
-  .value {{ font-size: 30px; font-weight: 700; white-space: nowrap; }}
+  .unit {{ font-size: 13px; color: {muted}; padding: 0 0 6px 4px; }}
+  table {{ border-collapse: separate; border-spacing: 8px; margin: -8px; }}
+  thead th {{
+    font-size: 15px; font-weight: 400; color: {muted};
+    text-align: left; padding: 0 2px 2px;
+  }}
+  tbody th {{
+    font-size: 18px; text-align: left; padding-right: 6px; white-space: nowrap;
+  }}
+  td {{
+    background: {surface}; border-radius: 8px; padding: 10px 14px;
+    font-size: 32px; font-weight: 700; white-space: nowrap;
+  }}
 </style></head><body>
 <div class="card" id="metrics-card">
-{content}
+<div class="unit">单位：万元</div>
+<table>
+<thead><tr><th></th>{headers}</tr></thead>
+<tbody>
+{rows}
+</tbody>
+</table>
 </div></body></html>"""
 
 LIGHT = {
@@ -40,58 +55,47 @@ DARK = {
 }
 
 
-def metrics_rows(model):
-    """三行三列：当月累计、人员日报当日、金蝶当日。缺失模块显示 —。"""
-    summary = model.get("summary") or {}
-    purchase = summary.get("hasPurchase", False)
-    sales = summary.get("hasSales", False)
-    shared = summary.get("hasRatio", False)
-    return [
-        (
-            "当月累计",
-            summary.get("purchaseTotalText", "—") if purchase else None,
-            summary.get("salesTotalText", "—") if sales else None,
-            summary.get("shareText", "—") if shared else None,
-        ),
-        (
-            "人员日报",
-            summary.get("reportPurchaseDailyText", "—") if purchase else None,
-            summary.get("reportSalesDailyText", "—") if sales else None,
-            summary.get("reportShareDailyText", "—") if shared else None,
-        ),
-        (
-            "金蝶 K3Cloud",
-            summary.get("purchaseDailyText", "—") if purchase else None,
-            summary.get("salesDailyText", "—") if sales else None,
-            summary.get("k3ShareDailyText", "—") if shared else None,
-        ),
-    ]
+def _wan(value):
+    return "—" if value is None else f"{value / 10000:,.2f}"
+
+
+def _percent(value):
+    return "—" if value is None else f"{value:.1f}%"
+
+
+def metrics_cells(model):
+    """返回表头与每行的可见单元格；缺失模块整列省略。"""
+    values = model.get("metricsValues") or {}
+    has = (
+        ("purchase", "采购", values.get("hasPurchase", False)),
+        ("sales", "销售", values.get("hasSales", False)),
+        ("share", "占比", values.get("hasShare", False)),
+    )
+    visible = [(key, title) for key, title, enabled in has if enabled]
+    rows = []
+    for row in values.get("rows", []):
+        cells = [
+            _percent(row.get(key)) if key == "share" else _wan(row.get(key))
+            for key, _ in visible
+        ]
+        rows.append((row.get("label", ""), cells))
+    return [title for _, title in visible], rows
 
 
 def render_metrics_html(model, *, dark=False):
     palette = DARK if dark else LIGHT
-    rows = metrics_rows(model)
-    columns = sum(1 for value in rows[0][1:] if value is not None)
-    headers = [
-        title
-        for title, value in (
-            ("采购", rows[0][1]),
-            ("销售", rows[0][2]),
-            ("占比", rows[0][3]),
+    headers, rows = metrics_cells(model)
+    header_html = "".join(f"<th>{escape(h)}</th>" for h in headers)
+    body_html = "\n".join(
+        '<tr><th>{}</th>{}</tr>'.format(
+            escape(label),
+            "".join(f"<td>{escape(cell)}</td>" for cell in cells),
         )
-        if value is not None
-    ]
-    cells = ["<div></div>" + "".join(f'<div class="head">{h}</div>' for h in headers)]
-    for label, *values in rows:
-        visible = [v for v in values if v is not None]
-        cells.append(f'<div class="row-label">{escape(label)}</div>')
-        for value in visible:
-            cells.append(
-                '<div class="metric">'
-                f'<div class="value">{escape(str(value))}</div>'
-                "</div>"
-            )
-    return TEMPLATE.format(columns=columns, content="\n".join(cells), **palette)
+        for label, cells in rows
+    )
+    return TEMPLATE.format(
+        headers=header_html, rows=body_html, **palette
+    )
 
 
 def render_metrics_image(model, *, dark=False):

@@ -74,14 +74,16 @@ class A2UITemplateContractTests(SimpleTestCase):
 class MetricsImageTests(SimpleTestCase):
     def test_three_scopes_render_into_single_image(self):
         from integrations.services.operations_a2ui import build_operations_model
-        from integrations.services.operations_metrics_image import metrics_rows, render_metrics_html
+        from integrations.services.operations_metrics_image import metrics_cells, render_metrics_html
         model = build_operations_model(fake_snapshot())
-        rows = metrics_rows(model)
+        headers, rows = metrics_cells(model)
+        self.assertEqual(headers, ["采购", "销售", "占比"])
         self.assertEqual([row[0] for row in rows], ["当月累计", "人员日报", "金蝶 K3Cloud"])
-        self.assertTrue(all(len(row) == 4 for row in rows))
+        self.assertEqual(rows[0][1], ["4.00", "5.00", "80.0%"])
         html = render_metrics_html(model)
-        self.assertIn("¥40,000.00", html)
+        self.assertIn("4.00", html)
         self.assertIn("金蝶 K3Cloud", html)
+        self.assertIn("单位：万元", html)
 
     def test_metrics_image_reference_is_bound_when_available(self):
         frames = build_operations_a2ui_messages(

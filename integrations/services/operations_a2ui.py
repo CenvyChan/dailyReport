@@ -141,6 +141,35 @@ def build_operations_model(snapshot):
     )
     has_share_pie = len(selected) == 2
 
+    def metrics_values():
+        """图片用原始数值：万元显示可压缩宽度，保证移动端四列都能看到。"""
+        def number(value):
+            return None if value is None else float(_decimal(value))
+
+        rows = (
+            ("当月累计", data.get("purchase_total"), data.get("sales_total")),
+            ("人员日报", report_amounts.get("purchase"), report_amounts.get("sales")),
+            ("金蝶 K3Cloud", kingdee_amounts.get("purchase"), kingdee_amounts.get("sales")),
+        )
+        output = []
+        for label, raw_purchase, raw_sales in rows:
+            purchase = None if raw_purchase is None else _decimal(raw_purchase)
+            sales = None if raw_sales is None else _decimal(raw_sales)
+            output.append(
+                {
+                    "label": label,
+                    "purchase": number(purchase),
+                    "sales": number(sales),
+                    "share": number(_ratio(purchase, sales)),
+                }
+            )
+        return {
+            "hasPurchase": summary["hasPurchase"],
+            "hasSales": summary["hasSales"],
+            "hasShare": summary["hasRatio"],
+            "rows": output,
+        }
+
     def chart(key):
         return {
             "type": "lineChart",
@@ -171,6 +200,7 @@ def build_operations_model(snapshot):
         "periodLabel": "报表日期：" + snapshot.report_date.isoformat(),
         "dataLabel": "金蝶 K3Cloud",
         "summary": summary,
+        "metricsValues": metrics_values(),
         "hasWarnings": bool(warnings),
         "warningText": "\n".join(warnings),
         "charts": {
