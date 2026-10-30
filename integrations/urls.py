@@ -1,6 +1,10 @@
 from django.urls import path
 
 from integrations import views, views_links
+from integrations.views_payment_snapshot import (
+    payment_snapshot_public_view,
+    payment_snapshot_view,
+)
 from integrations.views_snapshot import snapshot_public_view, snapshot_view
 
 app_name = "integrations"
@@ -17,6 +21,8 @@ urlpatterns = [
     path("daily-links/<str:report_type>/<int:report_id>/", views_links.daily_links_view, name="daily_links"),
     path("snapshots/<int:snapshot_id>/", snapshot_view, name="snapshot_view"),
     path("snapshots/<int:snapshot_id>/public/", snapshot_public_view, name="snapshot_public"),
+    path("payment-snapshots/<int:snapshot_id>/", payment_snapshot_view, name="payment_snapshot_view"),
+    path("payment-snapshots/<int:snapshot_id>/public/", payment_snapshot_public_view, name="payment_snapshot_public"),
     # 手动触发数据同步(管理员专用)
     path("api/sync-current-month/", views.sync_current_month, name="sync_current_month"),
     path("api/sync-running/", views.sync_running_approvals, name="sync_running"),

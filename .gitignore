@@ -52,6 +52,9 @@ data/*.xls
 data/*.xlsx
 data/newsource/
 data/source/
+# 报表下载缓存（PDF 由 Chromium 现场渲染，按快照生成时间失效）
+data/report_downloads/
+data/payment_downloads/
 
 # Agent / skill 工作目录
 .superpowers/

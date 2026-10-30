@@ -10,6 +10,7 @@
 import json
 import logging
 from decimal import Decimal
+from io import BytesIO
 
 logger = logging.getLogger("integrations")
 
@@ -185,8 +186,19 @@ def generate_payment_excel(data, period_info, filename):
     )
     raw_sheet['A1'] = json_str
 
-    # 保存文件
+    # 保存文件（path 或文件对象均可）
     workbook.save(filename)
-    logger.info(f"Excel报表已生成: {filename}")
+    logger.info("Excel报表已生成: %s", getattr(filename, "name", filename))
 
     return filename
+
+
+def export_payment_excel_bytes(data, period_info):
+    """把报表生成到内存，供在线快照直接下载，不落临时文件。
+
+    data 可以直接用快照里的字符串金额：_format_money 走 float()，JSON 表也能
+    原样序列化，与命令落盘版本保持同一套工作表结构。
+    """
+    buffer = BytesIO()
+    generate_payment_excel(data, period_info, buffer)
+    return buffer.getvalue()

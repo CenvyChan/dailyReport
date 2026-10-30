@@ -34,6 +34,10 @@ from integrations.services.payment_report import (
     get_last_week_range,
     get_previous_day_range,
 )
+from integrations.services.payment_snapshot import (
+    generate_payment_snapshot,
+    payment_snapshot_url,
+)
 
 logger = logging.getLogger("integrations")
 
@@ -86,6 +90,16 @@ class Command(BaseCommand):
             '--no-card',
             action='store_true',
             help="强制使用文本消息,不使用 A2UI 卡片"
+        )
+        parser.add_argument(
+            '--no-link',
+            action='store_true',
+            help="不发送在线报表链接（默认在卡片后补发免登录链接）"
+        )
+        parser.add_argument(
+            '--force-snapshot',
+            action='store_true',
+            help="重新生成已存在的付款报表快照（审批数据补同步后使用）"
         )
 
     def handle(self, *args, **options):
@@ -194,6 +208,19 @@ class Command(BaseCommand):
                 )
 
                 data['company_name'] = report_company_name
+
+                # 在线快照：与卡片/Excel 同一份冻结数据；重跑复用，--force-snapshot 重建。
+                snapshot = generate_payment_snapshot(
+                    company,
+                    report_type,
+                    period_info,
+                    process_code,
+                    report_company_name,
+                    force=options.get('force_snapshot', False),
+                    data=data,
+                )
+                snapshot_url = payment_snapshot_url(snapshot)
+                self.stdout.write(f"  在线快照: {snapshot_url}")
 
                 # 生成Excel
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -324,6 +351,33 @@ class Command(BaseCommand):
 
                     result = client.post('/v1.0/robot/groupMessages/send', payload)
                     self.stdout.write(f"  文本消息已发送: {result}")
+
+                # 在线链接：手机端不下载附件也能看完整报表；失败只记录，不阻断附件投递。
+                if not options.get('no_link'):
+                    try:
+                        link_result = client.post('/v1.0/robot/groupMessages/send', {
+                            'robotCode': dingtalk_app.robot_code,
+                            'openConversationId': group_id,
+                            'msgKey': 'sampleLink',
+                            'msgParam': json.dumps({
+                                'title': (
+                                    f"{report_company_name} 付款申请"
+                                    f"{dict(day='日报', week='周报', month='月报')[report_type]}"
+                                    f" · {period_info['label']}"
+                                ),
+                                'text': '点击查看完整报表（含图表与明细），手机端无需下载附件',
+                                'messageUrl': snapshot_url,
+                            }, ensure_ascii=False),
+                        })
+                        self.stdout.write(f"  在线链接已发送: {link_result}")
+                    except Exception:
+                        logger.exception(
+                            "在线付款报表链接发送失败：snapshot=%s group=%s",
+                            snapshot.pk, group_id,
+                        )
+                        self.stdout.write(self.style.WARNING(
+                            "  在线链接发送失败（不影响卡片与附件）"
+                        ))
 
                 # 发送文件消息(无论卡片还是文本,都发送Excel附件)
                 file_payload = {

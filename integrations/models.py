@@ -845,3 +845,55 @@ class PaymentReportDispatch(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["group", "company", "report_type", "delivery_date"], name="uniq_payment_dispatch")]
+
+
+class PaymentReportSnapshot(models.Model):
+    """付款申请报表快照：把某个周期的审批汇总冻结下来，在线页与下载共用。
+
+    ReportSnapshot 的维度是「公司 + 单日 + 采销范围」，付款报表的维度是
+    「公司 + 周期类型 + 周期起止 + 审批模板」，塞进同一张表会破坏唯一约束语义，
+    所以单独建模。快照里 Decimal 已转字符串，页面与 Excel 只读这份数据。
+    """
+
+    class ReportType(models.TextChoices):
+        DAY = "day", "日报"
+        WEEK = "week", "周报"
+        MONTH = "month", "月报"
+
+    company = models.ForeignKey(
+        "core.Company",
+        verbose_name="公司",
+        on_delete=models.PROTECT,
+        related_name="payment_report_snapshots",
+    )
+    report_type = models.CharField("报表类型", max_length=10, choices=ReportType.choices)
+    period_start = models.DateField("周期开始")
+    period_end = models.DateField("周期结束")
+    process_code = models.CharField("审批模板Code", max_length=128)
+    period_label = models.CharField("周期名称", max_length=120)
+    data = models.JSONField(
+        "报表数据",
+        help_text="冻结的付款申请汇总与明细，金额为字符串以避免浮点误差",
+    )
+    calculation_version = models.CharField("计算口径版本", max_length=32, default="v1")
+    generated_at = models.DateTimeField("生成时间", default=timezone.now)
+
+    class Meta:
+        verbose_name = "付款报表快照"
+        verbose_name_plural = "付款报表快照"
+        ordering = ["-period_end", "-generated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "report_type", "period_start", "process_code"],
+                name="uniq_payment_report_snapshot",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["company", "report_type", "period_start"],
+                name="payment_snapshot_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.company} {self.period_label} 付款{self.get_report_type_display()}"

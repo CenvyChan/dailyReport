@@ -61,26 +61,19 @@ def render_snapshot_book_html(snapshot: ReportSnapshot) -> str:
     return render_to_string("integrations/report_snapshot_book.html", operations_context(snapshot))
 
 
-def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> bytes:
-    """用 Chromium(playwright)把快照 HTML 渲染为多页 A4 PDF。
+def render_html_pdf(html: str) -> bytes:
+    """用 Chromium(playwright)把自包含 HTML 渲染为 A4 PDF。
 
     钉钉 APP 无法在线预览 HTML 文件，但原生支持 PDF 预览。这里直接复用
     同一份 HTML 模板，用真实浏览器引擎渲染，保证 PDF 与网页端所见一致
     （grid/flex/SVG 等现代布局都能正确呈现，weasyprint 做不到）。
 
     打印背景色必须开启，否则 KPI 卡片、柱状图等依赖背景色的元素会丢色。
-
-    style="classic" 保留兼容入口；两种风格入口均使用书册式分节报告，
-    模板自带页边距与分页，Chromium 外边距保持为零。
+    书册模板自带页边距与分页，所以 Chromium 外边距保持为零。
     """
     from playwright.sync_api import sync_playwright
 
-    if style == "book":
-        html = render_snapshot_book_html(snapshot)
-        margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
-    else:
-        html = render_snapshot_html(snapshot)
-        margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
+    margin = {"top": "0", "bottom": "0", "left": "0", "right": "0"}
     with sync_playwright() as p:
         browser = p.chromium.launch(
             args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
@@ -97,6 +90,16 @@ def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> 
         finally:
             browser.close()
     return pdf_bytes
+
+
+def render_snapshot_pdf(snapshot: ReportSnapshot, *, style: str = "classic") -> bytes:
+    """采销日报的 PDF：书册式模板交给 render_html_pdf 渲染。
+
+    style="classic" 保留兼容入口；两种风格入口均使用书册式分节报告。
+    """
+    if style == "book":
+        return render_html_pdf(render_snapshot_book_html(snapshot))
+    return render_html_pdf(render_snapshot_html(snapshot))
 
 
 def generate_report_snapshot(

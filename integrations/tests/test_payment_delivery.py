@@ -17,7 +17,12 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from core.models import Company
-from integrations.models import DingtalkApp, DingtalkApprovalInstance, DingtalkCompanyMapping
+from integrations.models import (
+    DingtalkApp,
+    DingtalkApprovalInstance,
+    DingtalkCompanyMapping,
+    PaymentReportSnapshot,
+)
 from integrations.services.dingtalk_client import DingtalkClient, DingtalkError
 from integrations.services.payment_card import send_interactive_card
 from integrations.services.payment_report import (
@@ -249,17 +254,22 @@ class PaymentCommandDeliveryTests(TestCase):
         a2ui.send_card.assert_called_once()
         client.post.assert_not_called()
 
-    def test_card_success_sends_file_and_counts_as_success(self):
+    def test_card_success_sends_link_then_file_and_counts_as_success(self):
         client = Mock()
         client.post.return_value = {"processQueryKey": "file-key"}
         output = self.run_report(client)
         self.client_factory.assert_called_once_with(self.app)
         self.a2ui_factory.assert_called_once_with(client)
         self.assertIn("A2UI 卡片已发送并完结", output)
+        self.assertIn("在线链接已发送", output)
         self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
-        client.post.assert_called_once()
-        self.assertEqual(client.post.call_args.args[1]["msgKey"], "sampleFile")
+        self.assertEqual(
+            [call.args[1].get("msgKey") for call in client.post.call_args_list],
+            ["sampleLink", "sampleFile"],
+        )
+        link = json.loads(client.post.call_args_list[0].args[1]["msgParam"])
+        self.assertIn("/integrations/payment-snapshots/", link["messageUrl"])
         frames = self.a2ui.send_card.call_args.args[1]
         self.assertEqual(frames, self.exported)
         self.assertEqual(frames[1]["updateDataModel"]["value"]["summary"]["totalAmountText"], "¥123.45")
@@ -273,18 +283,23 @@ class PaymentCommandDeliveryTests(TestCase):
         self.a2ui.send_card.assert_called_once()
         self.assertEqual(client.post.call_args.args[1]["msgKey"], "sampleFile")
 
-    def test_no_card_explicitly_sends_text_and_file(self):
+    def test_no_card_explicitly_sends_text_link_and_file(self):
         client = Mock()
-        client.post.side_effect = [{"processQueryKey": "text-key"}, {"processQueryKey": "file-key"}]
+        client.post.side_effect = [
+            {"processQueryKey": "text-key"},
+            {"processQueryKey": "link-key"},
+            {"processQueryKey": "file-key"},
+        ]
         output = self.run_report(client, no_card=True)
         self.assertIn("文本消息已发送", output)
+        self.assertIn("在线链接已发送", output)
         self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
         self.a2ui.send_card.assert_not_called()
         self.a2ui.check_available.assert_not_called()
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleText", "sampleFile"],
+            ["sampleText", "sampleLink", "sampleFile"],
         )
 
     def test_file_failure_is_counted_as_failure(self):
@@ -295,12 +310,40 @@ class PaymentCommandDeliveryTests(TestCase):
         self.assertIn("0 成功, 1 失败", raised.exception.command_output)
         self.assertNotIn("✓ 发送成功", raised.exception.command_output)
 
+    def test_link_failure_does_not_block_file_delivery(self):
+        client = Mock()
+        client.post.side_effect = [
+            DingtalkError("link rejected"),
+            {"processQueryKey": "file-key"},
+        ]
+        output = self.run_report(client)
+        self.assertIn("在线链接发送失败", output)
+        self.assertIn("文件消息已发送", output)
+        self.assertIn("1 成功, 0 失败", output)
+        self.assertEqual(
+            [call.args[1].get("msgKey") for call in client.post.call_args_list],
+            ["sampleLink", "sampleFile"],
+        )
+
+    def test_no_link_skips_the_link_message(self):
+        client = Mock()
+        client.post.return_value = {"processQueryKey": "file-key"}
+        self.run_report(client, no_link=True)
+        self.assertEqual(
+            [call.args[1].get("msgKey") for call in client.post.call_args_list],
+            ["sampleFile"],
+        )
+
     def test_dry_run_exports_live_json_without_any_network_client(self):
         client = Mock()
         output = self.run_report(client, dry_run=True)
         self.assertIn("生成A2UI:", output)
+        self.assertIn("在线快照:", output)
         self.assertEqual(self.exported[1]["updateDataModel"]["value"]["summary"]["totalCount"], 1)
         self.assertEqual(self.exported[1]["updateDataModel"]["value"]["reportMeta"]["dataMode"], "live")
+        snapshot = PaymentReportSnapshot.objects.get()
+        self.assertEqual(snapshot.report_type, "week")
+        self.assertEqual(snapshot.data["summary"]["total_count"], 1)
         client.upload_media.assert_not_called()
         client.post.assert_not_called()
         self.a2ui.check_available.assert_not_called()

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{ company_name }} {{ report_title }} {{ period_label }}</title>
+<style>
+  /* 书册打印：模板自带 A4 边距，Chromium 外边距为零（见 render_html_pdf）。 */
+  @page { size: A4 portrait; margin: 0; }
+  html, body {
+    margin: 0; padding: 0; background: #ffffff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body { padding: 10mm 9mm; }
+</style>
+</head>
+<body>
+{% include "integrations/payment_summary.html" %}
+</body>
+</html>

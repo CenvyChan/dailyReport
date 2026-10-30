@@ -17,6 +17,7 @@ from .models import (
     DingtalkApp,
     DingtalkCompanyMapping,
     PaymentReportDispatch,
+    PaymentReportSnapshot,
     DingtalkApprovalInstance,
     DingtalkGroupConfig,
     DingtalkProcessConfig,
@@ -425,3 +426,12 @@ class PaymentReportDispatchAdmin(ReadOnlyAdmin):
     list_display = ("group", "company", "report_type", "delivery_date", "status", "updated_at")
     list_filter = ("status", "report_type")
     readonly_fields = [f.name for f in PaymentReportDispatch._meta.fields]
+
+
+@admin.register(PaymentReportSnapshot)
+class PaymentReportSnapshotAdmin(ReadOnlyAdmin):
+    list_display = ("company", "report_type", "period_label", "period_start", "period_end", "generated_at")
+    list_filter = ("company", "report_type")
+    search_fields = ("period_label", "process_code")
+    date_hierarchy = "period_start"
+    readonly_fields = [f.name for f in PaymentReportSnapshot._meta.fields]
