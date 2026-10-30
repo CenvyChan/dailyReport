@@ -240,6 +240,7 @@ def send_report_to_all_channels(
     snapshot: ReportSnapshot,
     send_now: bool = False,
     force_resend: bool = False,
+    manual: bool = False,
 ) -> list[tuple[str, str, str]]:
     """推送报表到所有渠道。
 
@@ -251,6 +252,9 @@ def send_report_to_all_channels(
             定时链路靠这条记录防重复刷屏；手动 force 重生成是明确的「按最新内容重发」
             意图，故把已发送记录重置为 PENDING（attempt_count 归零），让渠道重新投递。
             仅手动 force 时为 True，定时任务不传此参数，行为不变。
+        manual: 人为手动推送。True 时不受发送时间、群配置启用基线、
+            已发送状态限制，是明确的「现在就发到这些目标」意图。
+            定时与补投链路必须保持 False。
 
     Returns:
         list of (channel_name, status, message)
@@ -275,10 +279,23 @@ def send_report_to_all_channels(
     results.extend(email_results)
 
     # 推送到钉钉
-    dingtalk_results = _send_to_dingtalk_channels(snapshot, send_now)
+    dingtalk_results = _send_to_dingtalk_channels(snapshot, send_now, manual=manual)
     results.extend(dingtalk_results)
 
     return results
+
+
+def send_manual_report(
+    snapshot: ReportSnapshot,
+    group_configs,
+) -> list[tuple[str, str, str]]:
+    """人为手动推送到指定群配置，忽略定时窗口、启用基线和已发送状态。"""
+    return _send_to_dingtalk_channels(
+        snapshot,
+        send_now=True,
+        manual=True,
+        only_ids={group_config.id for group_config in group_configs},
+    )
 
 
 def backfill_missed_deliveries(
@@ -456,11 +473,31 @@ def _send_to_email_channels(
     return results
 
 
+def _scheduled_window(snapshot: ReportSnapshot, group_config) -> datetime:
+    """该快照在某个群配置下的定时窗口：报表日次日 send_at。"""
+    return timezone.make_aware(
+        datetime.combine(snapshot.report_date + timedelta(days=1), group_config.send_at)
+    )
+
+
+def _config_active_for_window(group_config, window: datetime) -> bool:
+    """窗口必须发生在配置本次启用之后，否则属于「建群/重新启用前的历史」。"""
+    baseline = group_config.enabled_at or group_config.created_at
+    return window >= baseline
+
+
 def _send_to_dingtalk_channels(
     snapshot: ReportSnapshot,
     send_now: bool,
+    manual: bool = False,
+    only_ids: set[int] | None = None,
 ) -> list[tuple[str, str, str]]:
-    """推送到钉钉渠道。"""
+    """推送到钉钉渠道。
+
+    - manual=True：人为手动推送，忽略时间、启用基线与已发送状态。
+    - send_now=True（补投）：窗口已过，只补配置启用之后到点的快照。
+    - 默认（定时）：只在 send_at 到点且窗口晚于启用基线时发送。
+    """
     from integrations.models import DingtalkGroupConfig
     from integrations.services.dingtalk_client import build_client
 
@@ -475,12 +512,40 @@ def _send_to_dingtalk_channels(
     selected = {snapshot.scope} if snapshot.scope != "BOTH" else {"SALES", "PURCHASE"}
     group_configs = [gc for gc in group_configs if selected.intersection(gc.content_types or [])]
 
-    if not send_now:
-        # 检查发送时间
-        now_time = timezone.localtime().time()
-        group_configs = [gc for gc in group_configs if gc.send_at <= now_time]
-    else:
+    if only_ids is not None:
+        group_configs = [gc for gc in group_configs if gc.id in only_ids]
+
+    if manual:
         group_configs = list(group_configs)
+    elif send_now:
+        # 补投窗口已过，只按启用基线过滤，防止新群/重新启用的群被灌历史日报。
+        group_configs = [
+            gc for gc in group_configs
+            if _config_active_for_window(gc, _scheduled_window(snapshot, gc))
+        ]
+    else:
+        # 定时：send_at 已到点，且该窗口发生在本次启用之后。
+        now_time = timezone.localtime().time()
+        group_configs = [
+            gc for gc in group_configs
+            if gc.send_at <= now_time
+            and _config_active_for_window(gc, _scheduled_window(snapshot, gc))
+        ]
+
+    if manual and group_configs:
+        # 手动推送是明确的「现在就发」意图：清掉这些目标的发送回执，
+        # 让已 SENT / 重试上限 / 结果不明的记录都重新投递。
+        ReportDelivery.objects.filter(
+            snapshot=snapshot,
+            channel=ReportDelivery.Channel.DINGTALK,
+            target_identifier__in=[str(gc.id) for gc in group_configs],
+        ).update(
+            status=ReportDelivery.Status.PENDING,
+            attempt_count=0,
+            last_error="",
+            delivery_state={},
+            sent_at=None,
+        )
 
     for group_config in group_configs:
         target_id = str(group_config.id)

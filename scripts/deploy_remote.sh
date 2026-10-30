@@ -56,6 +56,7 @@ else
     echo "DJANGO_ALLOWED_HOSTS=${IP},localhost,127.0.0.1"
     echo "DJANGO_CSRF_TRUSTED_ORIGINS=http://${IP}:${HOST_PORT}"
     echo "PUBLIC_BASE_URL=http://${IP}:${HOST_PORT}"
+    echo "DINGTALK_OPERATOR_UNION_ID="
     echo "BACKUP_DIRECTORY=/app/backups"
     # 日志放在 data 卷下：单独挂 logs 会因宿主机属主与容器 uid 10001 不同而不可写
     echo "LOG_DIRECTORY=/app/data/logs"

@@ -219,6 +219,48 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.assertEqual(self.send()[0][1], "SKIPPED")
         self.assertEqual(self.client_mock.post.call_count, 4)
 
+    @override_settings(DINGTALK_OPERATOR_UNION_ID="union-test")
+    def test_group_file_cards_are_sent_last_and_use_configured_space(self):
+        self.group.storage_space_id = "space-test"
+        self.group.save(update_fields=["storage_space_id"])
+        events = []
+        original_post = self.client_mock.post.side_effect
+
+        def post(path, payload):
+            events.append(("post", payload.get("msgKey")))
+            return original_post(path, payload)
+
+        self.client_mock.post.side_effect = post
+
+        def publish(token, **kwargs):
+            events.append(("file", Path(kwargs["file_name"]).suffix))
+            return {
+                "spaceId": kwargs["space_id"],
+                "sourceDentryId": "100",
+                "groupId": "200",
+                "groupName": kwargs["file_name"],
+                "size": 1,
+                "md5": "x",
+            }
+
+        with patch(
+            "integrations.services.operations_delivery.publish_group_file",
+            side_effect=publish,
+        ) as publish_mock:
+            self.assertEqual(self.send()[0][1], "SENT")
+
+        self.assertEqual(publish_mock.call_count, 2)
+        self.assertEqual([event[0] for event in events[-2:]], ["file", "file"])
+        self.assertEqual(events[-2][1], ".pdf")
+        self.assertEqual(events[-1][1], ".xlsx")
+        for call in publish_mock.call_args_list:
+            self.assertEqual(call.kwargs["union_id"], "union-test")
+            self.assertEqual(call.kwargs["space_id"], "space-test")
+        state = self.delivery().delivery_state
+        self.assertEqual(state["pdf"]["status"], "SENT")
+        self.assertEqual(state["excel"]["status"], "SENT")
+        self.assertEqual(state["excel"]["groupId"], "200")
+
     def test_pdf_failure_prevents_partial_card_and_can_retry(self):
         self.pdf.side_effect = RuntimeError("Chromium unavailable")
         self.assertEqual(self.send()[0][1], "FAILED")

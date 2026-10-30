@@ -28,6 +28,13 @@ class Command(BaseCommand):
         parser.add_argument("--company", help="仅生成指定公司代码的报表")
         parser.add_argument("--scope", choices=["SALES", "PURCHASE", "BOTH"], default="BOTH", help="业务范围")
         parser.add_argument("--now", action="store_true", help="立即发送，忽略收件组发送时间")
+        parser.add_argument(
+            "--group",
+            type=int,
+            action="append",
+            default=[],
+            help="仅推送到指定钉钉群配置 ID（可重复）；指定后不发邮件",
+        )
         parser.add_argument("--force", action="store_true", help="强制重新生成快照，即使已存在")
         parser.add_argument("--dry-run", action="store_true", help="只生成快照，不实际发送")
         parser.add_argument(
@@ -84,11 +91,26 @@ class Command(BaseCommand):
 
                 # 推送到各渠道
                 if not options["dry_run"]:
-                    results = send_report_to_all_channels(
-                        snapshot=snapshot,
-                        send_now=options["now"],
-                        force_resend=options["force"],
-                    )
+                    if options["group"]:
+                        # 指定群时是明确的人为推送：只发这些群，不发邮件。
+                        from integrations.models import DingtalkGroupConfig
+                        from integrations.services.report_delivery import send_manual_report
+
+                        groups = list(DingtalkGroupConfig.objects.filter(id__in=options["group"]))
+                        missing = set(options["group"]) - {group.id for group in groups}
+                        if missing:
+                            self.stdout.write(self.style.ERROR(
+                                f"  找不到群配置：{sorted(missing)}"
+                            ))
+                        results = send_manual_report(snapshot, groups)
+                    else:
+                        results = send_report_to_all_channels(
+                            snapshot=snapshot,
+                            send_now=options["now"],
+                            force_resend=options["force"],
+                            # --now 是人为立即推送，不受定时窗口与启用基线限制。
+                            manual=options["now"],
+                        )
 
                     for channel, status, message in results:
                         if status == "SENT":

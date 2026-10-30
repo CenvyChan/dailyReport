@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class TimeStampedModel(models.Model):
@@ -739,6 +740,13 @@ class DingtalkGroupConfig(models.Model):
         max_length=128,
         help_text="群的 openConversationId，通过机器人获取",
     )
+    storage_space_id = models.CharField(
+        "群文件空间ID",
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="该群对应的钉钉群文件空间 spaceId。测试群和正式群各填各的，避免文件发错群；留空时按 openConversationId 自动查询。",
+    )
     content_types = models.JSONField(
         "推送内容",
         default=list,
@@ -747,6 +755,12 @@ class DingtalkGroupConfig(models.Model):
     payment_report_types = models.JSONField("付款报表周期", default=list, blank=True, help_text="day=日报，week=周报（周一），month=月报（每月1日）；与原有业务日报分开推送")
     send_at = models.TimeField("每日发送时间", help_text="按服务器所在时区（Asia/Shanghai）触发")
     is_active = models.BooleanField("启用", default=True)
+    enabled_at = models.DateTimeField(
+        "本次启用时间",
+        null=True,
+        blank=True,
+        help_text="自动定时推送只处理该时间之后到点的报表；重新启用后，当天已过的发送时间不再补发。",
+    )
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
     updated_at = models.DateTimeField("更新时间", auto_now=True)
 
@@ -760,6 +774,22 @@ class DingtalkGroupConfig(models.Model):
                 name="uniq_dingtalk_group_per_company",
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        # 定时推送的生效基线：新建启用或停用后重新启用时刷新。
+        # 已启用状态下改名称/时间等字段不动基线，否则会把当天已过的
+        # 发送时间重新变成「可补发」，一保存就触发一次推送。
+        if self.is_active:
+            previous = (
+                type(self).objects.filter(pk=self.pk)
+                .values_list("is_active", "enabled_at")
+                .first()
+                if self.pk
+                else None
+            )
+            if previous is None or not previous[0] or previous[1] is None:
+                self.enabled_at = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         companies = list(self.companies.all()) if self.pk else []

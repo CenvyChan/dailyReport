@@ -9,6 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from integrations.models import ReportDelivery
+from integrations.services.group_file import GroupFileError, publish_group_file
 from integrations.services.operations_a2ui import (
     build_operations_a2ui_messages,
     build_operations_model,
@@ -81,6 +82,8 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
         a2ui.check_available()
         base = f"{snapshot.company.code}_{snapshot.report_date}_{snapshot.scope}_经营日报"
         pdf_path, excel_path = directory / (base + ".pdf"), directory / (base + ".xlsx")
+        operator_union_id = getattr(settings, "DINGTALK_OPERATOR_UNION_ID", "")
+        use_group_file = bool(operator_union_id)
         # 必须同时保留 PDF 和 Excel，渲染失败时停止，不以 HTML 静默替代 PDF。
         if not pdf_path.exists():
             pdf_bytes = render_pdf(snapshot, style="book")
@@ -104,13 +107,14 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                 logger.exception("指标图片生成或上传失败，本次卡片使用文字指标")
             frames = build_operations_a2ui_messages(snapshot, metrics_image=metrics_image)
             card_path.write_text(json.dumps(frames, ensure_ascii=False, indent=2), encoding="utf-8")
-        # 上传不会在群里产生消息，可安全重试；两份附件先上传再发送卡片。
-        for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
-            phase = state.setdefault(kind, {})
-            if phase.get("status") != "SENT" and not phase.get("mediaId"):
-                phase.update({"mediaId": client.upload_media(path.name, path.read_bytes()),
-                              "fileName": path.name, "status": "READY"})
-                save()
+        # 旧 sampleFile 通道才需要先传媒体库；群文件卡片通道直接读文件字节上传。
+        if not use_group_file:
+            for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
+                phase = state.setdefault(kind, {})
+                if phase.get("status") != "SENT" and not phase.get("mediaId"):
+                    phase.update({"mediaId": client.upload_media(path.name, path.read_bytes()),
+                                  "fileName": path.name, "status": "READY"})
+                    save()
         card = state.setdefault("card", {})
         if card.get("status") != "SENT":
             card.update({"status": "SENDING", "outTrackId": f"operations-report-{uuid4().hex}",
@@ -152,12 +156,58 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                 logger.exception("在线日报链接发送失败：snapshot=%s", snapshot.pk)
             save()
 
-        for kind in ("pdf", "excel"):
-            phase = state[kind]
+        for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
+            phase = state.setdefault(kind, {})
             if phase.get("status") == "SENT":
                 continue
             phase["status"] = "SENDING"
             save()
+
+            if use_group_file:
+                # 新版 Storage 链路：上传后发成会话文件卡片，客户端原生预览。
+                # space_id 取群配置里的值，测试群/正式群各用各的空间。
+                try:
+                    result = publish_group_file(
+                        client.token(),
+                        open_conversation_id=group.open_conversation_id,
+                        union_id=operator_union_id,
+                        space_id=getattr(group, "storage_space_id", "") or None,
+                        file_name=path.name,
+                        blob=path.read_bytes(),
+                    )
+                except GroupFileError as exc:
+                    if exc.stage == "send":
+                        # 发送阶段结果不明，禁止自动重发，交人工核对。
+                        phase.update({"status": "UNCERTAIN", "error": str(exc),
+                                      "requestId": exc.request_id})
+                        save()
+                        raise OperationsDeliveryUncertain(
+                            f"{kind.upper()} 群文件卡片发送结果待核对：{exc}"
+                        ) from exc
+                    # 上传/提交阶段失败没有产生群消息，可安全重试。
+                    phase.update({"status": "FAILED", "error": str(exc),
+                                  "requestId": exc.request_id})
+                    save()
+                    raise
+                except Exception as exc:
+                    phase.update({"status": "FAILED", "error": str(exc)})
+                    save()
+                    raise
+                phase.update({
+                    "status": "SENT",
+                    "spaceId": result["spaceId"],
+                    "groupId": result["groupId"],
+                    "groupName": result["groupName"],
+                    "sourceDentryId": result["sourceDentryId"],
+                    "sentAt": timezone.now().isoformat(),
+                })
+                save()
+                (directory / f"{kind}.receipt.json").write_text(
+                    json.dumps(phase, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                continue
+
+            # 兼容旧通道：机器人 sampleFile（客户端只能下载）。
             try:
                 response = client.post("/v1.0/robot/groupMessages/send", {
                     "robotCode": client.app.robot_code,

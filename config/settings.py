@@ -126,6 +126,9 @@ LOGOUT_REDIRECT_URL = "/accounts/login/"
 # 报表在线查看链接的对外基地址。定时投递在容器里跑，没有 request 可推导 Host，
 # 所以用环境变量固定；换域名或端口时改这里即可。
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://172.16.77.80:8001").rstrip("/")
+# 群文件卡片的操作人 unionId：convFile/storage 接口强制要求一个群内用户身份。
+# 配在 .env，不写进代码；留空时日报附件回退为旧的机器人 sampleFile（只能下载）。
+DINGTALK_OPERATOR_UNION_ID = os.getenv("DINGTALK_OPERATOR_UNION_ID", "").strip()
 BACKUP_DIRECTORY = Path(os.getenv("BACKUP_DIRECTORY", BASE_DIR / "backups"))
 
 # 阿里云企业邮箱 SMTP：465 用 SSL，25/80 用明文，587 用 STARTTLS。

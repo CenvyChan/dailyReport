@@ -1,0 +1,79 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .push-warning {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-left: 4px solid #ba2121;
+    background: #fff8f8;
+    color: #333;
+  }
+  .push-results { margin-top: 24px; }
+  .push-results table { width: 100%; border-collapse: collapse; }
+  .push-results th, .push-results td { padding: 6px 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+  .push-results tr.status-sent td { background: #effaf0; }
+  .push-results tr.status-failed td { background: #fff3f3; }
+  .push-results tr.status-skipped td { color: #666; }
+  .submit-row { padding-left: 0; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">首页</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:integrations_dingtalkgroupconfig_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; 手动推送
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p class="push-warning">
+    手动推送会<b>立即发送</b>到勾选的群，忽略定时发送时间和启用状态，并覆盖这些目标已有的发送记录。
+    请确认只勾选测试群或确实需要接收的群。
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      {% for field in form %}
+        <div class="form-row">
+          {{ field.errors }}
+          <div>
+            <label for="{{ field.id_for_label }}"{% if field.field.required %} class="required"{% endif %}>{{ field.label }}：</label>
+            {{ field }}
+            {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="立即推送" class="default">
+    </div>
+  </form>
+
+  {% if results %}
+    <div class="push-results">
+      <h2>推送结果</h2>
+      <table>
+        <thead>
+          <tr><th>群配置</th><th>公司</th><th>状态</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          {% for row in results %}
+            <tr class="status-{{ row.status|lower }}">
+              <td>{{ row.config }}</td>
+              <td>{{ row.company }}</td>
+              <td>{{ row.status }}</td>
+              <td>{{ row.message }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

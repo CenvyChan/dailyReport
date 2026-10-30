@@ -1,0 +1,8 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+  <li>
+    <a href="{% url 'admin:integrations_dingtalkgroupconfig_manual_push' %}" class="addlink">手动推送日报</a>
+  </li>
+  {{ block.super }}
+{% endblock %}

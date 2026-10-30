@@ -1,7 +1,14 @@
+from datetime import timedelta
+
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import render
+from django.urls import path
+from django.utils import timezone
 
 from core.admin import AuditedAdmin, _snapshot
+from core.models import Company
 from core.services.audit import record_audit
 
 from .crypto import encrypt
@@ -168,7 +175,8 @@ class DingtalkGroupConfigForm(forms.ModelForm):
     class Meta:
         model = DingtalkGroupConfig
         fields = "__all__"
-        exclude = ("company",)
+        # enabled_at 由 save() 自动维护，不能让人手填，否则会绕过启用基线。
+        exclude = ("company", "enabled_at")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -197,10 +205,37 @@ class DingtalkGroupConfigForm(forms.ModelForm):
         return data
 
 
+class ManualPushForm(forms.Form):
+    report_date = forms.DateField(
+        label="报表日期",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        input_formats=["%Y-%m-%d"],
+    )
+    group_configs = forms.ModelMultipleChoiceField(
+        label="推送目标（群配置）",
+        queryset=DingtalkGroupConfig.objects.all().order_by("name"),
+        widget=forms.CheckboxSelectMultiple,
+        help_text="只推送到勾选的群；停用的配置也可以手动推送。",
+    )
+    companies = forms.ModelMultipleChoiceField(
+        label="限定公司（可选）",
+        queryset=Company.objects.filter(is_active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="留空 = 按群配置关联的公司全部发送。",
+    )
+    regenerate = forms.BooleanField(
+        label="发送前按当前数据重建快照",
+        required=False,
+        help_text="会覆盖该日期已冻结的快照内容，但不会自动重发到其他群。",
+    )
+
+
 @admin.register(DingtalkGroupConfig)
 class DingtalkGroupConfigAdmin(AuditedAdmin):
     form = DingtalkGroupConfigForm
-    list_display = ("companies_display", "name", "app", "content_types_display", "send_at", "is_active")
+    change_list_template = "admin/integrations/dingtalkgroupconfig/change_list.html"
+    list_display = ("companies_display", "name", "app", "content_types_display", "send_at", "is_active", "enabled_at")
     list_filter = ("companies", "is_active")
     search_fields = ("name", "open_conversation_id")
 
@@ -217,6 +252,109 @@ class DingtalkGroupConfigAdmin(AuditedAdmin):
             return "-"
         labels = [dict(DingtalkGroupConfig.ContentType.choices).get(ct, ct) for ct in obj.content_types]
         return "、".join(labels)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "manual-push/",
+                self.admin_site.admin_view(self.manual_push_view),
+                name="integrations_dingtalkgroupconfig_manual_push",
+            ),
+        ]
+        return custom + urls
+
+    def manual_push_view(self, request):
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+
+        results = []
+        if request.method == "POST":
+            form = ManualPushForm(request.POST)
+            if form.is_valid():
+                results = self._perform_manual_push(
+                    request,
+                    report_date=form.cleaned_data["report_date"],
+                    group_configs=form.cleaned_data["group_configs"],
+                    only_companies=form.cleaned_data["companies"],
+                    regenerate=form.cleaned_data["regenerate"],
+                )
+                if any(row["status"] == "SENT" for row in results):
+                    self.message_user(request, "手动推送完成，请核对下方结果。", messages.SUCCESS)
+                else:
+                    self.message_user(request, "没有任何记录发送成功，请核对下方结果。", messages.WARNING)
+        else:
+            form = ManualPushForm(initial={"report_date": timezone.localdate() - timedelta(days=1)})
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "手动推送日报",
+            "form": form,
+            "results": results,
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/integrations/dingtalkgroupconfig/manual_push.html", context)
+
+    def _perform_manual_push(self, request, *, report_date, group_configs, only_companies, regenerate):
+        from integrations.models import ReportSnapshot
+        from integrations.services.report_delivery import generate_report_snapshot, send_manual_report
+
+        rows = []
+        for config in group_configs:
+            targets = list(config.companies.all())
+            if not targets and config.company_id:
+                targets = [config.company]
+            if only_companies:
+                targets = [company for company in targets if company in only_companies]
+            if not targets:
+                rows.append({
+                    "config": config.name, "company": "—", "status": "SKIPPED",
+                    "message": "群配置未关联所选公司",
+                })
+                continue
+            for company in targets:
+                try:
+                    existing = ReportSnapshot.objects.filter(
+                        company=company, report_date=report_date,
+                    ).order_by("id").first()
+                    snapshot = generate_report_snapshot(
+                        company=company,
+                        report_date=report_date,
+                        scope=existing.scope if existing else "BOTH",
+                        force_regenerate=regenerate,
+                    )
+                    results = send_manual_report(snapshot, [config])
+                    if not results:
+                        rows.append({
+                            "config": config.name, "company": company.name,
+                            "status": "SKIPPED",
+                            "message": "群配置未勾选该快照包含的业务内容",
+                        })
+                    for _channel, status, message in results:
+                        rows.append({
+                            "config": config.name, "company": company.name,
+                            "status": status, "message": message,
+                        })
+                except Exception as exc:  # 单条失败不阻断其他目标
+                    rows.append({
+                        "config": config.name, "company": company.name,
+                        "status": "FAILED", "message": str(exc),
+                    })
+
+        record_audit(
+            actor=request.user,
+            instance=group_configs[0],
+            action="MANUAL_PUSH",
+            before={},
+            after={
+                "report_date": report_date.isoformat(),
+                "regenerate": regenerate,
+                "group_configs": [config.id for config in group_configs],
+                "companies": [company.id for company in only_companies] if only_companies else [],
+                "results": rows,
+            },
+        )
+        return rows
 
 
 @admin.register(ReportDelivery)
