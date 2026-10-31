@@ -91,7 +91,8 @@ class PaymentA2UIDataTests(SimpleTestCase):
         self.assertFalse(any(c["component"] == "Button" or "action" in c for c in components))
         link = next(c for c in components if c["id"] == "report-link")
         self.assertEqual(link["component"], "Markdown")
-        self.assertEqual(link["content"], f"[查看完整在线报表（含图表与明细）]({LINK})")
+        self.assertIn(f"[查看完整在线报表（含图表与明细）]({LINK})", link["content"])
+        self.assertIn("公司内网", link["content"])
         self.assertNotIn("visible", link)
 
     def test_without_link_hides_the_link_component(self):

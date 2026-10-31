@@ -206,7 +206,11 @@ def build_payment_a2ui_messages(
             heading["text"] = dict(day="当日关注", week="本周关注", month="本月关注")[report_type]
             link = next(c for c in components if c["id"] == "report-link")
             if link_url:
-                link["content"] = f"[查看完整在线报表（含图表与明细）]({link_url})"
+                link["content"] = (
+                    f"[查看完整在线报表（含图表与明细）]({link_url})\n\n"
+                    "提示：链接在公司内网访问，请用公司电脑上的钉钉打开，"
+                    "或让手机连接公司 Wi-Fi。"
+                )
                 link.pop("visible", None)
             else:
                 # 模板里的占位 URL 不能原样发出去，直接隐藏整行链接。

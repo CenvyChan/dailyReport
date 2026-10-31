@@ -318,7 +318,7 @@
         {
           "id": "report-link",
           "component": "Markdown",
-          "content": "[查看完整在线报表（含图表与明细）](https://example.invalid/)"
+          "content": "[查看完整在线报表（含图表与明细）](https://example.invalid/)\n\n提示：链接在公司内网访问，请用公司电脑上的钉钉打开，或让手机连接公司 Wi-Fi。"
         },
         {
           "id": "header",

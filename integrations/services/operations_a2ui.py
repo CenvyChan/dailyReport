@@ -267,7 +267,11 @@ def build_operations_a2ui_messages(
                 if component.get("id") != "report-link":
                     continue
                 if link_url:
-                    component["content"] = f"[查看完整在线报表（含图表与明细）]({link_url})"
+                    component["content"] = (
+                        f"[查看完整在线报表（含图表与明细）]({link_url})\n\n"
+                        "提示：链接在公司内网访问，请用公司电脑上的钉钉打开，"
+                        "或让手机连接公司 Wi-Fi。"
+                    )
                     component.pop("visible", None)
                 else:
                     component["visible"] = False
