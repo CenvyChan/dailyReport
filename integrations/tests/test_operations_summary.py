@@ -174,6 +174,7 @@ class OperationsSummaryTests(TestCase):
             "客户",
         ]:
             self.assertIn(text, html)
+        self.assertNotIn("<th>单位</th>", html)
         context = operations_context(snap)
         analysis = context["monthly_analysis"]
         self.assertTrue(analysis["has_data"])

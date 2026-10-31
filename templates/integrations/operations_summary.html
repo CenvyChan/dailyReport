@@ -72,9 +72,9 @@
 <h3>{{ ledger.label }}提报 · {{ ledger.count }} 条</h3>
 <div class="table-scroll">
 <table class="detail-table">
-<thead><tr><th>#</th><th>{{ ledger.party_label }}</th><th>提报人</th><th>日期</th><th class="num">数量</th><th>单位</th><th class="num">金额（元）</th></tr></thead>
-<tbody>{% for row in ledger.rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td>{{ row.unit }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="7" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
-<tfoot><tr><th colspan="6">合计</th><th class="num">{{ ledger.total|money }}</th></tr></tfoot>
+<thead><tr><th>#</th><th>{{ ledger.party_label }}</th><th>提报人</th><th>日期</th><th class="num">数量</th><th class="num">金额（元）</th></tr></thead>
+<tbody>{% for row in ledger.rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="6" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th colspan="5">合计</th><th class="num">{{ ledger.total|money }}</th></tr></tfoot>
 </table>
 </div>
 </div>
