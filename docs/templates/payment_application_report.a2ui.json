@@ -316,12 +316,27 @@
           "colorToken": "common_level2_base_color"
         },
         {
+          "id": "report-link",
+          "component": "Link",
+          "text": "查看完整在线报表（含图表与明细）",
+          "action": {
+            "functionCall": {
+              "call": "openUrl",
+              "args": {
+                "url": "https://example.invalid/"
+              }
+            }
+          },
+          "fallbackMarkdown": "[查看完整在线报表](https://example.invalid/)"
+        },
+        {
           "id": "header",
           "component": "Column",
           "children": [
             "title-row",
             "company",
-            "period"
+            "period",
+            "report-link"
           ],
           "gap": 4
         },

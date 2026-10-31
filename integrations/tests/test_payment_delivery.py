@@ -254,25 +254,32 @@ class PaymentCommandDeliveryTests(TestCase):
         a2ui.send_card.assert_called_once()
         client.post.assert_not_called()
 
-    def test_card_success_sends_link_then_file_and_counts_as_success(self):
+    def test_card_embeds_link_and_sends_only_the_file(self):
         client = Mock()
         client.post.return_value = {"processQueryKey": "file-key"}
         output = self.run_report(client)
         self.client_factory.assert_called_once_with(self.app)
         self.a2ui_factory.assert_called_once_with(client)
         self.assertIn("A2UI 卡片已发送并完结", output)
-        self.assertIn("在线链接已发送", output)
+        self.assertNotIn("在线链接已发送", output)
         self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleLink", "sampleFile"],
+            ["sampleFile"],
         )
-        link = json.loads(client.post.call_args_list[0].args[1]["msgParam"])
-        self.assertIn("/integrations/payment-snapshots/", link["messageUrl"])
         frames = self.a2ui.send_card.call_args.args[1]
         self.assertEqual(frames, self.exported)
-        self.assertEqual(frames[1]["updateDataModel"]["value"]["summary"]["totalAmountText"], "¥123.45")
+        link = next(
+            c for c in frames[2]["updateComponents"]["components"] if c["id"] == "report-link"
+        )
+        self.assertIn(
+            "/integrations/payment-snapshots/",
+            link["action"]["functionCall"]["args"]["url"],
+        )
+        self.assertEqual(
+            frames[1]["updateDataModel"]["value"]["summary"]["totalAmountText"], "¥123.45"
+        )
 
     def test_no_template_still_uses_a2ui(self):
         self.app.card_template_id = ""
@@ -310,22 +317,23 @@ class PaymentCommandDeliveryTests(TestCase):
         self.assertIn("0 成功, 1 失败", raised.exception.command_output)
         self.assertNotIn("✓ 发送成功", raised.exception.command_output)
 
-    def test_link_failure_does_not_block_file_delivery(self):
+    def test_text_mode_link_failure_does_not_block_file_delivery(self):
         client = Mock()
         client.post.side_effect = [
+            {"processQueryKey": "text-key"},
             DingtalkError("link rejected"),
             {"processQueryKey": "file-key"},
         ]
-        output = self.run_report(client)
+        output = self.run_report(client, no_card=True)
         self.assertIn("在线链接发送失败", output)
         self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleLink", "sampleFile"],
+            ["sampleText", "sampleLink", "sampleFile"],
         )
 
-    def test_no_link_skips_the_link_message(self):
+    def test_no_link_hides_card_link_and_skips_link_message(self):
         client = Mock()
         client.post.return_value = {"processQueryKey": "file-key"}
         self.run_report(client, no_link=True)
@@ -333,6 +341,11 @@ class PaymentCommandDeliveryTests(TestCase):
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
             ["sampleFile"],
         )
+        link = next(
+            c for c in self.exported[2]["updateComponents"]["components"]
+            if c["id"] == "report-link"
+        )
+        self.assertIs(link["visible"], False)
 
     def test_dry_run_exports_live_json_without_any_network_client(self):
         client = Mock()
@@ -344,6 +357,14 @@ class PaymentCommandDeliveryTests(TestCase):
         snapshot = PaymentReportSnapshot.objects.get()
         self.assertEqual(snapshot.report_type, "week")
         self.assertEqual(snapshot.data["summary"]["total_count"], 1)
+        link = next(
+            c for c in self.exported[2]["updateComponents"]["components"]
+            if c["id"] == "report-link"
+        )
+        self.assertIn(
+            f"/integrations/payment-snapshots/{snapshot.pk}/public/",
+            link["action"]["functionCall"]["args"]["url"],
+        )
         client.upload_media.assert_not_called()
         client.post.assert_not_called()
         self.a2ui.check_available.assert_not_called()

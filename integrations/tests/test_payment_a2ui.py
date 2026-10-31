@@ -39,9 +39,16 @@ def report_data():
     }
 
 
+LINK = "http://172.16.77.80:8001/integrations/payment-snapshots/1/public/?token=test"
+
+
 def messages():
     return build_payment_a2ui_messages(
-        report_data(), get_last_week_range(date(2026, 10, 27)), "测试公司", "week"
+        report_data(),
+        get_last_week_range(date(2026, 10, 27)),
+        "测试公司",
+        "week",
+        link_url=LINK,
     )
 
 
@@ -81,7 +88,29 @@ class PaymentA2UIDataTests(SimpleTestCase):
         self.assertEqual(len({next(v for k, v in f.items() if k != "version")["surfaceId"] for f in frames}), 1)
         self.assertNotEqual(frames[0]["createSurface"]["surfaceId"], messages()[0]["createSurface"]["surfaceId"])
         components = frames[2]["updateComponents"]["components"]
-        self.assertFalse(any(c["component"] in ("Button", "Link") or "action" in c for c in components))
+        self.assertFalse(
+            any(
+                c["component"] == "Button"
+                or ("action" in c and c["id"] != "report-link")
+                for c in components
+            )
+        )
+        link = next(c for c in components if c["id"] == "report-link")
+        self.assertEqual(link["component"], "Link")
+        self.assertEqual(
+            link["action"], {"functionCall": {"call": "openUrl", "args": {"url": LINK}}}
+        )
+        self.assertEqual(link["fallbackMarkdown"], f"[查看完整在线报表]({LINK})")
+        self.assertNotIn("visible", link)
+
+    def test_without_link_hides_the_link_component(self):
+        frames = build_payment_a2ui_messages(
+            report_data(), get_last_week_range(date(2026, 10, 27)), "测试公司"
+        )
+        link = next(
+            c for c in frames[2]["updateComponents"]["components"] if c["id"] == "report-link"
+        )
+        self.assertIs(link["visible"], False)
 
     def test_empty_period_has_no_fake_values_or_division_by_zero(self):
         data = {"summary": {"total_count": 0, "total_amount": Decimal("0")}, "by_recipient": []}

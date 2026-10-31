@@ -24,8 +24,14 @@ def _money(value):
     return f"¥{value:,.2f}"
 
 
-def build_payment_a2ui_messages(data, period_info, company_name, report_type="week"):
-    """复用已校验的卡片布局，整树替换示例数据，避免混入演示值。"""
+def build_payment_a2ui_messages(
+    data, period_info, company_name, report_type="week", *, link_url=None
+):
+    """复用已校验的卡片布局，整树替换示例数据，避免混入演示值。
+
+    link_url 有值时把「查看完整在线报表」写进卡片头部的 Link 组件
+    （openUrl 由渲染器本地执行），这样群里只需一张卡片，不必再补发链接消息。
+    """
     template_path = Path(settings.BASE_DIR) / "docs/templates/payment_application_report.a2ui.json"
     frames = json.loads(template_path.read_text(encoding="utf-8"))
     surface_id = f"payment-report-{uuid4().hex}"
@@ -194,8 +200,19 @@ def build_payment_a2ui_messages(data, period_info, company_name, report_type="we
         if operation == "updateDataModel":
             frame[operation]["value"] = model
         elif operation == "updateComponents":
-            heading = next(c for c in frame[operation]["components"] if c["id"] == "focus-heading")
+            components = frame[operation]["components"]
+            heading = next(c for c in components if c["id"] == "focus-heading")
             heading["text"] = dict(day="当日关注", week="本周关注", month="本月关注")[report_type]
+            link = next(c for c in components if c["id"] == "report-link")
+            if link_url:
+                link["action"] = {
+                    "functionCall": {"call": "openUrl", "args": {"url": link_url}}
+                }
+                link["fallbackMarkdown"] = f"[查看完整在线报表]({link_url})"
+                link.pop("visible", None)
+            else:
+                # 模板里的占位 URL 不能原样发出去，直接隐藏整行链接。
+                link["visible"] = False
     return frames
 
 

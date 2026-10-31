@@ -94,7 +94,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--no-link',
             action='store_true',
-            help="不发送在线报表链接（默认在卡片后补发免登录链接）"
+            help="不带在线报表链接（卡片内的链接会隐藏，文本模式也不再单发）"
         )
         parser.add_argument(
             '--force-snapshot',
@@ -234,9 +234,11 @@ class Command(BaseCommand):
                 generate_payment_excel(data, period_info, str(excel_path))
 
                 use_card = not options.get('no_card')
+                link_url = None if options.get('no_link') else snapshot_url
                 if use_card:
                     a2ui_messages = build_payment_a2ui_messages(
                         data, period_info, report_company_name, report_type,
+                        link_url=link_url,
                     )
                     a2ui_path = excel_path.with_suffix('.a2ui.json')
                     a2ui_path.write_text(
@@ -352,8 +354,9 @@ class Command(BaseCommand):
                     result = client.post('/v1.0/robot/groupMessages/send', payload)
                     self.stdout.write(f"  文本消息已发送: {result}")
 
-                # 在线链接：手机端不下载附件也能看完整报表；失败只记录，不阻断附件投递。
-                if not options.get('no_link'):
+                # 卡片模式下在线链接已内置在卡片头部，不再单独补发消息；
+                # 纯文本模式没有卡片承载链接，仍需单发一条。失败只记录，不阻断附件。
+                if link_url and not use_card:
                     try:
                         link_result = client.post('/v1.0/robot/groupMessages/send', {
                             'robotCode': dingtalk_app.robot_code,
