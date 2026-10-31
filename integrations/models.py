@@ -750,7 +750,8 @@ class DingtalkGroupConfig(models.Model):
     send_files = models.BooleanField(
         "发送 PDF/Excel 附件",
         default=False,
-        help_text="关闭时只发日报卡片和在线链接；打开后按群文件卡片发送 PDF/Excel。",
+        editable=False,
+        help_text="已停用：日报只发卡片，PDF/Excel 从卡片内链接的在线页下载。",
     )
     content_types = models.JSONField(
         "推送内容",

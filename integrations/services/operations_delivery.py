@@ -1,4 +1,8 @@
-"""经营日报三件套投递：附件先准备，逐步落盘，不盲重发结果未知的消息。"""
+"""经营日报投递：卡片是唯一消息，在线链接与 PDF/Excel 下载都在卡片里。
+
+2026-10-31 起不再单独发链接消息，也不再发 PDF/Excel 附件：
+在线页自带两种下载，群里只保留一张卡片，减少刷屏。
+"""
 import hashlib
 import json
 import logging
@@ -9,13 +13,12 @@ from django.conf import settings
 from django.utils import timezone
 
 from integrations.models import ReportDelivery
-from integrations.services.group_file import GroupFileError, publish_group_file
+from integrations.services.a2ui_robot import DingtalkA2UIClient
 from integrations.services.operations_a2ui import (
     build_operations_a2ui_messages,
     build_operations_model,
 )
 from integrations.services.operations_metrics_image import render_metrics_image
-from integrations.services.a2ui_robot import DingtalkA2UIClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +52,8 @@ def _fingerprint(snapshot):
                                      separators=(",", ":")).encode()).hexdigest()
 
 
-def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, render_excel):
-    """同一 ReportDelivery 的成功阶段不重发；强制重发由调用方明确重置状态。"""
+def deliver_operations_report(delivery, group, snapshot, client):
+    """同一 ReportDelivery 已发送的卡片不重发；结果不明时要求人工核对。"""
     a2ui = DingtalkA2UIClient(client)
     delivery.refresh_from_db()
     state = dict(delivery.delivery_state or {})
@@ -58,12 +61,9 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
         raise OperationsDeliveryUncertain("旧版失败记录无法确认已发送内容，请先核对群消息，再决定是否强制重发。")
     fingerprint = _fingerprint(snapshot)
     target = {"appId": group.app_id, "groupId": group.open_conversation_id}
-    send_files = bool(getattr(group, "send_files", False))
     if state and (state.get("fingerprint") != fingerprint or state.get("target") != target):
         raise OperationsDeliveryUncertain("重试期间快照或推送范围/目标已变更，禁止混用原投递回执，请人工核对。")
-    blocking_keys = ["card"] + (["pdf", "excel"] if send_files else [])
-    if any((state.get(key) or {}).get("status") in ("SENDING", "UNCERTAIN")
-           for key in blocking_keys):
+    if (state.get("card") or {}).get("status") in ("SENDING", "UNCERTAIN"):
         raise OperationsDeliveryUncertain("存在正在发送或结果不明的阶段，请核对回执，不自动重复发送。")
     previous = delivery.delivery_state or {}
     claimed = {**state, "version": 1, "fingerprint": fingerprint, "target": target,
@@ -82,22 +82,6 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
     try:
         directory.mkdir(parents=True, exist_ok=True)
         a2ui.check_available()
-        base = f"{snapshot.company.code}_{snapshot.report_date}_{snapshot.scope}_经营日报"
-        pdf_path, excel_path = directory / (base + ".pdf"), directory / (base + ".xlsx")
-        operator_union_id = getattr(settings, "DINGTALK_OPERATOR_UNION_ID", "")
-        use_group_file = bool(operator_union_id)
-        # 附件开关关闭时只发卡片和在线链接，不渲染 PDF/Excel。
-        if send_files:
-            if not pdf_path.exists():
-                pdf_bytes = render_pdf(snapshot, style="book")
-                if not pdf_bytes.startswith(b"%PDF-"):
-                    raise ValueError("PDF 渲染结果不是有效 PDF 文件。")
-                pdf_path.write_bytes(pdf_bytes)
-            if not excel_path.exists():
-                excel_bytes = render_excel(snapshot)
-                if not excel_bytes.startswith(b"PK"):
-                    raise ValueError("Excel 导出结果不是 XLSX 文件。")
-                excel_path.write_bytes(excel_bytes)
         card_path = directory / "card.a2ui.json"
         if card_path.exists():
             frames = json.loads(card_path.read_text(encoding="utf-8"))
@@ -108,16 +92,15 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                 metrics_image = _upload_metrics_image(client, snapshot)
             except Exception:
                 logger.exception("指标图片生成或上传失败，本次卡片使用文字指标")
-            frames = build_operations_a2ui_messages(snapshot, metrics_image=metrics_image)
+            from integrations.services.report_delivery import public_snapshot_url
+
+            frames = build_operations_a2ui_messages(
+                snapshot,
+                metrics_image=metrics_image,
+                link_url=public_snapshot_url(snapshot),
+            )
             card_path.write_text(json.dumps(frames, ensure_ascii=False, indent=2), encoding="utf-8")
-        # 旧 sampleFile 通道才需要先传媒体库；群文件卡片通道直接读文件字节上传。
-        if send_files and not use_group_file:
-            for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
-                phase = state.setdefault(kind, {})
-                if phase.get("status") != "SENT" and not phase.get("mediaId"):
-                    phase.update({"mediaId": client.upload_media(path.name, path.read_bytes()),
-                                  "fileName": path.name, "status": "READY"})
-                    save()
+
         card = state.setdefault("card", {})
         if card.get("status") != "SENT":
             card.update({"status": "SENDING", "outTrackId": f"operations-report-{uuid4().hex}",
@@ -132,109 +115,6 @@ def deliver_operations_report(delivery, group, snapshot, client, *, render_pdf, 
                 raise OperationsDeliveryUncertain(f"A2UI 发送结果待核对：{card['outTrackId']}；{exc}") from exc
             card.update({"status": "SENT", "receipt": receipt, "sentAt": timezone.now().isoformat()})
             save()
-
-        # 在线日报链接：手机端不下载附件也能直接看完整 HTML（图表、明细都在里面）。
-        # 这是补充消息，失败只记录、不阻断 PDF/Excel 投递，也不自动重试。
-        link = state.setdefault("link", {})
-        if not link.get("attempted"):
-            link["attempted"] = True
-            try:
-                from integrations.services.report_delivery import public_snapshot_url
-
-                link["url"] = public_snapshot_url(snapshot)
-                save()
-                response = client.post("/v1.0/robot/groupMessages/send", {
-                    "robotCode": client.app.robot_code,
-                    "openConversationId": group.open_conversation_id,
-                    "msgKey": "sampleLink",
-                    "msgParam": json.dumps({
-                        "title": f"{snapshot.company.name} {snapshot.report_date:%Y-%m-%d} 在线日报",
-                        "text": "点击查看完整日报（含图表与明细），手机端无需下载附件",
-                        "messageUrl": link["url"],
-                    }, ensure_ascii=False),
-                })
-                link.update({"status": "SENT", "receipt": response, "sentAt": timezone.now().isoformat()})
-            except Exception as exc:
-                link.update({"status": "FAILED", "error": str(exc)})
-                logger.exception("在线日报链接发送失败：snapshot=%s", snapshot.pk)
-            save()
-
-        for kind, path in (("pdf", pdf_path), ("excel", excel_path)):
-            if not send_files:
-                break
-            phase = state.setdefault(kind, {})
-            if phase.get("status") == "SENT":
-                continue
-            phase["status"] = "SENDING"
-            save()
-
-            if use_group_file:
-                # 新版 Storage 链路：上传后发成会话文件卡片，客户端原生预览。
-                # space_id 取群配置里的值，测试群/正式群各用各的空间。
-                try:
-                    result = publish_group_file(
-                        client.token(),
-                        open_conversation_id=group.open_conversation_id,
-                        union_id=operator_union_id,
-                        space_id=getattr(group, "storage_space_id", "") or None,
-                        file_name=path.name,
-                        blob=path.read_bytes(),
-                    )
-                except GroupFileError as exc:
-                    if exc.stage == "send":
-                        # 发送阶段结果不明，禁止自动重发，交人工核对。
-                        phase.update({"status": "UNCERTAIN", "error": str(exc),
-                                      "requestId": exc.request_id})
-                        save()
-                        raise OperationsDeliveryUncertain(
-                            f"{kind.upper()} 群文件卡片发送结果待核对：{exc}"
-                        ) from exc
-                    # 上传/提交阶段失败没有产生群消息，可安全重试。
-                    phase.update({"status": "FAILED", "error": str(exc),
-                                  "requestId": exc.request_id})
-                    save()
-                    raise
-                except Exception as exc:
-                    phase.update({"status": "FAILED", "error": str(exc)})
-                    save()
-                    raise
-                phase.update({
-                    "status": "SENT",
-                    "spaceId": result["spaceId"],
-                    "groupId": result["groupId"],
-                    "groupName": result["groupName"],
-                    "sourceDentryId": result["sourceDentryId"],
-                    "sentAt": timezone.now().isoformat(),
-                })
-                save()
-                (directory / f"{kind}.receipt.json").write_text(
-                    json.dumps(phase, ensure_ascii=False, indent=2), encoding="utf-8"
-                )
-                continue
-
-            # 兼容旧通道：机器人 sampleFile（客户端只能下载）。
-            try:
-                response = client.post("/v1.0/robot/groupMessages/send", {
-                    "robotCode": client.app.robot_code,
-                    "openConversationId": group.open_conversation_id,
-                    "msgKey": "sampleFile",
-                    "msgParam": json.dumps({
-                        "mediaId": phase["mediaId"],
-                        "fileName": phase["fileName"],
-                        # 不传 fileType 时钉钉手机端只当普通文件下载，PDF/Excel
-                        # 都不会走内置预览；必须显式声明扩展名。
-                        "fileType": "pdf" if kind == "pdf" else "xlsx",
-                    }, ensure_ascii=False),
-                })
-                if response.get("errcode", 0) != 0:
-                    raise RuntimeError(f"附件发送被拒绝：{response.get('errmsg', response)}")
-            except Exception as exc:
-                phase.update({"status": "UNCERTAIN", "error": str(exc)})
-                save()
-                raise OperationsDeliveryUncertain(f"{kind.upper()} 附件发送结果待核对，不重复发卡：{exc}") from exc
-            phase.update({"status": "SENT", "receipt": response, "sentAt": timezone.now().isoformat()})
-            save()
-            (directory / f"{kind}.receipt.json").write_text(json.dumps(phase, ensure_ascii=False, indent=2), encoding="utf-8")
     finally:
         state["inProgress"] = False
         save()

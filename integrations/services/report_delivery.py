@@ -596,21 +596,17 @@ def _send_to_dingtalk_channels(
         try:
             from integrations.services.operations_a2ui import filter_snapshot_for_contents
             from integrations.services.operations_delivery import deliver_operations_report, OperationsDeliveryUncertain
-            from integrations.services.snapshot_export import export_snapshot_to_excel
 
             scoped_snapshot = filter_snapshot_for_contents(snapshot, group_config.content_types)
             client = build_client(group_config.app)
-            deliver_operations_report(
-                delivery, group_config, scoped_snapshot, client,
-                render_pdf=render_snapshot_pdf, render_excel=export_snapshot_to_excel,
-            )
+            deliver_operations_report(delivery, group_config, scoped_snapshot, client)
             delivery.status = ReportDelivery.Status.SENT
             delivery.attempt_count += 1
             delivery.sent_at = timezone.now()
             delivery.last_error = ""
             delivery.save()
             results.append(("钉钉", "SENT", group_config.name))
-            logger.info("钉钉 A2UI/PDF/Excel 发送成功：snapshot=%s, target=%s", snapshot.id, group_config.name)
+            logger.info("钉钉 A2UI 卡片发送成功：snapshot=%s, target=%s", snapshot.id, group_config.name)
         except Exception as exc:
             from integrations.services.operations_delivery import OperationsDeliveryUncertain
             delivery.refresh_from_db()

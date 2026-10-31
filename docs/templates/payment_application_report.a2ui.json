@@ -266,7 +266,7 @@
             "focus-content",
             "footer"
           ],
-          "gap": 12
+          "gap": 8
         },
         {
           "id": "title",
@@ -326,8 +326,7 @@
           "children": [
             "title-row",
             "company",
-            "period",
-            "report-link"
+            "period"
           ],
           "gap": 4
         },
@@ -386,7 +385,7 @@
             "count-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -415,7 +414,7 @@
             "average-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -436,7 +435,7 @@
           ],
           "responsive": true,
           "responsiveColumns": 1,
-          "gap": 12
+          "gap": 8
         },
         {
           "id": "running-label",
@@ -462,7 +461,7 @@
             "running-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -491,7 +490,7 @@
             "completed-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -512,7 +511,7 @@
           ],
           "responsive": true,
           "responsiveColumns": 1,
-          "gap": 12
+          "gap": 8
         },
         {
           "id": "recipients-label",
@@ -538,7 +537,7 @@
             "recipients-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -567,7 +566,7 @@
             "completion-rate-value"
           ],
           "gap": 4,
-          "padding": 12,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1
@@ -582,13 +581,13 @@
             "summary-divider",
             "count-average-row"
           ],
-          "gap": 10
+          "gap": 8
         },
         {
           "id": "summary-card",
           "component": "Card",
           "child": "summary-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -608,13 +607,13 @@
             "metrics-title",
             "approval-amount-row"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "metrics-card",
           "component": "Card",
           "child": "metrics-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -645,7 +644,7 @@
             "status-label",
             "status-detail"
           ],
-          "gap": 12,
+          "gap": 8,
           "align": "center"
         },
         {
@@ -670,13 +669,13 @@
             "status-title",
             "status-loop"
           ],
-          "gap": 10
+          "gap": 8
         },
         {
           "id": "status-card",
           "component": "Card",
           "child": "status-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -702,7 +701,7 @@
           "data": {
             "path": "/charts/dailyAmount"
           },
-          "height": 200,
+          "height": 150,
           "visible": {
             "call": "gt",
             "args": {
@@ -749,13 +748,13 @@
             "trend-chart",
             "trend-empty"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "trend-card",
           "component": "Card",
           "child": "trend-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -783,7 +782,7 @@
           "data": {
             "path": "/charts/payeeAmount"
           },
-          "height": 200,
+          "height": 150,
           "visible": {
             "call": "gt",
             "args": {
@@ -830,13 +829,13 @@
             "payees-chart",
             "payees-empty"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "payees-card",
           "component": "Card",
           "child": "payees-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -873,7 +872,7 @@
           "id": "focus-item",
           "component": "Card",
           "child": "focus-item-content",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -923,7 +922,7 @@
             "focus-loop",
             "focus-empty"
           ],
-          "gap": 10
+          "gap": 8
         },
         {
           "id": "unit-note",
@@ -958,7 +957,8 @@
           "children": [
             "unit-note",
             "scope-note",
-            "demo-note"
+            "demo-note",
+            "report-link"
           ],
           "gap": 4
         }

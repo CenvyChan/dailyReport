@@ -29,9 +29,10 @@
             "trend-card",
             "month-card",
             "share-card",
-            "scope-note"
+            "scope-note",
+            "report-link"
           ],
-          "gap": 12
+          "gap": 8
         },
         {
           "id": "title",
@@ -102,7 +103,7 @@
           "id": "warning-card",
           "component": "Card",
           "child": "warning-text",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -136,7 +137,7 @@
             "purchase-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -169,7 +170,7 @@
             "sales-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -202,7 +203,7 @@
             "share-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -243,7 +244,7 @@
             "report-purchase-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -276,7 +277,7 @@
             "report-sales-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -309,7 +310,7 @@
             "report-share-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -360,7 +361,7 @@
             "k3-share-value"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -389,7 +390,7 @@
             "k3-caption",
             "k3-row"
           ],
-          "gap": 10,
+          "gap": 8,
           "visible": {
             "call": "not",
             "args": {
@@ -452,7 +453,7 @@
             "daily-purchase"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -468,7 +469,7 @@
             "daily-sales"
           ],
           "gap": 4,
-          "padding": 10,
+          "padding": 8,
           "cornerRadius": 8,
           "backgroundColorToken": "common_bg_color",
           "weight": 1,
@@ -497,13 +498,13 @@
             "metrics-image",
             "summary-metrics"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "summary-card",
           "component": "Card",
           "child": "summary-body",
-          "padding": 16,
+          "padding": 12,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -530,11 +531,11 @@
           "data": {
             "path": "/charts/trend"
           },
-          "aspectRatio": "2:1",
           "visible": {
             "path": "/hasTrend"
           },
-          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。",
+          "height": 150
         },
         {
           "id": "trend-body",
@@ -544,13 +545,13 @@
             "trend-caption",
             "trend-chart"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "trend-card",
           "component": "Card",
           "child": "trend-body",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -577,11 +578,11 @@
           "data": {
             "path": "/charts/month"
           },
-          "aspectRatio": "2:1",
           "visible": {
             "path": "/hasMonth"
           },
-          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。",
+          "height": 150
         },
         {
           "id": "month-body",
@@ -591,13 +592,13 @@
             "month-caption",
             "month-chart"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "month-card",
           "component": "Card",
           "child": "month-body",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -632,11 +633,11 @@
           "data": {
             "path": "/charts/reportShare"
           },
-          "aspectRatio": "1:1",
           "visible": {
             "path": "/hasReportShare"
           },
-          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。",
+          "height": 120
         },
         {
           "id": "report-share-block",
@@ -662,11 +663,11 @@
           "data": {
             "path": "/charts/kingdeeShare"
           },
-          "aspectRatio": "1:1",
           "visible": {
             "path": "/hasKingdeeShare"
           },
-          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。"
+          "fallbackMarkdown": "当前客户端暂不支持图表，请查看随附 PDF 和 Excel。",
+          "height": 120
         },
         {
           "id": "kingdee-share-block",
@@ -695,13 +696,13 @@
             "share-caption",
             "share-charts"
           ],
-          "gap": 8
+          "gap": 6
         },
         {
           "id": "share-card",
           "component": "Card",
           "child": "share-body",
-          "padding": 12,
+          "padding": 10,
           "cornerRadius": 8,
           "borderWidth": 0.5,
           "borderColorToken": "common_line_hard_color",
@@ -715,6 +716,11 @@
           },
           "variant": "caption",
           "colorToken": "common_level2_base_color"
+        },
+        {
+          "id": "report-link",
+          "component": "Markdown",
+          "content": "[查看完整在线报表（含图表与明细）](https://example.invalid/)"
         }
       ]
     }

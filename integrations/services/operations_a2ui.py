@@ -234,8 +234,14 @@ def build_operations_model(snapshot):
     return model
 
 
-def build_operations_a2ui_messages(snapshot, template_path=None, metrics_image=None):
-    """metrics_image 为 {"light": mediaId, "dark": mediaId}；缺失时卡片用文字指标。"""
+def build_operations_a2ui_messages(
+    snapshot, template_path=None, metrics_image=None, *, link_url=None
+):
+    """metrics_image 为 {"light": mediaId, "dark": mediaId}；缺失时卡片用文字指标。
+
+    link_url 有值时写进卡片底部的 Markdown 链接；为空则隐藏该组件，
+    避免把模板里的占位地址发出去。
+    """
     template_path = (
         Path(template_path)
         if template_path
@@ -256,4 +262,13 @@ def build_operations_a2ui_messages(snapshot, template_path=None, metrics_image=N
             for component in frame["updateComponents"]["components"]:
                 if component.get("id") == "metrics-image":
                     component["images"] = [metrics_image["light"]]
+        if "updateComponents" in frame:
+            for component in frame["updateComponents"]["components"]:
+                if component.get("id") != "report-link":
+                    continue
+                if link_url:
+                    component["content"] = f"[查看完整在线报表（含图表与明细）]({link_url})"
+                    component.pop("visible", None)
+                else:
+                    component["visible"] = False
     return frames

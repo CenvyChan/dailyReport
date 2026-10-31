@@ -150,6 +150,16 @@ class OperationsA2UIModelTests(SimpleTestCase):
         snapshot=fake_snapshot();snapshot.data['operations']['sales_total']=float('inf')
         with self.assertRaises(ValueError):build_operations_a2ui_messages(snapshot)
 
+    def test_report_link_is_optional_and_hidden_without_url(self):
+        frames=build_operations_a2ui_messages(fake_snapshot(), link_url="http://host/snapshots/1/public/?token=x")
+        components=next(f["updateComponents"]["components"] for f in frames if "updateComponents" in f)
+        link=next(c for c in components if c["id"]=="report-link")
+        self.assertEqual(link["content"],"[查看完整在线报表（含图表与明细）](http://host/snapshots/1/public/?token=x)")
+        self.assertNotIn("visible",link)
+        hidden=build_operations_a2ui_messages(fake_snapshot())
+        components=next(f["updateComponents"]["components"] for f in hidden if "updateComponents" in f)
+        self.assertIs(next(c for c in components if c["id"]=="report-link")["visible"],False)
+
 
 class OperationsA2UIDeliveryTests(TestCase):
     def setUp(self):
@@ -163,7 +173,6 @@ class OperationsA2UIDeliveryTests(TestCase):
                                              app_secret="secret", robot_code="robot-code")
         self.group = DingtalkGroupConfig.objects.create(company=self.company, app=self.app, name="日报群",
                                                         open_conversation_id="cid-test", send_at=time(18),
-                                                        send_files=True,
                                                         content_types=["SALES", "PURCHASE"])
         self.group.companies.set([self.company])
         # 这些用例验证的是投递阶段本身，配置视为早已启用。
@@ -175,16 +184,12 @@ class OperationsA2UIDeliveryTests(TestCase):
                                                       scope="BOTH", data=fixture_data(), is_complete=True)
         self.client_mock = Mock()
         self.client_mock.app = self.app
-        self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-" + Path(name).suffix
+        self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-image"
         self.client_mock.post.side_effect = success_response
-        self.pdf = Mock(return_value=b"%PDF-test")
-        self.excel = Mock(return_value=b"PK-test")
         self.patches = [
             patch("integrations.services.dingtalk_client.build_client", return_value=self.client_mock),
             patch("integrations.services.operations_delivery.render_metrics_image",
                   return_value=bytes([137, 80, 78, 71]) + b"-test"),
-            patch("integrations.services.report_delivery.render_snapshot_pdf", self.pdf),
-            patch("integrations.services.snapshot_export.export_snapshot_to_excel", self.excel),
         ]
         for patcher in self.patches:
             patcher.start()
@@ -196,159 +201,46 @@ class OperationsA2UIDeliveryTests(TestCase):
     def delivery(self):
         return ReportDelivery.objects.get(snapshot=self.snapshot, channel="DINGTALK")
 
-    def test_three_deliveries_use_robot_identity_and_are_not_duplicated(self):
+    def test_card_is_the_only_message_and_is_not_duplicated(self):
         self.assertEqual(self.send()[0][1], "SENT")
         calls = self.client_mock.post.call_args_list
-        self.assertEqual(len(calls), 4)
+        self.assertEqual(len(calls), 1)
         self.assertTrue(calls[0].args[0].endswith("createAndDeliver"))
         self.assertEqual(calls[0].args[1]["imGroupOpenDeliverModel"], {"robotCode": "robot-code"})
-        file_calls = [c for c in calls if c.args[1].get("msgKey") == "sampleFile"]
-        self.assertEqual(len(file_calls), 2)
-        file_params = [json.loads(c.args[1]["msgParam"]) for c in file_calls]
-        self.assertTrue(file_params[0]["fileName"].endswith(".pdf"))
-        self.assertEqual(file_params[0]["fileType"], "pdf")
-        self.assertTrue(file_params[1]["fileName"].endswith(".xlsx"))
-        self.assertEqual(file_params[1]["fileType"], "xlsx")
-        self.assertTrue(all(c.args[1]["robotCode"] == "robot-code" for c in calls[1:]))
         state = self.delivery().delivery_state
-        self.assertEqual(
-            [state[k]["status"] for k in ("card", "link", "pdf", "excel")],
-            ["SENT"] * 4,
-        )
-        self.assertIn("/snapshots/", state["link"]["url"])
+        self.assertEqual(state["card"]["status"], "SENT")
+        for key in ("link", "pdf", "excel"):
+            self.assertNotIn(key, state)
         self.assertFalse(state["inProgress"])
         self.assertEqual(self.send()[0][1], "SKIPPED")
-        self.assertEqual(self.client_mock.post.call_count, 4)
+        self.assertEqual(self.client_mock.post.call_count, 1)
 
-    def test_files_can_be_disabled_for_card_and_link_only(self):
-        self.group.send_files = False
-        self.group.save(update_fields=["send_files"])
-
+    def test_card_carries_snapshot_link_without_a_separate_link_message(self):
         self.assertEqual(self.send()[0][1], "SENT")
+        payload = self.client_mock.post.call_args.args[1]
+        self.assertNotIn("msgKey", payload)  # 只有卡片，没有 sampleLink/sampleFile
+        frames = json.loads(payload["a2uiMessages"][2])
+        link = next(c for c in frames["updateComponents"]["components"] if c["id"] == "report-link")
+        self.assertEqual(link["component"], "Markdown")
+        self.assertIn("/snapshots/", link["content"])
+        self.assertNotIn("visible", link)
 
-        self.pdf.assert_not_called()
-        self.excel.assert_not_called()
-        self.assertEqual(self.client_mock.post.call_count, 2)
-        state = self.delivery().delivery_state
-        self.assertEqual(state["card"]["status"], "SENT")
-        self.assertEqual(state["link"]["status"], "SENT")
-        self.assertNotIn("pdf", state)
-        self.assertNotIn("excel", state)
-
-    @override_settings(DINGTALK_OPERATOR_UNION_ID="union-test")
-    def test_group_file_cards_are_sent_last_and_use_configured_space(self):
-        self.group.storage_space_id = "space-test"
-        self.group.save(update_fields=["storage_space_id"])
-        events = []
-        original_post = self.client_mock.post.side_effect
-
-        def post(path, payload):
-            events.append(("post", payload.get("msgKey")))
-            return original_post(path, payload)
-
-        self.client_mock.post.side_effect = post
-
-        def publish(token, **kwargs):
-            events.append(("file", Path(kwargs["file_name"]).suffix))
-            return {
-                "spaceId": kwargs["space_id"],
-                "sourceDentryId": "100",
-                "groupId": "200",
-                "groupName": kwargs["file_name"],
-                "size": 1,
-                "md5": "x",
-            }
-
-        with patch(
-            "integrations.services.operations_delivery.publish_group_file",
-            side_effect=publish,
-        ) as publish_mock:
-            self.assertEqual(self.send()[0][1], "SENT")
-
-        self.assertEqual(publish_mock.call_count, 2)
-        self.assertEqual([event[0] for event in events[-2:]], ["file", "file"])
-        self.assertEqual(events[-2][1], ".pdf")
-        self.assertEqual(events[-1][1], ".xlsx")
-        for call in publish_mock.call_args_list:
-            self.assertEqual(call.kwargs["union_id"], "union-test")
-            self.assertEqual(call.kwargs["space_id"], "space-test")
-        state = self.delivery().delivery_state
-        self.assertEqual(state["pdf"]["status"], "SENT")
-        self.assertEqual(state["excel"]["status"], "SENT")
-        self.assertEqual(state["excel"]["groupId"], "200")
-
-    def test_pdf_failure_prevents_partial_card_and_can_retry(self):
-        self.pdf.side_effect = RuntimeError("Chromium unavailable")
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.client_mock.post.assert_not_called()
-        self.client_mock.upload_media.assert_not_called()
-        self.pdf.side_effect = None
-        self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 4)
-
-    def test_upload_failure_is_retryable_without_duplicate_group_messages(self):
+    def test_metrics_image_failure_falls_back_to_text_card(self):
         self.client_mock.upload_media.side_effect = RuntimeError("upload failed")
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.client_mock.post.assert_not_called()
-        self.client_mock.upload_media.side_effect = lambda name, data, media_type="file": "media-" + Path(name).suffix
         self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 4)
+        self.assertEqual(self.client_mock.post.call_count, 1)
+        model = json.loads(
+            self.client_mock.post.call_args.args[1]["a2uiMessages"][1]
+        )["updateDataModel"]["value"]
+        self.assertFalse(model["hasMetricsImage"])
 
-    def test_card_timeout_is_uncertain_and_never_automatically_resent(self):
-        self.client_mock.post.side_effect = TimeoutError("network timeout")
-        self.assertEqual(self.send()[0][1], "UNCERTAIN")
-        state = self.delivery().delivery_state
-        self.assertEqual(state["card"]["status"], "UNCERTAIN")
-        self.assertTrue(Path(state["card"]["receiptPath"]).exists())
-        self.assertEqual(self.send()[0][1], "SKIPPED")
-        self.client_mock.post.assert_called_once()
-
-    def test_excel_timeout_does_not_resend_successful_card_or_pdf(self):
-        def responder(path, payload):
-            if payload.get("msgKey") == "sampleFile" and json.loads(payload["msgParam"])["fileName"].endswith(".xlsx"):
-                raise TimeoutError("excel outcome unknown")
-            return success_response(path, payload)
-        self.client_mock.post.side_effect = responder
-        self.assertEqual(self.send()[0][1], "UNCERTAIN")
-        state = self.delivery().delivery_state
-        self.assertEqual(state["card"]["status"], "SENT")
-        self.assertEqual(state["link"]["status"], "SENT")
-        self.assertEqual(state["pdf"]["status"], "SENT")
-        self.assertEqual(state["excel"]["status"], "UNCERTAIN")
-        self.assertEqual(self.send()[0][1], "SKIPPED")
-        self.assertEqual(self.client_mock.post.call_count, 4)
-
-    def test_manual_resolution_resumes_only_missing_excel(self):
-        def responder(path, payload):
-            if payload.get("msgKey") == "sampleFile" and json.loads(payload["msgParam"])["fileName"].endswith(".xlsx"):
-                raise TimeoutError("excel outcome unknown")
-            return success_response(path, payload)
-        self.client_mock.post.side_effect = responder
-        self.assertEqual(self.send()[0][1], "UNCERTAIN")
-        d = self.delivery()
-        d.delivery_state["excel"]["status"] = "READY"  # 运维已核对群里确实没有附件。
-        d.status = "FAILED"
-        d.save()
-        card_path = Path(d.delivery_state["card"]["receiptPath"]).with_name("card.a2ui.json")
-        original_card = card_path.read_bytes()
-        self.client_mock.post.side_effect = success_response
-        self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(card_path.read_bytes(), original_card)
-        self.assertEqual(self.client_mock.post.call_count, 5)
-        self.assertTrue(json.loads(self.client_mock.post.call_args.args[1]["msgParam"])["fileName"].endswith(".xlsx"))
-
-    def test_sales_only_filter_applies_to_card_pdf_and_excel(self):
+    def test_sales_only_filter_applies_to_card(self):
         self.group.content_types = ["SALES"]
         self.group.save()
         self.assertEqual(self.send()[0][1], "SENT")
-        for renderer in (self.pdf, self.excel):
-            argument = renderer.call_args.args[0]
-            self.assertEqual(argument.scope, "SALES")
-            self.assertNotIn("purchase", argument.data)
-            self.assertEqual(len(argument.data["corrections"]), 1)
-        payload = self.client_mock.post.call_args_list[0].args[1]
+        payload = self.client_mock.post.call_args.args[1]
         model = json.loads(payload["a2uiMessages"][1])["updateDataModel"]["value"]
-        self.assertEqual({row['type'] for row in model['charts']['month']['data']}, {'销售'})
+        self.assertEqual({row["type"] for row in model["charts"]["month"]["data"]}, {"销售"})
         self.snapshot.refresh_from_db()
         self.assertIn("purchase", self.snapshot.data)
 
@@ -359,7 +251,7 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.post.assert_not_called()
         self.assertFalse(ReportDelivery.objects.exists())
 
-    def test_unselected_company_does_not_receive_card_or_attachments(self):
+    def test_unselected_company_does_not_receive_card(self):
         from core.models import Company
         other = Company.objects.create(code="OPS-OTHER", name="其他公司")
         self.group.companies.set([other])
@@ -373,12 +265,46 @@ class OperationsA2UIDeliveryTests(TestCase):
         self.client_mock.upload_media.assert_not_called()
         self.client_mock.post.assert_not_called()
 
+    def test_fixed_robot_configuration_can_retry_safely(self):
+        self.app.robot_code = ""
+        self.assertEqual(self.send()[0][1], "FAILED")
+        self.app.robot_code = "robot-code"
+        self.assertEqual(self.send()[0][1], "SENT")
+        self.assertEqual(self.client_mock.post.call_count, 1)
+
+    def test_card_timeout_is_uncertain_and_never_automatically_resent(self):
+        self.client_mock.post.side_effect = TimeoutError("network timeout")
+        self.assertEqual(self.send()[0][1], "UNCERTAIN")
+        state = self.delivery().delivery_state
+        self.assertEqual(state["card"]["status"], "UNCERTAIN")
+        self.assertTrue(Path(state["card"]["receiptPath"]).exists())
+        self.assertEqual(self.send()[0][1], "SKIPPED")
+        self.client_mock.post.assert_called_once()
+
     def test_changed_snapshot_after_failure_requires_manual_check(self):
-        self.pdf.side_effect = RuntimeError("render failed")
+        self.app.robot_code = ""
         self.assertEqual(self.send()[0][1], "FAILED")
         self.snapshot.data["sales"]["daily_coverage"]["total_amount"] = 999
         self.snapshot.save()
-        self.pdf.side_effect = None
+        self.app.robot_code = "robot-code"
+        self.assertEqual(self.send()[0][1], "UNCERTAIN")
+        self.client_mock.post.assert_not_called()
+
+    def test_business_selection_changed_after_failure_is_not_mixed(self):
+        self.app.robot_code = ""
+        self.assertEqual(self.send()[0][1], "FAILED")
+        self.group.content_types = ["PURCHASE"]
+        self.group.save()
+        self.app.robot_code = "robot-code"
+        self.assertEqual(self.send()[0][1], "UNCERTAIN")
+        self.client_mock.post.assert_not_called()
+
+    def test_changed_group_id_after_failure_is_not_mixed(self):
+        self.app.robot_code = ""
+        self.assertEqual(self.send()[0][1], "FAILED")
+        self.group.open_conversation_id = "cid-other"
+        self.group.save()
+        self.app.robot_code = "robot-code"
         self.assertEqual(self.send()[0][1], "UNCERTAIN")
         self.client_mock.post.assert_not_called()
 
@@ -397,53 +323,13 @@ class OperationsA2UIDeliveryTests(TestCase):
     def test_real_excel_contains_only_selected_business(self):
         from integrations.services.snapshot_export import export_snapshot_to_excel
         filtered = filter_snapshot_for_contents(self.snapshot, ["PURCHASE"])
-        # 原始导出器，不使用测试 mock。
-        self.patches[-1].stop()
-        from integrations.services.snapshot_export import export_snapshot_to_excel
         workbook = load_workbook(BytesIO(export_snapshot_to_excel(filtered)))
         self.assertTrue(any("采购" in name for name in workbook.sheetnames))
         self.assertFalse(any("销售" in name for name in workbook.sheetnames))
 
-    def test_fixed_robot_configuration_can_retry_safely(self):
-        self.app.robot_code = ""
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.app.robot_code = "robot-code"
-        self.assertEqual(self.send()[0][1], "SENT")
-        self.assertEqual(self.client_mock.post.call_count, 4)
-
-    def test_invalid_pdf_is_not_sent_or_replaced_with_html(self):
-        self.pdf.return_value = b"<html>error</html>"
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.client_mock.post.assert_not_called()
-        self.client_mock.upload_media.assert_not_called()
-
-    def test_invalid_excel_is_not_sent(self):
-        self.excel.return_value = b"not-an-excel"
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.client_mock.post.assert_not_called()
-        self.client_mock.upload_media.assert_not_called()
-
-    def test_pdf_contents_and_excel_both_respect_purchase_selection(self):
+    def test_book_html_respects_purchase_selection(self):
         from integrations.services.report_delivery import render_snapshot_book_html
         selected = filter_snapshot_for_contents(self.snapshot, ["PURCHASE"])
         html = render_snapshot_book_html(selected)
         self.assertIn("当月采购日报合计", html)
         self.assertNotIn("当月销售日报合计", html)
-
-    def test_business_selection_changed_after_failure_is_not_mixed(self):
-        self.pdf.side_effect = RuntimeError("render failed")
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.group.content_types = ["PURCHASE"]
-        self.group.save()
-        self.pdf.side_effect = None
-        self.assertEqual(self.send()[0][1], "UNCERTAIN")
-        self.client_mock.post.assert_not_called()
-
-    def test_changed_group_id_after_failure_is_not_mixed(self):
-        self.pdf.side_effect = RuntimeError("render failed")
-        self.assertEqual(self.send()[0][1], "FAILED")
-        self.group.open_conversation_id = "cid-other"
-        self.group.save()
-        self.pdf.side_effect = None
-        self.assertEqual(self.send()[0][1], "UNCERTAIN")
-        self.client_mock.post.assert_not_called()
