@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ snapshot.company.name }} 采销汇总日报 {{ snapshot.report_date|date:"Y-m-d" }}</title>
 <style>
+  html { scroll-behavior: smooth; }
   html, body { margin: 0; padding: 0; background: #f5f7fb; }
   body { -webkit-text-size-adjust: 100%; }
   .report-actions {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; gap: 10px;
-    max-width: 1040px; margin: 0 auto; padding: 12px 28px;
+    max-width: 1320px; margin: 0 auto; padding: 12px 24px;
     background: rgba(245, 247, 251, .94);
     border-bottom: 1px solid #dce4ee;
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   }
   .report-actions .hint { margin-right: auto; font-size: 13px; color: #52627a; }
-  .ops .chart-card { scroll-margin-top: 76px; }
   .report-actions a {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 7px 14px; border: 1px solid #c7d2fe; border-radius: 8px;
@@ -24,10 +24,41 @@
     text-decoration: none; white-space: nowrap;
   }
   .report-actions a:hover { background: #eef2ff; }
-  @media (max-width: 650px) {
-    .report-actions { padding: 10px 16px; flex-wrap: wrap; }
+
+  .report-layout {
+    max-width: 1320px; margin: 0 auto; padding: 16px 24px 48px;
+    display: grid; grid-template-columns: 208px minmax(0, 1fr);
+    gap: 22px; align-items: start;
+  }
+  .report-toc {
+    position: sticky; top: 78px;
+    padding: 14px 10px;
+    background: #fff; border: 1px solid #dce4ee; border-radius: 12px;
+    font-family: "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif;
+    font-size: 13px;
+  }
+  .report-toc .toc-title { padding: 0 8px 10px; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; color: #64748b; border-bottom: 1px solid #eef2f7; }
+  .report-toc .toc-label { display: block; margin: 12px 8px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; color: #94a3b8; }
+  .report-toc a { display: block; padding: 7px 9px; margin: 1px 0; border-left: 2px solid transparent; border-radius: 0 7px 7px 0; color: #334155; text-decoration: none; line-height: 1.5; }
+  .report-toc a:hover { background: #f1f5f9; color: #1e293b; }
+  .report-toc a.on { background: #eef2ff; border-left-color: #4f46e5; color: #1e40af; font-weight: 600; }
+  .report-main { min-width: 0; }
+  .report-main .ops { background: transparent; padding: 4px 0 0; max-width: none; }
+
+  @media (max-width: 900px) {
+    .report-actions { padding: 10px 12px; flex-wrap: wrap; }
     .report-actions .hint { width: 100%; margin: 0 0 4px; }
     .report-actions a { flex: 1; justify-content: center; }
+    .report-layout { grid-template-columns: 1fr; padding: 10px 12px 32px; gap: 12px; }
+    .report-toc { position: static; display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding: 8px; border-radius: 10px; }
+    .report-toc .toc-title, .report-toc .toc-label { display: none; }
+    .report-toc .toc-group { display: contents; }
+    .report-toc a { white-space: nowrap; border-left: 0; border-radius: 8px; padding: 6px 10px; background: #f1f5f9; }
+    .report-toc a.on { background: #e0e7ff; }
+  }
+  @media print {
+    .report-actions, .report-toc { display: none; }
+    .report-layout { display: block; padding: 0; max-width: none; }
   }
 </style>
 </head>
@@ -37,6 +68,56 @@
   {% if download_pdf_url %}<a href="{{ download_pdf_url }}">下载 PDF</a>{% endif %}
   {% if download_excel_url %}<a href="{{ download_excel_url }}">下载 Excel</a>{% endif %}
 </div>
-{% include "integrations/operations_summary.html" %}
+<div class="report-layout">
+  <aside class="report-toc" aria-label="本页导航">
+    <div class="toc-title">本页导航</div>
+    <div class="toc-group">
+      <span class="toc-label">今日概览</span>
+      <a href="#overview">汇总指标</a>
+      <a href="#key-metrics">关键指标</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">金蝶走势</span>
+      <a href="#trend">近 15 天趋势</a>
+      <a href="#month-chart">当月采销折线</a>
+      <a href="#composition">采销构成</a>
+    </div>
+    <div class="toc-group">
+      <span class="toc-label">提报与分析</span>
+      <a href="#manual-details">采销提报明细</a>
+      <a href="#monthly-analysis">本月采销分析</a>
+    </div>
+  </aside>
+  <div class="report-main">
+    {% include "integrations/operations_summary.html" %}
+  </div>
+</div>
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.report-toc a[href^="#"]'));
+  var sections = links.map(function (link) {
+    return document.querySelector(link.getAttribute('href'));
+  }).filter(Boolean);
+  if (!sections.length) return;
+  function sync() {
+    var offset = window.scrollY + 120;
+    var current = sections[0];
+    sections.forEach(function (section) {
+      if (section.getBoundingClientRect().top + window.scrollY <= offset) current = section;
+    });
+    links.forEach(function (link) {
+      link.classList.toggle('on', link.getAttribute('href') === '#' + current.id);
+    });
+  }
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { sync(); ticking = false; });
+  }, { passive: true });
+  window.addEventListener('resize', sync);
+  sync();
+})();
+</script>
 </body>
 </html>

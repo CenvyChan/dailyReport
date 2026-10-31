@@ -433,6 +433,50 @@ def _donut(amounts):
     }
 
 
+def monthly_analysis_context(snapshot, names):
+    """本月采销分析：业务提报口径，与 /reports/comparison/ 同一份冻结数据。
+
+    金额为字符串或 Decimal，模板按 money 过滤器统一格式化；缺失（旧快照）时
+    has_data=False，由页面提示重新生成，绝不在渲染时回查数据库。
+    """
+    data = (snapshot.data or {}).get("monthly_comparison") or {}
+    rows = []
+    for row in data.get("rows") or []:
+        rows.append(
+            {
+                "date": row.get("date", ""),
+                "purchase": row.get("purchase_amount"),
+                "sales": row.get("sales_amount"),
+                "share": row.get("share"),
+                "has_data": bool(row.get("has_data")),
+                "over_full": bool(row.get("over_full")),
+            }
+        )
+    totals = {
+        "purchase": data.get("purchase_total"),
+        "sales": data.get("sales_total"),
+        "share": data.get("share_total"),
+    }
+    chart_rows = [
+        {
+            "date": row["date"],
+            "purchase_amount": row["purchase"],
+            "sales_amount": row["sales"],
+        }
+        for row in rows
+    ]
+    return {
+        "has_data": bool(rows),
+        "year": data.get("year"),
+        "month": data.get("month"),
+        "rows": rows,
+        "totals": totals,
+        "days_with_data": data.get("days_with_data")
+        or sum(1 for row in rows if row["has_data"]),
+        "chart": chart_geometry(chart_rows, names) if rows else {"has_data": False},
+    }
+
+
 def operations_context(snapshot):
     summary = snapshot_operations(snapshot)
     names = [
@@ -509,4 +553,5 @@ def operations_context(snapshot):
         ),
         "month_chart": chart_geometry(summary.get("month_rows", []), names),
         "trend_chart": chart_geometry(summary.get("trend_rows", []), names),
+        "monthly_analysis": monthly_analysis_context(snapshot, names),
     }

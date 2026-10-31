@@ -19,6 +19,7 @@ from integrations.services.operations_a2ui import (
     build_operations_a2ui_messages,
     filter_snapshot_for_contents,
 )
+from integrations.services.operations_summary import operations_context
 from integrations.services.snapshot_export import export_snapshot_to_excel
 from integrations.services.snapshot_public import render_snapshot_public_html
 from reports.tests.test_comparison import add_sale, add_purchase
@@ -156,6 +157,41 @@ class OperationsSummaryTests(TestCase):
             "悬停",
         ]:
             self.assertIn(text, html)
+
+    def test_public_report_lists_manual_entries_and_monthly_analysis(self):
+        add_sale(self.company, self.customer, self.user, date(2026, 10, 27), "777")
+        snap = self.snapshot()
+        html = render_snapshot_public_html(snap)
+        for text in [
+            "本页导航",
+            "#manual-details",
+            "#monthly-analysis",
+            "采销提报明细",
+            "提报人",
+            "本月采销分析",
+            "采购入库合计",
+            "有数据天数",
+            "客户",
+        ]:
+            self.assertIn(text, html)
+        context = operations_context(snap)
+        analysis = context["monthly_analysis"]
+        self.assertTrue(analysis["has_data"])
+        self.assertEqual(len(analysis["rows"]), 31)
+        self.assertEqual(analysis["days_with_data"], 2)  # 10-01 有采购+销售，10-27 有销售
+        self.assertEqual(Decimal(analysis["totals"]["purchase"]), Decimal("333"))
+        self.assertEqual(Decimal(analysis["totals"]["sales"]), Decimal("1776"))
+        self.assertTrue(analysis["chart"]["has_data"])
+        sales_ledger = next(row for row in context["manual_ledgers"] if row["label"] == "销售")
+        self.assertEqual(sales_ledger["count"], 1)
+        self.assertEqual(Decimal(sales_ledger["total"]), Decimal("777"))
+
+    def test_legacy_snapshot_without_monthly_comparison_asks_for_regeneration(self):
+        snap = self.snapshot()
+        snap.data.pop("monthly_comparison")
+        html = render_snapshot_public_html(snap)
+        self.assertIn("历史快照未包含本月采销对比数据", html)
+        self.assertFalse(operations_context(snap)["monthly_analysis"]["has_data"])
 
     def test_pdf_manual_ledger_has_no_unit_column(self):
         snap = self.snapshot()

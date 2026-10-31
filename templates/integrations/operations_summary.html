@@ -19,16 +19,32 @@
 .ops .donut-center strong{font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
 .ops .pie-legend{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)}
 .ops .pie-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
-@media(max-width:650px){.ops .pie-grid{grid-template-columns:1fr}}
+.ops .chart-card{scroll-margin-top:84px}
+.ops .table-scroll{overflow-x:auto}
+.ops .detail-table{width:100%;border-collapse:collapse;font-size:13px}
+.ops .detail-table th,.ops .detail-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.ops .detail-table th{font-size:11px;color:var(--muted);font-weight:600;background:#f8fafc}
+.ops .detail-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.ops .detail-table tfoot th{background:#f8fafc;border-top:2px solid var(--line)}
+.ops .detail-table .empty-row{text-align:center;color:var(--muted)}
+.ops .detail-table tr.empty-day td{color:#94a3b8}
+.ops .ledger-block+.ledger-block{margin-top:18px}
+.ops .ledger-block h3{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:600}
+.ops .monthly-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0 16px}
+.ops .monthly-kpis>div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#f8fafc}
+.ops .monthly-kpis span{display:block;font-size:11px;color:var(--muted)}
+.ops .monthly-kpis strong{display:block;font-size:18px;font-variant-numeric:tabular-nums;margin-top:4px}
+.ops .over-full{color:#b45309;font-weight:600}
+@media(max-width:650px){.ops .pie-grid{grid-template-columns:1fr}.ops .monthly-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media print{.ops .chart-point{display:none}}
 </style>
 <article class="ops">
 <header class="top"><div><div class="eyebrow">DAILY OPERATING SUMMARY</div><h1>采购 · 销售汇总日报</h1><p>{{ snapshot.company.name }}</p><p class="muted">报表日期 {{ snapshot.report_date|date:"Y-m-d" }} · 统计截至报表日</p></div><div class="tag">金蝶 K3Cloud · {% if snapshot.is_complete %}同步已覆盖{% else %}数据待补{% endif %}</div></header>
 {% for warning in snapshot.sync_warnings %}<div class="warning">{{ warning }}</div>{% endfor %}
 {% if operations.source != 'KINGDEE' %}<div class="warning">历史快照尚未包含金蝶逐日汇总，请重新生成；不以手工日报替代金蝶金额。</div>{% endif %}
-<section class="metrics" aria-label="当月采销汇总指标">{% for metric in summary_metrics %}<div class="metric"><div class="label">{{ metric.label }}</div><strong>{% if metric.value == None %}—{% elif metric.money %}¥{{ metric.value|money }}{% else %}{{ metric.value|floatformat:2 }}%{% endif %}</strong></div>{% endfor %}</section>
+<section class="metrics" id="overview" aria-label="当月采销汇总指标">{% for metric in summary_metrics %}<div class="metric"><div class="label">{{ metric.label }}</div><strong>{% if metric.value == None %}—{% elif metric.money %}¥{{ metric.value|money }}{% else %}{{ metric.value|floatformat:2 }}%{% endif %}</strong></div>{% endfor %}</section>
 <section class="daily" aria-label="当日金蝶采销金额">{% for metric in daily_metrics %}<div><span>{{ metric.label }} · {{ metric.count }} 单</span><strong>{% if metric.value == None %}—{% else %}¥{{ metric.value|money }}{% endif %}</strong></div>{% endfor %}</section>
-<section class="chart-card metrics-table-card">
+<section class="chart-card metrics-table-card" id="key-metrics">
 <h2>关键指标</h2>
 <p class="muted">与钉钉卡片同口径 · 金额单位：元</p>
 <table class="metrics-table">
@@ -36,11 +52,11 @@
 <tbody>{% for row in metric_rows %}<tr><td>{{ row.label }}</td>{% if has_purchase %}<td class="num">{% if row.purchase == None %}—{% else %}¥{{ row.purchase|money }}{% endif %}</td>{% endif %}{% if has_sales %}<td class="num">{% if row.sales == None %}—{% else %}¥{{ row.sales|money }}{% endif %}</td>{% endif %}{% if has_share %}<td class="num">{% if row.share == None %}—{% else %}{{ row.share|floatformat:2 }}%{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
 </table>
 </section>
-<section class="chart-card"><h2>近 15 天金蝶日报金额趋势</h2><p class="muted">{{ operations.trend_start }}—{{ snapshot.report_date|date:"Y-m-d" }} · 单位：万元</p>
+<section class="chart-card" id="trend"><h2>近 15 天金蝶日报金额趋势</h2><p class="muted">{{ operations.trend_start }}—{{ snapshot.report_date|date:"Y-m-d" }} · 单位：万元</p>
 {% include "integrations/operations_chart.html" with chart=trend_chart chart_label="近15天金蝶采销金额趋势" %}</section>
-<section class="chart-card"><h2>当月采销对比折线图</h2><p class="muted">{{ operations.period_start }}—{{ operations.period_end }} · 单位：万元 · 横轴按日期顺序排列 · 悬停／点击查看具体数值</p>
+<section class="chart-card" id="month-chart"><h2>当月采销对比折线图</h2><p class="muted">{{ operations.period_start }}—{{ operations.period_end }} · 单位：万元 · 横轴按日期顺序排列 · 悬停／点击查看具体数值</p>
 {% include "integrations/operations_chart.html" with chart=month_chart chart_label="当月金蝶采销金额对比" %}</section>
-<section class="chart-card">
+<section class="chart-card" id="composition">
 <h2>采销构成</h2>
 <p class="muted">当日金额构成 · 单位：万元</p>
 <div class="pie-grid">
@@ -48,7 +64,46 @@
 <div class="pie-item"><h3>金蝶 K3Cloud 当日</h3>{% include "integrations/operations_pie.html" with pie=kingdee_pie %}</div>
 </div>
 </section>
-<footer class="note">数据口径：金蝶有效采购入库 / 销售出库单，按业务日期汇总，退货保留负数。合计占比 = 当月采购 ÷ 当月销售；销售为 0 时显示 —，不代表利润率。月度指标及折线截至报表日。Excel 另附既有“采购入库金额与销售金额对比表”的当月手工录入数据，来源独立标识，不与金蝶数据混加。</footer>
+<section class="chart-card" id="manual-details">
+<h2>采销提报明细</h2>
+<p class="muted">人员日报当日提交记录 · 与金蝶口径分开展示 · 金额单位：元</p>
+{% for ledger in manual_ledgers %}
+<div class="ledger-block">
+<h3>{{ ledger.label }}提报 · {{ ledger.count }} 条</h3>
+<div class="table-scroll">
+<table class="detail-table">
+<thead><tr><th>#</th><th>{{ ledger.party_label }}</th><th>提报人</th><th>日期</th><th class="num">数量</th><th>单位</th><th class="num">金额（元）</th></tr></thead>
+<tbody>{% for row in ledger.rows %}<tr><td>{{ forloop.counter }}</td><td>{{ row.party_name|default:"—" }}</td><td>{{ row.reporter|default:"—" }}</td><td>{{ row.date }}</td><td class="num">{{ row.quantity_text }}</td><td>{{ row.unit }}</td><td class="num">{{ row.amount|money }}</td></tr>{% empty %}<tr><td colspan="7" class="empty-row">暂无提交记录</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th colspan="6">合计</th><th class="num">{{ ledger.total|money }}</th></tr></tfoot>
+</table>
+</div>
+</div>
+{% endfor %}
+</section>
+<section class="chart-card" id="monthly-analysis">
+<h2>本月采销分析</h2>
+<p class="muted">业务提报口径 · {{ monthly_analysis.year }} 年 {{ monthly_analysis.month }} 月 · 与「采购入库金额与销售金额对比表」同源 · 单位：元</p>
+{% if monthly_analysis.has_data %}
+<div class="monthly-kpis">
+{% if has_purchase %}<div><span>采购入库合计</span><strong>{{ monthly_analysis.totals.purchase|money }}</strong></div>{% endif %}
+{% if has_sales %}<div><span>销售合计</span><strong>{{ monthly_analysis.totals.sales|money }}</strong></div>{% endif %}
+{% if has_share %}<div><span>合计占比</span><strong>{% if monthly_analysis.totals.share == None %}—{% else %}{{ monthly_analysis.totals.share|floatformat:2 }}%{% endif %}</strong></div>{% endif %}
+<div><span>有数据天数</span><strong>{{ monthly_analysis.days_with_data }} 天</strong></div>
+</div>
+{% include "integrations/operations_chart.html" with chart=monthly_analysis.chart chart_label="本月采销金额对比" %}
+<div class="table-scroll">
+<table class="detail-table">
+<thead><tr><th>日期</th>{% if has_purchase %}<th class="num">采购入库金额</th>{% endif %}{% if has_sales %}<th class="num">销售金额</th>{% endif %}{% if has_share %}<th class="num">每天占比</th>{% endif %}</tr></thead>
+<tbody>{% for row in monthly_analysis.rows %}<tr{% if not row.has_data %} class="empty-day"{% endif %}><td>{{ row.date }}</td>{% if has_purchase %}<td class="num">{{ row.purchase|money }}</td>{% endif %}{% if has_sales %}<td class="num">{{ row.sales|money }}</td>{% endif %}{% if has_share %}<td class="num{% if row.over_full %} over-full{% endif %}">{% if row.share == None %}—{% else %}{{ row.share|floatformat:2 }}%{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+<tfoot><tr><th>月度合计</th>{% if has_purchase %}<th class="num">{{ monthly_analysis.totals.purchase|money }}</th>{% endif %}{% if has_sales %}<th class="num">{{ monthly_analysis.totals.sales|money }}</th>{% endif %}{% if has_share %}<th class="num">{% if monthly_analysis.totals.share == None %}—{% else %}{{ monthly_analysis.totals.share|floatformat:2 }}%{% endif %}</th>{% endif %}</tr></tfoot>
+</table>
+</div>
+<p class="muted">每天占比 = 当日采购 ÷ 当日销售；超过 100% 说明当天进货多于出货，销售为 0 时显示 —。</p>
+{% else %}
+<p class="empty">历史快照未包含本月采销对比数据，请重新生成快照。</p>
+{% endif %}
+</section>
+<footer class="note">数据口径：金蝶有效采购入库 / 销售出库单，按业务日期汇总，退货保留负数。合计占比 = 当月采购 ÷ 当月销售；销售为 0 时显示 —，不代表利润率。月度指标及折线截至报表日。本月采销分析取人员日报／手工录入口径，来源独立标识，不与金蝶数据混加。</footer>
 </article>
 <script>
 (function () {
