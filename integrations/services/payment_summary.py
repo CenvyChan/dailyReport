@@ -159,9 +159,19 @@ def _line_chart(rows, *, label="申请金额", color="#2563eb"):
     }
 
 
-def _status_rows(status_counts, status_amounts, total_amount):
+def _status_rows(status_counts, status_amounts, total_amount, total_count):
+    """状态构成 + 一行合计。
+
+    「新建」是钉钉的草稿瞬时态，同步按时间窗批量拉取时永远采不到，恒为 0；
+    与其留一行无信息量的 0，不如用合计行收口。若将来真的出现 NEW，仍会列出。
+    """
+    order = [
+        status
+        for status in ("COMPLETED", "RUNNING", "TERMINATED", "NEW")
+        if status != "NEW" or status_counts.get("NEW")
+    ]
     rows = []
-    for status in [*STATUS_TEXT, *sorted(set(status_counts) - set(STATUS_TEXT))]:
+    for status in [*order, *sorted(set(status_counts) - set(STATUS_TEXT))]:
         amount = status_amounts.get(status, Decimal("0"))
         rows.append(
             {
@@ -174,6 +184,18 @@ def _status_rows(status_counts, status_amounts, total_amount):
                 "color": STATUS_COLORS.get(status, UNKNOWN_STATUS_COLOR),
             }
         )
+    rows.append(
+        {
+            "status": "TOTAL",
+            "label": "发起的流程数",
+            "count": total_count,
+            "amount": total_amount,
+            "amount_text": _money(total_amount),
+            "percent": 100.0 if total_amount > 0 else None,
+            "color": "#334155",
+            "is_total": True,
+        }
+    )
     return rows
 
 
@@ -364,7 +386,9 @@ def payment_context(snapshot):
         "total_count": total_count,
         "total_amount_text": _money(total_amount),
         "metrics": metrics,
-        "status_rows": _status_rows(status_counts, status_amounts, total_amount),
+        "status_rows": _status_rows(
+            status_counts, status_amounts, total_amount, total_count
+        ),
         # 与卡片一致：本期没有申请时不画一条零值折线，直接提示暂无数据。
         "daily_chart": _line_chart(daily) if total_count else {"has_data": False},
         "payee_rows": _payee_rows(recipients, total_amount),

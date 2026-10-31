@@ -23,6 +23,7 @@
 .pay .table .nw{white-space:nowrap}
 .pay .table .reason{min-width:200px}
 .pay .table tbody tr:last-child td{border-bottom:none}
+.pay .table tr.total td{font-weight:600;background:#f8fafc;border-top:2px solid #cbd5e1}
 .pay .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
 .pay .chart-card{position:relative}
 .pay .legend{display:flex;gap:18px;font-size:12px;margin:10px 0}
@@ -64,7 +65,7 @@
 <p class="muted">金额单位：元 · 占比按申请金额计算</p>
 <div class="table-wrap"><table class="table">
 <thead><tr><th>状态</th><th class="num">笔数</th><th class="num">金额</th><th class="num">占总额</th></tr></thead>
-<tbody>{% for row in status_rows %}<tr><td><i class="dot" style="background:{{ row.color }}"></i>{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num">{{ row.amount_text }}</td><td class="num">{% if row.percent == None %}—{% else %}{{ row.percent|floatformat:1 }}%{% endif %}</td></tr>{% endfor %}</tbody>
+<tbody>{% for row in status_rows %}<tr{% if row.is_total %} class="total"{% endif %}><td>{% if not row.is_total %}<i class="dot" style="background:{{ row.color }}"></i>{% endif %}{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num">{{ row.amount_text }}</td><td class="num">{% if row.percent == None %}—{% else %}{{ row.percent|floatformat:1 }}%{% endif %}</td></tr>{% endfor %}</tbody>
 </table></div>
 </section>
 <section class="card chart-card">

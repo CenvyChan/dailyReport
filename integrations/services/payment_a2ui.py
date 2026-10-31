@@ -80,6 +80,13 @@ def build_payment_a2ui_messages(data, period_info, company_name, report_type="we
     top_label = f"前 {len(top_five)} 名收款人合计 {_money(top_amount)}"
     top_summary = top_label + (f"，占申请总额 {top_percent:.1f}%。" if top_percent is not None else "。")
     daily_rows = [{**row, "amount": float(row["amount"])} for row in daily.values()]
+    # 「新建」是钉钉的草稿瞬时态，批量同步永远采不到（恒为 0），不单独占一行；
+    # 换成合计行，让读者一眼看到本期发起了多少流程、合计多少钱。
+    status_order = [
+        status
+        for status in ("COMPLETED", "RUNNING", "TERMINATED", "NEW")
+        if status != "NEW" or status_counts.get("NEW")
+    ]
     statuses = [
         {
             "status": status,
@@ -90,8 +97,19 @@ def build_payment_a2ui_messages(data, period_info, company_name, report_type="we
             "amountText": _money(status_amounts[status]),
             "detailText": f"{status_counts[status]} 笔 · {_money(status_amounts[status])}",
         }
-        for status in [*STATUS_LABELS, *sorted(set(status_counts) - set(STATUS_LABELS))]
+        for status in [*status_order, *sorted(set(status_counts) - set(STATUS_LABELS))]
     ]
+    statuses.append(
+        {
+            "status": "TOTAL",
+            "label": "发起的流程数",
+            "count": total_count,
+            "amount": float(total_amount),
+            "countText": f"{total_count} 笔",
+            "amountText": _money(total_amount),
+            "detailText": f"{total_count} 笔 · {_money(total_amount)}",
+        }
+    )
 
     focus = []
     if status_counts["RUNNING"]:

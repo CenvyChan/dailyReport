@@ -85,7 +85,6 @@ def generate_payment_excel(data, period_info, filename):
         ['已完成', data['summary']['by_status']['COMPLETED']],
         ['进行中', data['summary']['by_status']['RUNNING']],
         ['已终止', data['summary']['by_status']['TERMINATED']],
-        ['新建', data['summary']['by_status']['NEW']],
     ]
 
     if data.get('company_name'):

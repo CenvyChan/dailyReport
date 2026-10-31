@@ -31,7 +31,8 @@ XLSX_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 # 模板结构变化时递增，避免继续命中旧缓存（与采销日报的 PDF_CACHE_VERSION 同理）。
-PDF_CACHE_VERSION = "v1"
+# v2：状态构成表用「发起的流程数」合计行替换恒为 0 的「新建」行。
+PDF_CACHE_VERSION = "v2"
 
 
 def _period_info(snapshot):

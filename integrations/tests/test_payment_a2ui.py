@@ -63,7 +63,14 @@ class PaymentA2UIDataTests(SimpleTestCase):
         self.assertEqual(model["summary"]["averageAmountText"], "¥93.75")
         self.assertEqual(model["summary"]["completionRateText"], "25.0%")
         amounts = {row["status"]: row["amount"] for row in model["statusBreakdown"]}
-        self.assertEqual(amounts, {"COMPLETED": 100, "RUNNING": 200, "TERMINATED": 50, "NEW": 25})
+        self.assertEqual(
+            amounts,
+            {"COMPLETED": 100, "RUNNING": 200, "TERMINATED": 50, "NEW": 25, "TOTAL": 375},
+        )
+        total_row = model["statusBreakdown"][-1]
+        self.assertEqual(total_row["label"], "发起的流程数")
+        self.assertEqual(total_row["count"], 4)
+        self.assertEqual(total_row["detailText"], "4 笔 · ¥375.00")
         self.assertEqual(sum(row["count"] for row in model["dailyApplications"]), 4)
         self.assertEqual(len(model["dailyApplications"]), 7)
         self.assertEqual(model["dailyApplications"][1]["amount"], 0)
@@ -87,6 +94,8 @@ class PaymentA2UIDataTests(SimpleTestCase):
         self.assertEqual(model["charts"]["dailyAmount"]["data"], [])
         self.assertEqual(model["charts"]["payeeAmount"]["data"], [])
         self.assertEqual(model["focusItems"], [])
+        self.assertEqual(model["statusBreakdown"][-1]["label"], "发起的流程数")
+        self.assertEqual(model["statusBreakdown"][-1]["count"], 0)
 
     def test_top_five_and_other_payees_preserve_total(self):
         data = report_data()

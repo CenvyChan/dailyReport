@@ -211,6 +211,28 @@ class PaymentSummaryContextTests(SimpleTestCase):
         self.assertEqual(rows["OTHER"]["count"], 1)
         self.assertEqual(rows["OTHER"]["amount_text"], "¥25.00")
 
+    def test_status_rows_replace_new_with_total(self):
+        # 现实数据里 NEW 恒为 0：把夹具里的 NEW 明细改成 RUNNING 以模拟真实情况。
+        data = report_data()
+        data["by_recipient"][2]["details"][0]["status"] = "RUNNING"
+        rows = payment_context(make_snapshot(self.company, data=data))["status_rows"]
+        statuses = [row["status"] for row in rows]
+        self.assertNotIn("NEW", statuses)
+        total = rows[-1]
+        self.assertTrue(total["is_total"])
+        self.assertEqual(total["label"], "发起的流程数")
+        self.assertEqual(total["count"], 4)
+        self.assertEqual(total["amount_text"], "¥375.00")
+        self.assertEqual(total["percent"], 100.0)
+
+    def test_new_status_still_shown_when_it_actually_occurs(self):
+        data = report_data()
+        data["by_recipient"][2]["details"][0]["status"] = "NEW"
+        rows = payment_context(make_snapshot(self.company, data=data))["status_rows"]
+        statuses = [row["status"] for row in rows]
+        self.assertIn("NEW", statuses)
+        self.assertEqual(rows[-1]["label"], "发起的流程数")
+
     def test_payee_top_five_plus_other_preserves_total(self):
         data = report_data()
         for index in range(4):
