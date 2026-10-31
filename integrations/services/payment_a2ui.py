@@ -29,8 +29,9 @@ def build_payment_a2ui_messages(
 ):
     """复用已校验的卡片布局，整树替换示例数据，避免混入演示值。
 
-    link_url 有值时把「查看完整在线报表」写进卡片头部的 Link 组件
-    （openUrl 由渲染器本地执行），这样群里只需一张卡片，不必再补发链接消息。
+    link_url 有值时把「查看完整在线报表」写进卡片头部的 Markdown 链接
+    （钉钉渲染器直接打开，不走服务端事件），这样群里只需一张卡片，
+    不必再单独补发链接消息。
     """
     template_path = Path(settings.BASE_DIR) / "docs/templates/payment_application_report.a2ui.json"
     frames = json.loads(template_path.read_text(encoding="utf-8"))
@@ -205,10 +206,7 @@ def build_payment_a2ui_messages(
             heading["text"] = dict(day="当日关注", week="本周关注", month="本月关注")[report_type]
             link = next(c for c in components if c["id"] == "report-link")
             if link_url:
-                link["action"] = {
-                    "functionCall": {"call": "openUrl", "args": {"url": link_url}}
-                }
-                link["fallbackMarkdown"] = f"[查看完整在线报表]({link_url})"
+                link["content"] = f"[查看完整在线报表（含图表与明细）]({link_url})"
                 link.pop("visible", None)
             else:
                 # 模板里的占位 URL 不能原样发出去，直接隐藏整行链接。

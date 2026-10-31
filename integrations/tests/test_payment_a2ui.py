@@ -88,19 +88,10 @@ class PaymentA2UIDataTests(SimpleTestCase):
         self.assertEqual(len({next(v for k, v in f.items() if k != "version")["surfaceId"] for f in frames}), 1)
         self.assertNotEqual(frames[0]["createSurface"]["surfaceId"], messages()[0]["createSurface"]["surfaceId"])
         components = frames[2]["updateComponents"]["components"]
-        self.assertFalse(
-            any(
-                c["component"] == "Button"
-                or ("action" in c and c["id"] != "report-link")
-                for c in components
-            )
-        )
+        self.assertFalse(any(c["component"] == "Button" or "action" in c for c in components))
         link = next(c for c in components if c["id"] == "report-link")
-        self.assertEqual(link["component"], "Link")
-        self.assertEqual(
-            link["action"], {"functionCall": {"call": "openUrl", "args": {"url": LINK}}}
-        )
-        self.assertEqual(link["fallbackMarkdown"], f"[查看完整在线报表]({LINK})")
+        self.assertEqual(link["component"], "Markdown")
+        self.assertEqual(link["content"], f"[查看完整在线报表（含图表与明细）]({LINK})")
         self.assertNotIn("visible", link)
 
     def test_without_link_hides_the_link_component(self):

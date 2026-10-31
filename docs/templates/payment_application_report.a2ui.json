@@ -317,17 +317,8 @@
         },
         {
           "id": "report-link",
-          "component": "Link",
-          "text": "查看完整在线报表（含图表与明细）",
-          "action": {
-            "functionCall": {
-              "call": "openUrl",
-              "args": {
-                "url": "https://example.invalid/"
-              }
-            }
-          },
-          "fallbackMarkdown": "[查看完整在线报表](https://example.invalid/)"
+          "component": "Markdown",
+          "content": "[查看完整在线报表（含图表与明细）](https://example.invalid/)"
         },
         {
           "id": "header",

@@ -273,10 +273,7 @@ class PaymentCommandDeliveryTests(TestCase):
         link = next(
             c for c in frames[2]["updateComponents"]["components"] if c["id"] == "report-link"
         )
-        self.assertIn(
-            "/integrations/payment-snapshots/",
-            link["action"]["functionCall"]["args"]["url"],
-        )
+        self.assertIn("/integrations/payment-snapshots/", link["content"])
         self.assertEqual(
             frames[1]["updateDataModel"]["value"]["summary"]["totalAmountText"], "¥123.45"
         )
@@ -362,8 +359,7 @@ class PaymentCommandDeliveryTests(TestCase):
             if c["id"] == "report-link"
         )
         self.assertIn(
-            f"/integrations/payment-snapshots/{snapshot.pk}/public/",
-            link["action"]["functionCall"]["args"]["url"],
+            f"/integrations/payment-snapshots/{snapshot.pk}/public/", link["content"]
         )
         client.upload_media.assert_not_called()
         client.post.assert_not_called()
