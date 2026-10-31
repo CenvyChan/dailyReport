@@ -254,20 +254,17 @@ class PaymentCommandDeliveryTests(TestCase):
         a2ui.send_card.assert_called_once()
         client.post.assert_not_called()
 
-    def test_card_embeds_link_and_sends_only_the_file(self):
+    def test_card_embeds_link_and_sends_no_extra_message(self):
         client = Mock()
-        client.post.return_value = {"processQueryKey": "file-key"}
         output = self.run_report(client)
         self.client_factory.assert_called_once_with(self.app)
         self.a2ui_factory.assert_called_once_with(client)
         self.assertIn("A2UI 卡片已发送并完结", output)
         self.assertNotIn("在线链接已发送", output)
-        self.assertIn("文件消息已发送", output)
+        self.assertNotIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
-        self.assertEqual(
-            [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleFile"],
-        )
+        client.post.assert_not_called()
+        client.upload_media.assert_not_called()
         frames = self.a2ui.send_card.call_args.args[1]
         self.assertEqual(frames, self.exported)
         link = next(
@@ -282,58 +279,67 @@ class PaymentCommandDeliveryTests(TestCase):
         self.app.card_template_id = ""
         self.app.save(update_fields=["card_template_id"])
         client = Mock()
-        client.post.return_value = {"processQueryKey": "file-key"}
         self.run_report(client)
         self.a2ui.send_card.assert_called_once()
-        self.assertEqual(client.post.call_args.args[1]["msgKey"], "sampleFile")
+        client.post.assert_not_called()
 
-    def test_no_card_explicitly_sends_text_link_and_file(self):
+    def test_with_excel_adds_the_attachment_back(self):
+        client = Mock()
+        client.post.return_value = {"processQueryKey": "file-key"}
+        output = self.run_report(client, with_excel=True)
+        self.assertIn("Excel已上传", output)
+        self.assertIn("文件消息已发送", output)
+        self.assertEqual(
+            [call.args[1].get("msgKey") for call in client.post.call_args_list],
+            ["sampleFile"],
+        )
+
+    def test_no_card_sends_text_and_link_only(self):
         client = Mock()
         client.post.side_effect = [
             {"processQueryKey": "text-key"},
             {"processQueryKey": "link-key"},
-            {"processQueryKey": "file-key"},
         ]
         output = self.run_report(client, no_card=True)
         self.assertIn("文本消息已发送", output)
         self.assertIn("在线链接已发送", output)
-        self.assertIn("文件消息已发送", output)
+        self.assertNotIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
         self.a2ui.send_card.assert_not_called()
         self.a2ui.check_available.assert_not_called()
+        client.upload_media.assert_not_called()
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleText", "sampleLink", "sampleFile"],
+            ["sampleText", "sampleLink"],
         )
 
-    def test_file_failure_is_counted_as_failure(self):
+    def test_excel_failure_is_counted_as_failure(self):
         client = Mock()
-        client.post.side_effect = DingtalkError("file upload failed")
+        client.post.side_effect = DingtalkError("file rejected")
         with self.assertRaises(CommandError) as raised:
-            self.run_report(client)
+            self.run_report(client, with_excel=True)
         self.assertIn("0 成功, 1 失败", raised.exception.command_output)
         self.assertNotIn("✓ 发送成功", raised.exception.command_output)
 
-    def test_text_mode_link_failure_does_not_block_file_delivery(self):
+    def test_text_mode_link_failure_does_not_block_delivery(self):
         client = Mock()
         client.post.side_effect = [
             {"processQueryKey": "text-key"},
             DingtalkError("link rejected"),
-            {"processQueryKey": "file-key"},
         ]
         output = self.run_report(client, no_card=True)
         self.assertIn("在线链接发送失败", output)
-        self.assertIn("文件消息已发送", output)
         self.assertIn("1 成功, 0 失败", output)
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
-            ["sampleText", "sampleLink", "sampleFile"],
+            ["sampleText", "sampleLink"],
         )
 
-    def test_no_link_hides_card_link_and_skips_link_message(self):
+    def test_no_link_falls_back_to_excel_attachment(self):
         client = Mock()
         client.post.return_value = {"processQueryKey": "file-key"}
-        self.run_report(client, no_link=True)
+        output = self.run_report(client, no_link=True)
+        self.assertIn("文件消息已发送", output)
         self.assertEqual(
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
             ["sampleFile"],

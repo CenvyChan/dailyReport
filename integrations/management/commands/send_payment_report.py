@@ -97,6 +97,11 @@ class Command(BaseCommand):
             help="不带在线报表链接（卡片内的链接会隐藏，文本模式也不再单发）"
         )
         parser.add_argument(
+            '--with-excel',
+            action='store_true',
+            help="额外发送 Excel 附件（默认只发卡片/文本，明细走在线链接）"
+        )
+        parser.add_argument(
             '--force-snapshot',
             action='store_true',
             help="重新生成已存在的付款报表快照（审批数据补同步后使用）"
@@ -307,12 +312,15 @@ class Command(BaseCommand):
                     a2ui_client = DingtalkA2UIClient(client)
                     a2ui_client.check_available()
 
-                # 上传Excel
-                with open(excel_path, 'rb') as f:
-                    excel_content = f.read()
-
-                media_id = client.upload_media(excel_filename, excel_content)
-                self.stdout.write(f"  Excel已上传, media_id: {media_id}")
+                # 在线链接已经包含 Excel 下载，默认不再发附件；只有拿不到链接
+                # （--no-link）或显式要求时才补发，保证总有一个取明细的入口。
+                send_excel = bool(options.get('with_excel')) or not link_url
+                media_id = None
+                if send_excel:
+                    with open(excel_path, 'rb') as f:
+                        excel_content = f.read()
+                    media_id = client.upload_media(excel_filename, excel_content)
+                    self.stdout.write(f"  Excel已上传, media_id: {media_id}")
 
                 # 默认使用 A2UI；旧 card_template_id 不参与该通道。
                 if use_card:
@@ -379,23 +387,23 @@ class Command(BaseCommand):
                             snapshot.pk, group_id,
                         )
                         self.stdout.write(self.style.WARNING(
-                            "  在线链接发送失败（不影响卡片与附件）"
+                            "  在线链接发送失败（不影响卡片）"
                         ))
 
-                # 发送文件消息(无论卡片还是文本,都发送Excel附件)
-                file_payload = {
-                    'msgKey': 'sampleFile',
-                    'msgParam': json.dumps({
-                        'fileName': excel_filename,
-                        'fileType': 'xlsx',
-                        'mediaId': media_id,
-                    }, ensure_ascii=False),
-                    'openConversationId': group_id,
-                    'robotCode': dingtalk_app.robot_code,
-                }
+                if send_excel:
+                    file_payload = {
+                        'msgKey': 'sampleFile',
+                        'msgParam': json.dumps({
+                            'fileName': excel_filename,
+                            'fileType': 'xlsx',
+                            'mediaId': media_id,
+                        }, ensure_ascii=False),
+                        'openConversationId': group_id,
+                        'robotCode': dingtalk_app.robot_code,
+                    }
 
-                file_result = client.post('/v1.0/robot/groupMessages/send', file_payload)
-                self.stdout.write(f"  文件消息已发送: {file_result}")
+                    file_result = client.post('/v1.0/robot/groupMessages/send', file_payload)
+                    self.stdout.write(f"  文件消息已发送: {file_result}")
 
                 self.stdout.write(self.style.SUCCESS(f"  ✓ 发送成功"))
                 success_count += 1
