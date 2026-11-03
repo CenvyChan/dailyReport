@@ -182,7 +182,8 @@ class ShipmentListDateFilterTests(TestCase):
         self.today = date.today()
         # 本月内一条、上个月一条，用来区分默认口径
         self.this_month = self._shipment("本月的", self.today.replace(day=1))
-        last_month_day = self.today.replace(day=1) - timedelta(days=5)
+        # 上月最后一天：月初减 1 天，避免月初几天翻页区间落在更早的月份。
+        last_month_day = self.today.replace(day=1) - timedelta(days=1)
         self.last_month = self._shipment("上月的", last_month_day)
         login_with_company(self.client, self.user, self.company)
 
