@@ -207,10 +207,29 @@ class DingtalkGroupConfigForm(forms.ModelForm):
 
 
 class ManualPushForm(forms.Form):
+    REPORT_KIND_OPERATIONS = "operations"
+    REPORT_KIND_PAYMENT_WEEK = "payment_week"
+    REPORT_KIND_PAYMENT_MONTH = "payment_month"
+    REPORT_KIND_CHOICES = [
+        (REPORT_KIND_OPERATIONS, "运营日报（销售/采购）"),
+        (REPORT_KIND_PAYMENT_WEEK, "付款周报（上一整周）"),
+        (REPORT_KIND_PAYMENT_MONTH, "付款月报（上一整月）"),
+    ]
+
+    report_kind = forms.ChoiceField(
+        label="报表类型",
+        choices=REPORT_KIND_CHOICES,
+        initial=REPORT_KIND_OPERATIONS,
+        widget=forms.RadioSelect,
+        help_text="运营日报与付款报表是两条独立链路："
+                  "运营日报按「快照业务范围 ∩ 群推送内容」判定；"
+                  "付款周报/月报按群配置的「付款报表周期」判定。",
+    )
     report_date = forms.DateField(
-        label="报表日期",
+        label="基准日期",
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         input_formats=["%Y-%m-%d"],
+        help_text="运营日报取该日期的快照；付款周报/月报按该日期推算「上一整周/上一整月」。",
     )
     group_configs = forms.ModelMultipleChoiceField(
         label="推送目标（群配置）",
@@ -223,13 +242,31 @@ class ManualPushForm(forms.Form):
         queryset=Company.objects.filter(is_active=True),
         required=False,
         widget=forms.CheckboxSelectMultiple,
-        help_text="留空 = 按群配置关联的公司全部发送。",
+        help_text="留空 = 按群配置关联的公司全部发送。付款报表仅支持已接入付款的组织（FNS/NBHH）。",
     )
     regenerate = forms.BooleanField(
         label="发送前按当前数据重建快照",
         required=False,
-        help_text="会覆盖该日期已冻结的快照内容，但不会自动重发到其他群。",
+        help_text="运营日报：覆盖该日期已冻结的快照。付款报表：重建该周期的付款快照（审批数据补同步后使用）。"
+                  "都不会自动重发到其他群。",
     )
+
+    def clean(self):
+        data = super().clean()
+        from integrations.services.payment_organizations import (
+            PAYMENT_REPORT_COMPANY_CODES,
+        )
+        kind = data.get("report_kind")
+        if kind in (self.REPORT_KIND_PAYMENT_WEEK, self.REPORT_KIND_PAYMENT_MONTH):
+            allowed = set(PAYMENT_REPORT_COMPANY_CODES)
+            picked = {company.code for company in (data.get("companies") or [])}
+            unsupported = sorted(picked - allowed)
+            if unsupported:
+                raise forms.ValidationError(
+                    "付款报表仅支持：" + "、".join(sorted(allowed))
+                    + f"；不支持所选公司 {('、'.join(unsupported))}。"
+                )
+        return data
 
 
 @admin.register(DingtalkGroupConfig)
@@ -275,6 +312,7 @@ class DingtalkGroupConfigAdmin(AuditedAdmin):
             if form.is_valid():
                 results = self._perform_manual_push(
                     request,
+                    report_kind=form.cleaned_data["report_kind"],
                     report_date=form.cleaned_data["report_date"],
                     group_configs=form.cleaned_data["group_configs"],
                     only_companies=form.cleaned_data["companies"],
@@ -289,24 +327,61 @@ class DingtalkGroupConfigAdmin(AuditedAdmin):
 
         context = {
             **self.admin_site.each_context(request),
-            "title": "手动推送日报",
+            "title": "手动推送报表",
             "form": form,
             "results": results,
             "opts": self.model._meta,
         }
         return render(request, "admin/integrations/dingtalkgroupconfig/manual_push.html", context)
 
-    def _perform_manual_push(self, request, *, report_date, group_configs, only_companies, regenerate):
+    def _perform_manual_push(self, request, *, report_kind, report_date, group_configs, only_companies, regenerate):
+        """按报表类型分派到两条互不相通的链路。
+
+        运营日报：ReportSnapshot + ReportDelivery，按「快照范围 ∩ 群推送内容」判定。
+        付款报表：PaymentReportSnapshot + PaymentReportDispatch，按群「付款报表周期」判定，
+                 实际发送复用 send_payment_report 命令（含卡片、在线快照与附件）。
+        """
+        if report_kind in (ManualPushForm.REPORT_KIND_PAYMENT_WEEK, ManualPushForm.REPORT_KIND_PAYMENT_MONTH):
+            period = "week" if report_kind == ManualPushForm.REPORT_KIND_PAYMENT_WEEK else "month"
+            rows = self._perform_payment_push(
+                report_period=period,
+                base_date=report_date,
+                group_configs=group_configs,
+                only_companies=only_companies,
+                rebuild=regenerate,
+            )
+        else:
+            rows = self._perform_operations_push(
+                report_date=report_date,
+                group_configs=group_configs,
+                only_companies=only_companies,
+                regenerate=regenerate,
+            )
+
+        record_audit(
+            actor=request.user,
+            instance=group_configs[0],
+            action="MANUAL_PUSH",
+            before={},
+            after={
+                "report_kind": report_kind,
+                "report_date": report_date.isoformat(),
+                "regenerate": regenerate,
+                "group_configs": [config.id for config in group_configs],
+                "companies": [company.id for company in only_companies] if only_companies else [],
+                "results": rows,
+            },
+        )
+        return rows
+
+    def _perform_operations_push(self, *, report_date, group_configs, only_companies, regenerate):
+        """运营日报链路：生成/复用运营快照后按群内容过滤投递。"""
         from integrations.models import ReportSnapshot
         from integrations.services.report_delivery import generate_report_snapshot, send_manual_report
 
         rows = []
         for config in group_configs:
-            targets = list(config.companies.all())
-            if not targets and config.company_id:
-                targets = [config.company]
-            if only_companies:
-                targets = [company for company in targets if company in only_companies]
+            targets = self._push_targets(config, only_companies)
             if not targets:
                 rows.append({
                     "config": config.name, "company": "—", "status": "SKIPPED",
@@ -341,21 +416,96 @@ class DingtalkGroupConfigAdmin(AuditedAdmin):
                         "config": config.name, "company": company.name,
                         "status": "FAILED", "message": str(exc),
                     })
-
-        record_audit(
-            actor=request.user,
-            instance=group_configs[0],
-            action="MANUAL_PUSH",
-            before={},
-            after={
-                "report_date": report_date.isoformat(),
-                "regenerate": regenerate,
-                "group_configs": [config.id for config in group_configs],
-                "companies": [company.id for company in only_companies] if only_companies else [],
-                "results": rows,
-            },
-        )
         return rows
+
+    def _perform_payment_push(self, *, report_period, base_date, group_configs, only_companies, rebuild):
+        """付款报表链路：逐 (群, 公司) 调用 send_payment_report，成功/失败都落一行结果。
+
+        与定时链路的关键差异：
+        - PaymentReportDispatch 唯一键含 delivery_date，手动补发不能用「今天」作为
+          delivery_date（当天可能已自动发过，get_or_create 会直接跳过），
+          因此手动改用 update_or_create 复用当天回执行并覆盖状态，绝不重复建行。
+        - 发送复用 send_payment_report 命令，卡片/在线快照/附件行为与定时完全一致。
+        """
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from integrations.models import PaymentReportDispatch
+        from integrations.services.payment_organizations import PAYMENT_REPORT_COMPANY_CODES
+
+        period_label = {"week": "付款周报", "month": "付款月报"}[report_period]
+        allowed_codes = set(PAYMENT_REPORT_COMPANY_CODES)
+        rows = []
+
+        for config in group_configs:
+            targets = [
+                company for company in self._push_targets(config, only_companies)
+                if company.code in allowed_codes
+            ]
+            if not targets:
+                rows.append({
+                    "config": config.name, "company": "—", "status": "SKIPPED",
+                    "message": f"该群没有可用于{period_label}的组织（仅支持 "
+                               + "、".join(sorted(allowed_codes)) + "）",
+                })
+                continue
+            for company in targets:
+                if report_period not in (config.payment_report_types or []):
+                    rows.append({
+                        "config": config.name, "company": company.name,
+                        "status": "SKIPPED",
+                        "message": f"群配置未勾选「{period_label}」，"
+                                   "请在群配置的「付款报表周期」中勾选后重试。",
+                    })
+                    continue
+                dispatch, _created = PaymentReportDispatch.objects.update_or_create(
+                    group=config,
+                    company=company,
+                    report_type=report_period,
+                    delivery_date=base_date,
+                    defaults={"status": "RUNNING", "error": ""},
+                )
+                buffer = StringIO()
+                try:
+                    call_command(
+                        "send_payment_report",
+                        report_period,
+                        company=company.code,
+                        app_id=config.app_id,
+                        group_id=config.open_conversation_id,
+                        base_date=base_date.isoformat(),
+                        force_snapshot=rebuild,
+                        stdout=buffer,
+                    )
+                    dispatch.status = "SENT"
+                    dispatch.error = ""
+                except Exception as exc:  # 单条失败不阻断其他目标
+                    dispatch.status = "FAILED"
+                    dispatch.error = str(exc)
+                    rows.append({
+                        "config": config.name, "company": company.name,
+                        "status": "FAILED", "message": str(exc),
+                    })
+                else:
+                    rows.append({
+                        "config": config.name, "company": company.name,
+                        "status": "SENT",
+                        "message": f"{period_label}已发送（基准日期 {base_date.isoformat()}）",
+                    })
+                finally:
+                    dispatch.save(update_fields=["status", "error", "updated_at"])
+        return rows
+
+    @staticmethod
+    def _push_targets(config, only_companies):
+        """群配置关联的公司；旧的单公司字段作为兜底。"""
+        targets = list(config.companies.all())
+        if not targets and config.company_id:
+            targets = [config.company]
+        if only_companies:
+            targets = [company for company in targets if company in only_companies]
+        return targets
 
 
 @admin.register(ReportDelivery)

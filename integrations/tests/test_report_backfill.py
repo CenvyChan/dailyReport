@@ -12,12 +12,18 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from core.models import Company
 from core.testing import company_a
+from integrations.admin import ManualPushForm
 from integrations.models import (
     DingtalkApp,
+    DingtalkCompanyMapping,
     DingtalkGroupConfig,
     ReportDelivery,
     ReportSnapshot,
+)
+from integrations.services.payment_organizations import (
+    PAYMENT_REPORT_COMPANY_APPLICATION_NAMES,
 )
 from integrations.services.report_delivery import (
     backfill_missed_deliveries,
@@ -330,6 +336,7 @@ class ManualPushAdminTests(TestCase):
             response = self.client.post(
                 reverse("admin:integrations_dingtalkgroupconfig_manual_push"),
                 {
+                    "report_kind": ManualPushForm.REPORT_KIND_OPERATIONS,
                     "report_date": "2026-10-26",
                     "group_configs": [self.group.id],
                     "companies": [self.company.id],
@@ -339,3 +346,75 @@ class ManualPushAdminTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(deliver.call_count, 1)
         self.assertContains(response, "SENT")
+
+
+class ManualPaymentPushTests(TestCase):
+    """付款周报/月报分支：按群「付款报表周期」判定，不匹配则 SKIPPED 且不发送。
+
+    这条链路此前只能靠命令行调用，后台页会误把它当成运营日报处理；
+    这里锁住「周期未勾选时不发送」和「勾选后调用 send_payment_report」两个行为。
+    """
+
+    def setUp(self):
+        user_model = get_user_model()
+        self.admin_user = user_model.objects.create_superuser(
+            username="pay-push-admin", email="pay@example.com", password="pw-test-123"
+        )
+        self.client.force_login(self.admin_user)
+        self.company = Company.objects.create(code="FNS", name="飞诺斯电子科技有限公司")
+        app = DingtalkApp.objects.create(
+            company=self.company, app_key="k", app_secret="s", robot_code="r",
+        )
+        self.group = DingtalkGroupConfig.objects.create(
+            company=self.company, app=app, name="付款正式群", open_conversation_id="cid-pay",
+            content_types=["APPROVALS"], payment_report_types=["week", "month"], send_at=time(8),
+        )
+        self.group.companies.set([self.company])
+        DingtalkCompanyMapping.objects.create(
+            app=app,
+            application_company=PAYMENT_REPORT_COMPANY_APPLICATION_NAMES["FNS"],
+            company=self.company,
+        )
+
+    def _post(self, report_kind):
+        return self.client.post(
+            reverse("admin:integrations_dingtalkgroupconfig_manual_push"),
+            {
+                "report_kind": report_kind,
+                "report_date": "2026-11-02",
+                "group_configs": [self.group.id],
+                "companies": [self.company.id],
+            },
+        )
+
+    def test_week_push_calls_payment_command(self):
+        with patch(
+            "django.core.management.call_command",
+        ) as command:
+            response = self._post(ManualPushForm.REPORT_KIND_PAYMENT_WEEK)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(command.call_count, 1)
+        self.assertEqual(command.call_args.args[0], "send_payment_report")
+        self.assertEqual(command.call_args.args[1], "week")
+        self.assertEqual(command.call_args.kwargs["company"], "FNS")
+        self.assertEqual(command.call_args.kwargs["group_id"], "cid-pay")
+        self.assertContains(response, "SENT")
+
+    def test_group_without_matching_period_is_skipped(self):
+        self.group.payment_report_types = ["day"]
+        self.group.save(update_fields=["payment_report_types"])
+
+        with patch("django.core.management.call_command") as command:
+            response = self._post(ManualPushForm.REPORT_KIND_PAYMENT_MONTH)
+
+        command.assert_not_called()
+        self.assertContains(response, "SKIPPED")
+        self.assertContains(response, "付款报表周期")
+
+    def test_operations_kind_still_routed_to_operations_chain(self):
+        """报表类型选运营日历时，不得走到付款命令。"""
+        with patch("django.core.management.call_command") as command:
+            self._post(ManualPushForm.REPORT_KIND_OPERATIONS)
+
+        command.assert_not_called()
