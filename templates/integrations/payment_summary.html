@@ -15,6 +15,7 @@
 .pay .metric strong{display:block;font-size:24px;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin-top:8px}
 .pay .metric .hint{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .pay .card{margin:16px 0;break-inside:avoid;page-break-inside:avoid}
+.pay .card,.pay .metrics{scroll-margin-top:84px}
 .pay .table-wrap{overflow-x:auto}
 .pay .table{width:100%;border-collapse:collapse;font-size:13px}
 .pay .table th,.pay .table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -59,8 +60,8 @@
 <div class="tag">钉钉审批 · {% if report.summary.total_count %}已同步{% else %}本期无申请{% endif %}</div>
 </header>
 {% if warning %}<div class="warning">{{ warning }}</div>{% endif %}
-<section class="metrics" aria-label="付款申请汇总指标">{% for metric in metrics %}<div class="metric"><div class="label">{{ metric.label }}</div><strong>{{ metric.value }}</strong><span class="hint">{{ metric.hint }}</span></div>{% endfor %}</section>
-<section class="card">
+<section class="metrics" id="overview" aria-label="付款申请汇总指标">{% for metric in metrics %}<div class="metric"><div class="label">{{ metric.label }}</div><strong>{{ metric.value }}</strong><span class="hint">{{ metric.hint }}</span></div>{% endfor %}</section>
+<section class="card" id="status">
 <h2>审批状态构成</h2>
 <p class="muted">金额单位：元 · 占比按申请金额计算</p>
 <div class="table-wrap"><table class="table">
@@ -68,12 +69,12 @@
 <tbody>{% for row in status_rows %}<tr{% if row.is_total %} class="total"{% endif %}><td>{% if not row.is_total %}<i class="dot" style="background:{{ row.color }}"></i>{% endif %}{{ row.label }}</td><td class="num">{{ row.count }}</td><td class="num">{{ row.amount_text }}</td><td class="num">{% if row.percent == None %}—{% else %}{{ row.percent|floatformat:1 }}%{% endif %}</td></tr>{% endfor %}</tbody>
 </table></div>
 </section>
-<section class="card chart-card">
+<section class="card chart-card" id="trend">
 <h2>每日申请金额趋势</h2>
 <p class="muted">{{ period_display }} · 单位：万元 · 悬停／点击查看具体数值</p>
 {% include "integrations/operations_chart.html" with chart=daily_chart chart_label="每日付款申请金额趋势" chart_empty="本期暂无付款申请。" %}
 </section>
-<section class="card">
+<section class="card" id="ranking">
 <h2>收款人申请金额排行</h2>
 <p class="muted">前 5 名 + 其他汇总 · 按申请金额倒序</p>
 {% if payee_rows %}<div class="bars">{% for row in payee_rows %}
@@ -84,11 +85,11 @@
 </div>
 {% endfor %}</div>{% else %}<p class="empty">本期暂无收款人申请数据。</p>{% endif %}
 </section>
-{% if focus_items %}<section class="card">
+{% if focus_items %}<section class="card" id="focus">
 <h2>本期关注</h2>
 <div class="focus-grid">{% for item in focus_items %}<div class="focus"><strong>{{ item.title }}</strong><p>{{ item.desc }}</p></div>{% endfor %}</div>
 </section>{% endif %}
-<section class="card">
+<section class="card" id="details">
 <h2>申请明细</h2>
 <p class="muted">共 {{ total_count }} 笔 · 合计 {{ total_amount_text }} · 按收款人金额倒序，同一收款人按申请日期倒序 · 表格可左右滑动</p>
 {% if detail_groups %}<div class="table-wrap"><table class="table">

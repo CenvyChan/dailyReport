@@ -312,6 +312,33 @@ class PaymentSnapshotPublicViewTests(TestCase):
         self.assertIn('name="viewport"', body)
         self.assertEqual(response["X-Robots-Tag"], "noindex, nofollow")
 
+    def test_public_page_uses_left_nav_layout(self):
+        response = self.client.get(
+            reverse("integrations:payment_snapshot_public", args=[self.snapshot.pk]),
+            {"token": self._token(self.snapshot)},
+        )
+        body = response.content.decode("utf-8")
+        self.assertIn('class="report-layout"', body)
+        self.assertIn('class="report-toc"', body)
+        for anchor in ("overview", "status", "trend", "ranking", "details"):
+            self.assertIn(f'id="{anchor}"', body)
+            self.assertIn(f'href="#{anchor}"', body)
+
+    def test_monthly_report_uses_the_same_layout(self):
+        month = make_snapshot(self.company, report_type="month")
+        month.period_start = date(2026, 9, 1)
+        month.period_end = date(2026, 9, 30)
+        month.period_label = "2026年9月"
+        month.save()
+        response = self.client.get(
+            reverse("integrations:payment_snapshot_public", args=[month.pk]),
+            {"token": self._token(month)},
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn("付款申请月报", body)
+        self.assertIn('class="report-toc"', body)
+
     def test_bad_or_mismatched_token_is_forbidden(self):
         url = reverse("integrations:payment_snapshot_public", args=[self.snapshot.pk])
         self.assertEqual(self.client.get(url, {"token": "bad"}).status_code, 403)
