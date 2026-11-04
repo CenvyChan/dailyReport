@@ -13,7 +13,7 @@
       "path": "/",
       "value": {
         "companyName": "飞诺斯电子科技有限公司（演示数据）",
-        "reportTitle": "付款申请周报",
+        "reportTitle": "支出项目周报",
         "period": "2026.10.19—10.25",
         "periodLabel": "统计周期：2026.10.19—10.25",
         "dataLabel": "演示数据",
@@ -721,7 +721,7 @@
         {
           "id": "trend-empty",
           "component": "Text",
-          "text": "本期暂无付款申请趋势数据。",
+          "text": "本期暂无支出项目趋势数据。",
           "variant": "caption",
           "colorToken": "common_level2_base_color",
           "visible": {

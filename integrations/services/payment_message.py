@@ -3,7 +3,7 @@
 生成简洁、适合移动端阅读的Markdown格式消息。
 """
 
-from integrations.services.expense_reporting import expense_report_title, expense_scope_note
+from integrations.services.expense_reporting import expense_card_title, expense_scope_note
 
 import logging
 from decimal import Decimal
@@ -62,7 +62,8 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     Returns:
         str: Markdown格式的消息内容
     """
-    title = expense_report_title(report_type)
+    title = expense_card_title(report_type)
+    subject = '付款申请' if report_type == 'day' else '支出项目'
 
     # 消息头部
     lines = [
@@ -88,7 +89,7 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     if summary['total_count'] == 0:
         lines.extend([
             "━━━━━━━━━━━━━━━━━━",
-            "暂无付款申请数据",
+            f"暂无{subject}数据",
             "━━━━━━━━━━━━━━━━━━",
         ])
         return '\n'.join(lines)
@@ -151,7 +152,8 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     if mention_userids:
         # 钉钉群消息的@格式: @userId
         mentions = ' '.join(f"@{uid}" for uid in mention_userids)
-        lines.append(f"💬 {mentions} 请查收本{dict(day='日', week='周', month='月')[report_type]}付款汇总")
+        notice = '本日付款汇总' if report_type == 'day' else f'本期{title}'
+        lines.append(f"💬 {mentions} 请查收{notice}")
 
     return '\n'.join(lines)
 
@@ -167,7 +169,8 @@ def build_simple_message(data, period_info, report_type='week'):
     Returns:
         str: 简化的消息内容
     """
-    title = '付款申请' + dict(day='日报', week='周报', month='月报')[report_type]
+    title = expense_card_title(report_type)
+    subject = '付款申请' if report_type == 'day' else '支出项目'
     summary = data['summary']
 
     lines = [
@@ -179,7 +182,7 @@ def build_simple_message(data, period_info, report_type='week'):
 
     if summary['total_count'] == 0:
         lines.append("")
-        lines.append("✨ 本期无付款申请")
+        lines.append(f"✨ 本期无{subject}")
     else:
         lines.append(f"✅ {summary['by_status']['COMPLETED']}条已完成")
         lines.append(f"🔄 {summary['by_status']['RUNNING']}条进行中")

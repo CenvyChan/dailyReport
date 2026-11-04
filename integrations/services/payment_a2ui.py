@@ -10,7 +10,7 @@ from uuid import uuid4
 from django.conf import settings
 
 from integrations.services.a2ui_robot import DingtalkA2UIClient
-from integrations.services.expense_reporting import expense_report_title, expense_scope_note, source_description
+from integrations.services.expense_reporting import expense_card_title, expense_scope_note, source_description
 
 
 STATUS_LABELS = {
@@ -143,7 +143,7 @@ def build_payment_a2ui_messages(
 
     model = {
         "companyName": company_name,
-        "reportTitle": expense_report_title(report_type),
+        "reportTitle": expense_card_title(report_type),
         "period": period_info["label"],
         "periodLabel": f"{period_info['label']} · {start:%Y.%m.%d}—{end:%Y.%m.%d}",
         "dataLabel": "实际申请数据",
@@ -205,6 +205,9 @@ def build_payment_a2ui_messages(
             components = frame[operation]["components"]
             heading = next(c for c in components if c["id"] == "focus-heading")
             heading["text"] = dict(day="当日关注", week="本周关注", month="本月关注")[report_type]
+            trend_empty = next(c for c in components if c["id"] == "trend-empty")
+            subject = "付款申请" if report_type == "day" else "支出项目"
+            trend_empty["text"] = f"本期暂无{subject}趋势数据。"
             link = next(c for c in components if c["id"] == "report-link")
             if link_url:
                 link["content"] = (

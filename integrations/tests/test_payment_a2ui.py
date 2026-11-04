@@ -129,7 +129,7 @@ class PaymentA2UIDataTests(SimpleTestCase):
         model = build_payment_a2ui_messages(
             data, get_last_week_range(date(2026, 10, 27)), "测试公司", "month"
         )[1]["updateDataModel"]["value"]
-        self.assertEqual(model["reportTitle"], "月度支出报表")
+        self.assertEqual(model["reportTitle"], "支出项目月报")
         self.assertEqual(model["summary"]["recipientCount"], 7)
         self.assertEqual(len(model["charts"]["payeeAmount"]["data"]), 6)
         self.assertEqual(model["payeeApplications"][-1]["count"], 2)

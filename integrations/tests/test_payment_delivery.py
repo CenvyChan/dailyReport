@@ -312,6 +312,8 @@ class PaymentCommandDeliveryTests(TestCase):
             [call.args[1].get("msgKey") for call in client.post.call_args_list],
             ["sampleText", "sampleLink"],
         )
+        link_payload = json.loads(client.post.call_args_list[1].args[1]["msgParam"])
+        self.assertEqual(link_payload["title"], "慈溪飞诺斯电子科技有限公司 支出项目周报 · 2026年第43周")
 
     def test_excel_failure_is_counted_as_failure(self):
         client = Mock()

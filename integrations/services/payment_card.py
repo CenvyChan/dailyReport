@@ -14,6 +14,8 @@ import logging
 from decimal import Decimal
 from typing import Dict, List, Any
 
+from integrations.services.expense_reporting import expense_card_title
+
 logger = logging.getLogger("integrations")
 
 
@@ -73,7 +75,7 @@ def build_payment_card_data(data: Dict[str, Any], period_info: Dict[str, Any],
     running_percent = int(running_count / total * 100) if total > 0 else 0
 
     # 卡片标题和时间范围（审批卡片样式）
-    card_title = f"💰 付款申请{'周报' if report_type == 'week' else '月报'}"
+    card_title = f"💰 {expense_card_title(report_type)}"
     period_text = (
         f"{period_info['label']} "
         f"({period_info['start_date'].strftime('%m-%d')} 至 "

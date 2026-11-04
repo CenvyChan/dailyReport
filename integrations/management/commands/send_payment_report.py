@@ -6,7 +6,7 @@
 - 月报: 每月1日早上 09:00 运行 send_payment_report month
 """
 
-from integrations.services.expense_reporting import expense_report_title
+from integrations.services.expense_reporting import expense_card_title, expense_report_title
 from integrations.services.expense_summary import analyze_expenses, expense_processes, expense_snapshot_key
 
 import json
@@ -367,7 +367,7 @@ class Command(BaseCommand):
                             'msgKey': 'sampleLink',
                             'msgParam': json.dumps({
                                 'title': (
-                                    f"{report_company_name} {expense_report_title(report_type)}"
+                                    f"{report_company_name} {expense_card_title(report_type)}"
                                     f" · {period_info['label']}"
                                 ),
                                 'text': '点击查看完整报表（含图表与明细），手机端无需下载附件',

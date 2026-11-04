@@ -8,7 +8,8 @@ from openpyxl import load_workbook
 from integrations.services.expense_reporting import expense_report_title, sorted_expense_details
 from integrations.services.payment_excel import export_payment_excel_bytes
 from integrations.services.payment_summary import payment_context
-from integrations.services.payment_message import build_payment_report_message
+from integrations.services.payment_card import build_payment_card_data
+from integrations.services.payment_message import build_payment_report_message, build_simple_message
 from integrations.services.payment_a2ui import build_payment_a2ui_messages
 
 
@@ -92,7 +93,49 @@ class ExpenseReportPresentationTests(SimpleTestCase):
         self.assertEqual([row["create_date"] for row in context["details"]], ["2026-10-31", "2026-10-15", "2026-10-01"])
         self.assertIn("当前覆盖：付款申请", context["scope_note"])
         text = build_payment_report_message(self.data(), self.period(), "month")
-        self.assertIn("月度支出报表", text)
+        self.assertIn("支出项目月报", text)
         period = {**self.period(), "start": datetime(2026, 10, 1), "end": datetime(2026, 10, 31)}
         model = build_payment_a2ui_messages(self.data(), period, "Test", "week")[1]["updateDataModel"]["value"]
-        self.assertEqual(model["reportTitle"], "周度支出报表")
+        self.assertEqual(model["reportTitle"], "支出项目周报")
+
+    def test_message_card_names_for_week_and_month(self):
+        data = self.data()
+        period = {**self.period(), "start": datetime(2026, 10, 1), "end": datetime(2026, 10, 31)}
+        for report_type, title in (("week", "支出项目周报"), ("month", "支出项目月报")):
+            with self.subTest(report_type=report_type):
+                frames = build_payment_a2ui_messages(data, period, "Test", report_type)
+                model = frames[1]["updateDataModel"]["value"]
+                self.assertEqual(model["reportTitle"], title)
+                self.assertEqual(model["summary"]["totalAmount"], 30)
+                self.assertEqual(model["summary"]["totalCount"], 3)
+                trend_empty = next(c for c in frames[2]["updateComponents"]["components"] if c["id"] == "trend-empty")
+                self.assertEqual(trend_empty["text"], "本期暂无支出项目趋势数据。")
+                self.assertEqual(build_payment_card_data(data, period, report_type)["card_title"], f"💰 {title}")
+                message = build_payment_report_message(data, period, report_type, mention_userids=["test-user"])
+                self.assertTrue(message.startswith(f"📊 {title}\n"))
+                self.assertIn(f"请查收本期{title}", message)
+                self.assertTrue(build_simple_message(data, period, report_type).startswith(f"📊 {title}\n"))
+
+    def test_empty_week_and_month_messages_use_expense_wording(self):
+        data = self.data()
+        data["summary"] = {
+            "total_count": 0,
+            "total_amount": 0,
+            "by_status": {"COMPLETED": 0, "RUNNING": 0, "TERMINATED": 0, "NEW": 0},
+        }
+        data["by_recipient"] = []
+        for report_type in ("week", "month"):
+            with self.subTest(report_type=report_type):
+                self.assertIn("暂无支出项目数据", build_payment_report_message(data, self.period(), report_type))
+                self.assertIn("本期无支出项目", build_simple_message(data, self.period(), report_type))
+
+    def test_daily_message_wording_is_unchanged(self):
+        data = self.data()
+        period = self.period()
+        self.assertTrue(build_payment_report_message(data, period, "day").startswith("📊 付款申请日报\n"))
+        self.assertTrue(build_simple_message(data, period, "day").startswith("📊 付款申请日报\n"))
+        period = {**period, "start": datetime(2026, 10, 1), "end": datetime(2026, 10, 31)}
+        frames = build_payment_a2ui_messages(data, period, "Test", "day")
+        self.assertEqual(frames[1]["updateDataModel"]["value"]["reportTitle"], "付款申请日报")
+        trend_empty = next(c for c in frames[2]["updateComponents"]["components"] if c["id"] == "trend-empty")
+        self.assertEqual(trend_empty["text"], "本期暂无付款申请趋势数据。")

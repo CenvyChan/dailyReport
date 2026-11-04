@@ -9,6 +9,11 @@ def expense_report_title(report_type):
     return REPORT_TITLES[report_type]
 
 
+def expense_card_title(report_type):
+    """消息卡片名称；在线报表和附件继续使用原报表名称。"""
+    return {"day": REPORT_TITLES["day"], "week": "支出项目周报", "month": "支出项目月报"}[report_type]
+
+
 def sorted_expense_details(data):
     rows = [
         dict(detail, recipient=group.get("recipient", ""))
