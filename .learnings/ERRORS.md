@@ -112,3 +112,12 @@ The source documentation states StartRow cannot bypass the bill-query 10000-row 
 **Area**: infra
 
 Git Bash exists and direct execFile of the explicit bash.exe works; the PTY shell wrapper unexpectedly launched WSL. Use Node execFile for the verified Git Bash/SSH executables, without PowerShell shell forwarding.
+
+## [ERR-20261104-DEPLOY-ENV-ORDER] Docker environment list ordering
+
+**Logged**: 2026-11-04
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+After incremental image recreation Docker reordered Config.Env, triggering a list-order assertion despite identical key/value pairs. Verify the environment mapping, not positional ordering. Read-only follow-up confirmed zero changed keys, identical original mounts/ports/commands and six running containers; no redeployment or rollback was necessary.

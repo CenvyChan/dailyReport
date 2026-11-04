@@ -5,7 +5,7 @@
 - SSH：`ssh mesdevserver`（`mesdev@172.16.77.80`）。
 - 项目目录：`~/deploy/daily-report`，绝对路径 `/home/mesdev/deploy/daily-report`。
 - Web 入口：`http://172.16.77.80:8001/`；容器内端口 8000。
-- 容器：`daily-report-web`、`daily-report-mailer`、`daily-report-backup`、`daily-report-sync`、`daily-report-scheduler`。
+- 容器：`daily-report-web`、`daily-report-mailer`、`daily-report-backup`、`daily-report-sync`、`daily-report-scheduler`、`daily-report-erp-analysis`。
 - 持久化数据：项目目录下 `data/`、`backups/`；线上 `.env` 和加密密钥必须保留，不得用本地配置覆盖。
 
 > 2026-10-28 已确认：不要使用 `/data/dailyReport`、`~/dailyReport`、旧用户 `cenvy` 或 `/home/mesdev/fns-plm`。生产目录是文件发布目录，不是 Git 仓库；服务器当前未安装 Compose，不可在此执行 `git pull` 或依赖 `docker compose` / `docker-compose`。
@@ -18,15 +18,15 @@
 ssh mesdevserver 'set -eu; cd "$HOME/deploy/daily-report"; pwd -P; test -f manage.py; docker ps --filter name=daily-report --format "{{.Names}} | {{.Image}} | {{.Status}} | {{.Ports}}"'
 ```
 
-必须与上述目录、五个容器和 8001 端口匹配。名称相似不是依据，不得操作同机的 PLM 等其他应用。
+必须与上述目录、六个容器和 8001 端口匹配。名称相似不是依据，不得操作同机的 PLM 等其他应用。
 
 ## 增量生产发布顺序
 
 1. 运行本次功能的定向测试、`manage.py check`、`makemigrations --check --dry-run` 和 `git diff --check`。
 2. 比对**正在运行的镜像文件**与本次文件，制作显式文件清单；不要把整个脏工作区、数据库或 `.env` 上传覆盖。
-3. 保存五个容器的启动配置、当前镜像 ID、业务群配置和发布清单到受限发布目录；备份文件可能含凭据，权限必须为 0700/0600，不得提交 Git 或输出内容。
+3. 保存六个容器的启动配置、当前镜像 ID、业务群配置和发布清单到受限发布目录；备份文件可能含凭据，权限必须为 0700/0600，不得提交 Git 或输出内容。
 4. 基于当前线上镜像制作本次增量镜像，先在临时测试库运行迁移和定向测试。保留旧镜像，不执行镜像清理。
-5. 暂停五个容器，确认无后台任务写库，再对真实 SQLite 使用在线备份 API，执行 `PRAGMA integrity_check`，记录备份路径。
+5. 暂停六个容器，确认无后台任务写库，再对真实 SQLite 使用在线备份 API，执行 `PRAGMA integrity_check`，记录备份路径。
 6. 使用新镜像执行数据库迁移；更新已有群的“推送公司”选择，不更改既有应用密钥、群 ID、报表周期和发送时间。
 7. 用原有环境、挂载、端口 8001 和重启策略重建五个同名容器；保留停下来的旧容器用于回滚。
 8. 核验新镜像 ID、`showmigrations`、`manage.py check`、HTTP 登录页、后台多选字段、群公司映射和定时命令 `--dry-run`；不得把 dry-run 当实际群送达。
