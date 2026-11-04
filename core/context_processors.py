@@ -8,10 +8,14 @@ from core.services.permissions import (
 )
 
 
+from reports.erp_analysis_permissions import can_view_erp_analysis
+
+
 def navigation_permissions(request):
     if not request.user.is_authenticated:
         return {
             "nav_is_administrator": False,
+            "nav_can_erp_analysis": False,
             "nav_can_sales": False,
             "nav_can_purchase": False,
             "nav_can_comparison": False,
@@ -21,6 +25,7 @@ def navigation_permissions(request):
     company = getattr(request, "company", None)
     return {
         "nav_is_administrator": is_administrator(request.user),
+        "nav_can_erp_analysis": can_view_erp_analysis(request.user),
         # 带上 company：绑定关系没有公司字段，不限定的话 A 公司的客户绑定会让这个人
         # 在 B 公司也看到销售菜单。
         "nav_can_sales": can_access_sales(request.user, company),

@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from integrations.services.erp_analysis.catalog import default_kinds
+
 
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField("创建时间", auto_now_add=True)
@@ -898,3 +900,85 @@ class PaymentReportSnapshot(models.Model):
 
     def __str__(self):
         return f"{self.company} {self.period_label} 付款{self.get_report_type_display()}"
+
+
+class ErpAnalysisSchedule(TimeStampedModel):
+    """经营分析按公司配置，默认不启用，避免移植后自动取数或推送。"""
+    company = models.OneToOneField("core.Company", on_delete=models.CASCADE, verbose_name="公司")
+    enabled = models.BooleanField("启用月度分析", default=False)
+    day = models.PositiveSmallIntegerField("每月运行日", default=1)
+    hour = models.PositiveSmallIntegerField("运行小时", default=8)
+    report_kinds = models.JSONField("分析种类", default=default_kinds)
+    notification_group = models.ForeignKey(DingtalkGroupConfig, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="通知群")
+
+    class Meta:
+        verbose_name = "经营分析调度"
+        verbose_name_plural = "经营分析调度"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from integrations.services.erp_analysis.catalog import validate_kinds
+
+        errors = {}
+        if not 1 <= self.day <= 28:
+            errors["day"] = "运行日须为 1 至 28，避免短月没有运行日期"
+        if not 0 <= self.hour <= 23:
+            errors["hour"] = "小时须为 0 至 23"
+        try:
+            validate_kinds(self.report_kinds)
+        except (ValueError, TypeError) as exc:
+            errors["report_kinds"] = str(exc)
+        if self.notification_group_id:
+            group = self.notification_group
+            companies = group.companies.all()
+            authorized = companies.filter(pk=self.company_id).exists() if companies.exists() else group.company_id == self.company_id
+            app_authorized = group.app.company_id == self.company_id or group.app.company_mappings.filter(company_id=self.company_id).exists()
+            if not authorized or not app_authorized or not group.is_active or not group.app.is_active:
+                errors["notification_group"] = "请选择启用且授权给本公司的群和钉钉应用"
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.company} 经营分析"
+
+
+class ErpAnalysisTask(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "排队中"
+        RUNNING = "RUNNING", "生成中"
+        SUCCESS = "SUCCESS", "已完成"
+        PARTIAL = "PARTIAL", "部分完成"
+        FAILED = "FAILED", "失败"
+
+    class NotificationStatus(models.TextChoices):
+        NONE = "NONE", "不推送"
+        PENDING = "PENDING", "待推送"
+        SENT = "SENT", "已推送"
+        FAILED = "FAILED", "推送失败"
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, verbose_name="公司")
+    account = models.ForeignKey(KingdeeAccount, on_delete=models.PROTECT, verbose_name="金蝶账套")
+    org_number = models.CharField("组织编码快照", max_length=64)
+    org_name = models.CharField("组织名称快照", max_length=120, blank=True)
+    period = models.DateField("分析月份")
+    window_months = models.PositiveSmallIntegerField("分析窗口月数", default=12)
+    report_kinds = models.JSONField("分析种类", default=list)
+    status = models.CharField("状态", max_length=12, choices=Status.choices, default=Status.PENDING)
+    results = models.JSONField("分析结果", default=dict, blank=True)
+    error = models.TextField("错误信息", blank=True)
+    bundle_path = models.CharField("下载包路径", max_length=500, blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="发起人")
+    deduplication_key = models.CharField("定时幂等键", max_length=100, null=True, blank=True, unique=True)
+    notification_group = models.ForeignKey(DingtalkGroupConfig, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="通知群")
+    notification_status = models.CharField("通知状态", max_length=12, choices=NotificationStatus.choices, default=NotificationStatus.NONE)
+    notification_error = models.TextField("通知错误", blank=True)
+    started_at = models.DateTimeField("开始时间", null=True, blank=True)
+    finished_at = models.DateTimeField("完成时间", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "经营分析任务"
+        verbose_name_plural = "经营分析任务"
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.company} {self.period:%Y-%m} 经营分析 #{self.pk}"

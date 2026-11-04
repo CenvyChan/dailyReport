@@ -75,6 +75,7 @@
           <i data-lucide="bar-chart-3"></i>分析<i data-lucide="chevron-down" class="caret"></i>
         </button>
         <div class="nav-menu">
+          {% if nav_can_erp_analysis %}<a href="{% url 'reports:erp_analysis' %}"><i data-lucide="chart-no-axes-combined"></i>经营分析</a>{% endif %}
           <a href="/reports/sales/"><i data-lucide="trending-up"></i>销售分析</a>
           <a href="/reports/purchase/"><i data-lucide="trending-down"></i>采购分析</a>
           {% if nav_can_comparison %}<a href="/reports/comparison/"><i data-lucide="git-compare"></i>采销对比</a>{% endif %}

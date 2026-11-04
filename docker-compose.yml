@@ -109,3 +109,17 @@ services:
     depends_on:
       - web
 
+
+  # 经营分析长任务独立工作进程，避免阻塞现有日报/同步调度。
+  erp-analysis:
+    build: .
+    image: daily-report:latest
+    container_name: daily-report-erp-analysis
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: sh -c "sleep 120; python manage.py run_erp_analysis --watch"
+    depends_on:
+      - web

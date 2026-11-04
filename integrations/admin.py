@@ -11,9 +11,13 @@ from core.admin import AuditedAdmin, _snapshot
 from core.models import Company
 from core.services.audit import record_audit
 
+from integrations.services.erp_analysis.catalog import REPORT_KINDS
+
 from .crypto import encrypt
 
 from .models import (
+    ErpAnalysisSchedule,
+    ErpAnalysisTask,
     DingtalkApp,
     DingtalkCompanyMapping,
     PaymentReportDispatch,
@@ -585,3 +589,34 @@ class PaymentReportSnapshotAdmin(ReadOnlyAdmin):
     search_fields = ("period_label", "process_code")
     date_hierarchy = "period_start"
     readonly_fields = [f.name for f in PaymentReportSnapshot._meta.fields]
+
+
+
+
+class ErpAnalysisScheduleForm(forms.ModelForm):
+    report_kinds = forms.MultipleChoiceField(label="分析种类", choices=[(key, value["name"]) for key, value in REPORT_KINDS.items()],
+                                             widget=forms.CheckboxSelectMultiple)
+
+    class Meta:
+        model = ErpAnalysisSchedule
+        fields = ("company", "enabled", "day", "hour", "report_kinds", "notification_group")
+
+
+@admin.register(ErpAnalysisSchedule)
+class ErpAnalysisScheduleAdmin(AuditedAdmin):
+    form = ErpAnalysisScheduleForm
+    list_display = ("company", "enabled", "day", "hour", "notification_group")
+    list_filter = ("enabled", "company")
+
+
+@admin.register(ErpAnalysisTask)
+class ErpAnalysisTaskAdmin(admin.ModelAdmin):
+    list_display = ("id", "company", "period", "status", "notification_status", "created_at")
+    list_filter = ("company", "status", "notification_status")
+    readonly_fields = [field.name for field in ErpAnalysisTask._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

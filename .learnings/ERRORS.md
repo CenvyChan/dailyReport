@@ -58,3 +58,57 @@
 - Reproducible: yes
 - Related Files: .tmp/operations-summary-20261028-1205/final_probe.py
 - Pattern-Key: docker.nonroot-restricted-mount
+
+## [ERR-20261104-SHELL] Windows CET / Git Bash unavailable
+
+**Logged**: 2026-11-04
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+PowerShell startup failed with a Windows CET error. CMD confirmed the requested C:\Program Files\Git\bin\bash.exe does not exist. Use explicit CMD for simple execution and Node filesystem APIs; do not guess another Bash path.
+
+## [ERR-20261104-ERP-NORMALIZE] ERP migration null header and test fixture
+
+**Logged**: 2026-11-04
+**Priority**: medium
+**Status**: resolved
+**Area**: tests
+
+The new regression test caught None becoming the nonempty string "None", blocking purchase merged-header forward fill. Normalize null before testing emptiness. Two notification test fixtures omitted the existing mandatory send_at field; include it rather than changing the existing model.
+
+## [ERR-20261104-ERP-STICKY] Scoped table header offset
+
+**Logged**: 2026-11-04
+**Priority**: medium
+**Status**: resolved
+**Area**: frontend
+
+Browser QA measured the global sticky th top=58px inside the new horizontal overflow container, placing headers over the first task row. Override position:static only on .ea-history th. Verify header bottom is no lower than the first data row top at desktop width; do not alter global table styles.
+
+## [ERR-20261104-ERP-ADMIN-FIXTURE] Admin test staff flag
+
+**Logged**: 2026-11-04
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+The new admin form test redirected because its create_user fixture set is_superuser but not Django admin required is_staff. Mark the administrator fixture as staff; do not relax application admin authentication.
+
+## [ERR-20261104-ERP-CUMULATIVE-CAP] Bill query cumulative cap
+
+**Logged**: 2026-11-04
+**Priority**: high
+**Status**: resolved
+**Area**: backend
+
+The source documentation states StartRow cannot bypass the bill-query 10000-row cap, while checking only an individual page misses five 2000-row pages followed by a truncated empty page. A regression reproduced that false completeness. Fail at the cumulative cap as well, requiring finer date/bill slices; report pagination remains independent.
+
+## [ERR-20261104-SHELL-EXEC] Shell wrapper selected WSL
+
+**Logged**: 2026-11-04
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+Git Bash exists and direct execFile of the explicit bash.exe works; the PTY shell wrapper unexpectedly launched WSL. Use Node execFile for the verified Git Bash/SSH executables, without PowerShell shell forwarding.

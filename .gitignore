@@ -103,3 +103,7 @@ handoff/
 # 本地一次性调试/旧部署脚本（服务器目录不是 git 仓库，git pull 式部署已失效）
 debug_card_payload.py
 deploy_card_fix.sh
+
+# Local browser QA artifacts
+/output/playwright/
+/.playwright-cli/

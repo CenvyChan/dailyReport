@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}经营分析 - {{ request.company.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/erp-analysis.css' %}">
+<div class="page-head"><div><p class="ea-eyebrow">ERP · MONTHLY INSIGHTS</p><h1>经营分析</h1><p class="sub">{{ request.company.name }} · 六类经营分析，基于金蝶原始报表与单据。</p></div><a class="button secondary" href="/reports/comparison/">返回采销对比</a></div>
+<div class="ea-layout">
+<section class="card ea-generator" aria-labelledby="generate-title">
+  <h2 id="generate-title">生成分析报告</h2><p class="sub">选择结束月份，分析截至该月的近 12 个月。每份报告独立生成。</p>
+  {% if binding %}<p class="ea-binding">账套：<strong>{{ binding.account.name }}</strong> · 组织：{{ binding.org_name|default:binding.org_number }}（{{ binding.org_number }}）</p>{% else %}<div class="ea-warning" role="alert">本公司尚未配置启用的金蝶账套与组织绑定。请在集成配置中设置后生成。</div>{% endif %}
+  <form method="post" action="{% url 'reports:erp_analysis_generate' %}">
+    {% csrf_token %}{{ form.non_field_errors }}
+    <label class="ea-period" for="id_period">分析月份 {{ form.period }}</label>{{ form.period.errors }}
+    <fieldset class="ea-fieldset"><legend>选择分析内容</legend>{{ form.report_kinds.errors }}
+      <div class="ea-kind-grid">{% for checkbox in form.report_kinds %}<label class="ea-kind">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>{% endfor %}</div>
+    </fieldset>
+    <div class="ea-actions"><button class="button" type="submit"{% if not binding %} disabled{% endif %}><i data-lucide="play"></i>生成所选分析</button><span class="sub">加入后台队列，不占用网页请求</span></div>
+  </form>
+</section>
+<aside class="card ea-guide"><h2>阅读前须知</h2><ul><li>经营分析与原有经营日报独立，不改变日报口径或推送配置。</li><li>金额采用 ERP 原字段口径，不自动换汇或统一含税口径。</li><li>收款计划与委外在制含查询时当前状态，不应视作历史期末快照。</li><li>某个模块未购买或取数失败，不阻断其他报告。</li></ul><p class="ea-worker">后台运行：<code>python manage.py run_erp_analysis --watch</code></p>{% if nav_is_administrator %}<a href="/admin/integrations/erpanalysisschedule/">配置月度调度和通知群 →</a>{% endif %}</aside>
+</div>
+<section class="card ea-history"><div class="ea-section-head"><h2>最近分析任务</h2><span class="sub">仅展示当前公司 · 最近 30 条</span></div>
+<div class="ea-table-scroll"><table><thead><tr><th>任务</th><th>分析月份</th><th>账套 / 组织</th><th>状态</th><th>发起时间</th><th>操作</th></tr></thead><tbody>
+{% for task in tasks %}<tr><td>#{{ task.pk }}</td><td>{{ task.period|date:"Y-m" }}</td><td>{{ task.account.name }} / {{ task.org_number }}</td><td><span class="ea-status" data-status="{{ task.status }}">{{ task.get_status_display }}</span></td><td>{{ task.created_at|date:"m-d H:i" }}</td><td><a href="{% url 'reports:erp_analysis_task' task.pk %}">查看进度与报告 →</a></td></tr>{% empty %}<tr><td colspan="6" class="ea-empty">暂无分析任务。选择月份和分析内容，生成第一份报告。</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

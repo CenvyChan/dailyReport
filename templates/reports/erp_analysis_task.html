@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}经营分析 #{{ task.pk }} - {{ task.company.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/erp-analysis.css' %}">
+<div class="page-head"><div><p class="ea-eyebrow">ERP · ANALYSIS #{{ task.pk }}</p><h1>{{ task.period|date:"Y-m" }} 经营分析</h1><p class="sub">{{ task.company.name }} · {{ task.account.name }} · {{ task.org_name|default:task.org_number }}（{{ task.org_number }}）</p></div><a class="button secondary" href="{% url 'reports:erp_analysis' %}">返回经营分析</a></div>
+<section class="card ea-task" id="ea-task" data-status-url="{% url 'reports:erp_analysis_status' task.pk %}" data-finished="{{ finished|yesno:'true,false' }}">
+<div class="ea-section-head"><h2>生成结果</h2><span id="ea-task-status" class="ea-status" data-status="{{ task.status }}" role="status" aria-live="polite">{{ task.get_status_display }}</span></div>
+{% if not finished %}<p class="sub">页面将自动更新。排队中表示任务等待后台工作进程；可离开后从历史任务继续查看。</p>{% endif %}
+{% if task.error %}<div class="ea-warning" role="alert">{{ task.error }}</div>{% endif %}
+<div class="ea-result-grid">{% for item in items %}<article class="ea-result" data-kind="{{ item.kind }}"><h3>{{ item.name }}</h3><p class="ea-result-status">{% if item.status == 'SUCCESS' %}已生成{% elif item.status == 'FAILED' %}生成失败{% elif item.status == 'SKIPPED' %}模块未购买，已跳过{% else %}等待生成{% endif %}</p>{% if item.error %}<p class="ea-warning">{{ item.error }}</p>{% endif %}{% if item.status == 'SUCCESS' %}<a class="button secondary" href="{% url 'reports:erp_analysis_report' task.pk item.kind %}" target="_blank" rel="noopener">阅读报告 <i data-lucide="arrow-up-right"></i></a>{% endif %}</article>{% endfor %}</div>
+{% if finished and task.bundle_path %}<div class="ea-actions"><a class="button" href="{% url 'reports:erp_analysis_download' task.pk %}"><i data-lucide="download"></i>下载分析包 ZIP</a><span class="sub">自包含 HTML + 结构化 JSON + 结果清单，失败项不会伪装成空报告</span></div>{% endif %}
+<p class="sub" id="ea-poll-note" role="status"></p>
+{% if task.notification_status != 'NONE' %}<p class="sub">钉钉通知：{{ task.get_notification_status_display }}{% if task.notification_error %} · {{ task.notification_error }}{% endif %}</p>{% endif %}
+</section>{% endblock %}
+{% block extra_js %}<script src="{% static 'js/erp-analysis.js' %}" defer></script>{% endblock %}
