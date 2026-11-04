@@ -1,0 +1,13 @@
+<article class="chart-card" id="chart-{{ visual.id }}">
+<h3>{{ visual.title }}</h3>
+{% if visual.empty %}<div class="chart-empty" role="status">当前筛选下暂无非零数据，不绘制占比或排行。</div>{% elif visual.type == 'bar' %}
+<div class="scroll chart-scroll"><svg class="bar-chart" viewBox="0 0 860 {{ visual.height }}" role="img" aria-label="{{ visual.title }}，数值见图内标注与下方明细">
+<line x1="{{ visual.zero_x }}" x2="{{ visual.zero_x }}" y1="8" y2="{{ visual.height }}" stroke="#cbd5e1"/>
+{% for item in visual.items %}<g><title>{{ item.label }}：{{ item.value }}</title><text x="212" y="{{ item.text_y }}" text-anchor="end" class="bar-label">{{ item.label|truncatechars:17 }}</text><rect x="{{ item.x }}" y="{{ item.y }}" width="{{ item.width }}" height="26" rx="4" fill="{{ item.color }}"/><text x="850" y="{{ item.text_y }}" text-anchor="end" class="bar-value">{{ item.value }}</text></g>{% endfor %}
+</svg></div>
+{% else %}<div class="donut-layout"><svg class="donut-chart" viewBox="0 0 240 230" role="img" aria-label="{{ visual.title }}，总数 {{ visual.total }}，各项数值见图例">
+<circle cx="120" cy="110" r="76" fill="none" stroke="#edf1f7" stroke-width="24"/>
+{% for segment in visual.segments %}<circle cx="120" cy="110" r="76" fill="none" stroke="{{ segment.color }}" stroke-width="24" stroke-dasharray="{{ segment.dash }}" stroke-dashoffset="{{ segment.offset }}" transform="rotate(-90 120 110)"><title>{{ segment.label }}：{{ segment.value }}</title></circle>{% endfor %}
+<text x="120" y="106" text-anchor="middle" class="donut-total">{{ visual.total }}</text><text x="120" y="130" text-anchor="middle" class="donut-caption">合计</text>
+</svg><ul class="donut-legend">{% for item in visual.items %}<li><span class="legend-dot" style="background:{{ item.color }}"></span><span class="legend-name">{{ item.label }}</span><strong>{{ item.value }}</strong><span class="legend-rate">{{ item.ratio }}%</span></li>{% endfor %}</ul></div>{% endif %}
+<p class="chart-note">{{ visual.note }}</p></article>

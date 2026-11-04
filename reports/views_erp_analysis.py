@@ -6,7 +6,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from urllib.parse import urlencode
 from django.views.decorators.http import require_GET, require_POST
 
 from core.responses import forbidden_page
@@ -19,6 +21,14 @@ from reports.erp_analysis_permissions import can_view_erp_analysis
 
 
 class AnalysisForm(forms.Form):
+    window_months = forms.TypedChoiceField(
+        label="分析窗口",
+        choices=[(1, "单月"), (3, "近3个月"), (12, "近12个月")],
+        coerce=int,
+        initial=12,
+        required=False,
+    )
+
     period = forms.DateField(
         label="分析月份", input_formats=["%Y-%m"], widget=forms.DateInput(format="%Y-%m", attrs={"type": "month"})
     )
@@ -65,7 +75,10 @@ def page(request, form=None, status=200):
         request,
         "reports/erp_analysis.html",
         {
-            "form": form or AnalysisForm(initial={"period": previous_month, "report_kinds": list(REPORT_KINDS)}),
+            "form": form
+            or AnalysisForm(
+                initial={"period": previous_month, "report_kinds": list(REPORT_KINDS), "window_months": 12}
+            ),
             "catalog": REPORT_KINDS,
             "binding": binding,
             "tasks": ErpAnalysisTask.objects.filter(company=request.company).select_related("requested_by", "account")[
@@ -88,7 +101,11 @@ def generate(request):
     if form.is_valid():
         try:
             task = enqueue(
-                request.company, form.cleaned_data["period"], form.cleaned_data["report_kinds"], actor=request.user
+                request.company,
+                form.cleaned_data["period"],
+                form.cleaned_data["report_kinds"],
+                actor=request.user,
+                window_months=form.cleaned_data.get("window_months") or 12,
             )
         except ValueError as exc:
             form.add_error(None, str(exc))
@@ -162,7 +179,14 @@ def report_view(request, task_id, kind):
     task = scoped_task(request, task_id)
     if kind not in REPORT_KINDS or task.results.get(kind, {}).get("status") != "SUCCESS":
         raise Http404("该分析尚未生成")
-    response = HttpResponse(render_report(task, kind))
+    response = HttpResponse(
+        render_report(
+            task,
+            kind,
+            download_url=reverse("reports:erp_analysis_download", args=[task.pk]) if task.bundle_path else None,
+            contents_url=reverse("reports:erp_analysis_task", args=[task.pk]),
+        )
+    )
     response["Cache-Control"] = "private, no-store"
     return response
 
@@ -213,7 +237,15 @@ def public_snapshot(request, task_id, kind=None):
     elif kind:
         if kind not in REPORT_KINDS or task.results.get(kind, {}).get("status") != "SUCCESS":
             raise Http404("该分析未生成")
-        response = HttpResponse(render_report(task, kind))
+        contents_url = reverse("reports:erp_analysis_public", args=[task.pk]) + "?" + urlencode({"token": token})
+        response = HttpResponse(
+            render_report(
+                task,
+                kind,
+                download_url=contents_url + "&download=zip" if task.bundle_path else None,
+                contents_url=contents_url,
+            )
+        )
     else:
         items = task_items(task)
         for item in items:

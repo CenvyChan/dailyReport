@@ -10,6 +10,7 @@ from uuid import uuid4
 from django.conf import settings
 
 from integrations.services.a2ui_robot import DingtalkA2UIClient
+from integrations.services.expense_reporting import expense_report_title, expense_scope_note, source_description
 
 
 STATUS_LABELS = {
@@ -142,7 +143,7 @@ def build_payment_a2ui_messages(
 
     model = {
         "companyName": company_name,
-        "reportTitle": f"付款申请{dict(day='日报', week='周报', month='月报')[report_type]}",
+        "reportTitle": expense_report_title(report_type),
         "period": period_info["label"],
         "periodLabel": f"{period_info['label']} · {start:%Y.%m.%d}—{end:%Y.%m.%d}",
         "dataLabel": "实际申请数据",
@@ -192,8 +193,8 @@ def build_payment_a2ui_messages(
         },
         "focusItems": focus,
         "chartUnitNote": "图表金额单位：万元；卡片明细金额单位：人民币元。",
-        "scopeNote": "口径：按付款申请创建日期汇总，包含各审批状态。审批完成不代表实际付款。",
-        "demoNote": "数据来源：已同步的钉钉付款申请。",
+        "scopeNote": expense_scope_note(data),
+        "demoNote": "数据来源：已同步的钉钉" + source_description(data) + "。",
     }
     for frame in frames:
         operation = next(key for key in frame if key != "version")

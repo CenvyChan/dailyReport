@@ -47,7 +47,7 @@ def _sales_rows(queryset):
             item.exchange_rate,
             item.amount_cny,
         ]
-        for item in queryset.select_related("customer", "owner").order_by("shipment_date", "id")
+        for item in queryset.select_related("customer", "owner").order_by("-shipment_date", "-id")
     ]
 
 
@@ -64,7 +64,7 @@ def _purchase_rows(queryset):
             item.exchange_rate,
             item.amount_cny,
         ]
-        for item in queryset.select_related("supplier", "buyer").order_by("purchase_date", "id")
+        for item in queryset.select_related("supplier", "buyer").order_by("-purchase_date", "-id")
     ]
 
 

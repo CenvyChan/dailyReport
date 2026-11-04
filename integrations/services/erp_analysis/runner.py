@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -16,7 +17,7 @@ from integrations.services.kingdee_client import build_sdk
 
 from .catalog import REPORT_KINDS, validate_kinds
 from .common import period_window, serializable
-from .presentation import trend_chart
+from .presentation import descending_report_sections, supporting_charts, trend_chart
 from .public import bundle_name, snapshot_url
 from .query import AnalysisQuery, ModuleUnavailable
 from .sources import analyze
@@ -24,7 +25,7 @@ from .sources import analyze
 logger = logging.getLogger("integrations")
 
 
-def enqueue(company, period, kinds, *, actor=None, deduplication_key=None, notification_group=None, window_months=12):
+def enqueue(company, period, kinds, *, actor=None, deduplication_key=None, notification_group=None, window_months=12, notification_scheduled_at=None):
     validate_kinds(kinds)
     period_window(period, window_months)
     if period.day != 1 or not 2000 <= period.year <= 2999:
@@ -51,6 +52,7 @@ def enqueue(company, period, kinds, *, actor=None, deduplication_key=None, notif
         "requested_by": actor,
         "deduplication_key": deduplication_key,
         "notification_group": notification_group,
+        "notification_scheduled_at": notification_scheduled_at,
         "notification_status": ErpAnalysisTask.NotificationStatus.PENDING
         if notification_group
         else ErpAnalysisTask.NotificationStatus.NONE,
@@ -69,13 +71,16 @@ def report_context(task, kind):
         "task": task,
         "kind": kind,
         "title": REPORT_KINDS[kind]["name"],
-        "report": task.results[kind]["report"],
+        "report": descending_report_sections(task.results[kind]["report"]),
         "chart": trend_chart(kind, task.results[kind]["report"]),
+        "supporting_charts": supporting_charts(kind, task.results[kind]["report"]),
     }
 
 
-def render_report(task, kind):
-    return render_to_string("reports/erp_analysis_report.html", report_context(task, kind))
+def render_report(task, kind, *, download_url=None, contents_url=None):
+    context = report_context(task, kind)
+    context.update(download_url=download_url, contents_url=contents_url)
+    return render_to_string("reports/erp_analysis_report.html", context)
 
 
 def storage_root():
@@ -163,12 +168,14 @@ def process_task(task_id):
     return task
 
 
-def notify(task_id, *, retry=False):
+def notify(task_id, *, retry=False, now=None):
     allowed = [ErpAnalysisTask.NotificationStatus.PENDING]
     if retry:
         allowed.append(ErpAnalysisTask.NotificationStatus.FAILED)
     task = ErpAnalysisTask.objects.select_related("company", "notification_group__app").get(pk=task_id)
     if task.notification_status not in allowed or task.status in (task.Status.PENDING, task.Status.RUNNING):
+        return
+    if task.notification_scheduled_at and (now or timezone.now()) < task.notification_scheduled_at:
         return
     # 一个工作进程处理通知；不自动重发网络超时后的不确定回执。
     try:
@@ -226,10 +233,12 @@ def enqueue_due(now=None):
     for schedule in ErpAnalysisSchedule.objects.filter(enabled=True, company__is_active=True).select_related(
         "company", "notification_group__app"
     ):
-        if now.day < schedule.day or (now.day == schedule.day and now.hour < schedule.hour):
-            continue
         try:
             schedule.clean()
+            analysis_at = timezone.make_aware(datetime.combine(now.date().replace(day=schedule.day), schedule.start_time), now.tzinfo)
+            if now < analysis_at:
+                continue
+            send_at = timezone.make_aware(datetime.combine(now.date().replace(day=schedule.send_day), schedule.send_time), now.tzinfo)
             last_month = period_window(now.date().replace(day=1), 2)[0][0]
             due.append(
                 enqueue(
@@ -238,6 +247,7 @@ def enqueue_due(now=None):
                     schedule.report_kinds,
                     deduplication_key=f"erp-analysis:{schedule.company_id}:{last_month:%Y-%m}",
                     notification_group=schedule.notification_group,
+                    notification_scheduled_at=send_at if schedule.notification_group_id else None,
                 )
             )
         except Exception:

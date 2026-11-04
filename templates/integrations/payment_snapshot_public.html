@@ -64,7 +64,7 @@
 </head>
 <body>
 <div class="report-actions">
-  <span class="hint">在线付款报表 · 手机端可直接查看图表与明细</span>
+  <span class="hint">在线支出报表 · 手机端可直接查看图表与明细</span>
   {% if download_pdf_url %}<a href="{{ download_pdf_url }}">下载 PDF</a>{% endif %}
   {% if download_excel_url %}<a href="{{ download_excel_url }}">下载 Excel</a>{% endif %}
 </div>
@@ -77,6 +77,7 @@
     </div>
     <div class="toc-group">
       <span class="toc-label">申请分析</span>
+      {% if source_rows %}<a href="#sources">支出来源构成</a>{% endif %}
       <a href="#status">审批状态构成</a>
       <a href="#trend">每日申请金额趋势</a>
       <a href="#ranking">收款人金额排行</a>

@@ -246,7 +246,7 @@ def snapshot_detail_context(snapshot):
         for row in rows:
             row["quantity_text"] = _quantity_text(row.get("quantity"))
             row["unit"] = row.get("unit") or "未记录单位"
-        rows.sort(key=lambda row: (row.get("date", ""), row.get("report_id", 0)))
+        rows.sort(key=lambda row: (row.get("date", ""), row.get("report_id", 0)), reverse=True)
         ledger = {
             "label": label,
             "party_label": "客户名称" if key == "SALES" else "供应商名称",

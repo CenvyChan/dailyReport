@@ -1,5 +1,8 @@
 """前端、调度与任务执行共用的唯一报告目录。"""
 
+from datetime import time
+
+
 REPORT_KINDS = {
     "purchase": {
         "name": "采购执行分析",
@@ -24,3 +27,11 @@ def validate_kinds(value):
     if any(kind not in REPORT_KINDS for kind in value):
         raise ValueError("存在未知的分析种类")
     return value
+
+
+def default_analysis_start_time():
+    return time(8)
+
+
+def default_analysis_send_time():
+    return time(9)

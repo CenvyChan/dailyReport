@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from integrations.services.erp_analysis.catalog import default_kinds
+from integrations.services.erp_analysis.catalog import default_analysis_send_time, default_analysis_start_time, default_kinds
 
 
 class TimeStampedModel(models.Model):
@@ -906,8 +906,10 @@ class ErpAnalysisSchedule(TimeStampedModel):
     """经营分析按公司配置，默认不启用，避免移植后自动取数或推送。"""
     company = models.OneToOneField("core.Company", on_delete=models.CASCADE, verbose_name="公司")
     enabled = models.BooleanField("启用月度分析", default=False)
-    day = models.PositiveSmallIntegerField("每月运行日", default=1)
-    hour = models.PositiveSmallIntegerField("运行小时", default=8)
+    day = models.PositiveSmallIntegerField("每月开始分析日", default=1, help_text="北京时间每月 1–28 日，到点开始生成分析。")
+    start_time = models.TimeField("开始分析时间", default=default_analysis_start_time, help_text="北京时间；例如 07:30。")
+    send_day = models.PositiveSmallIntegerField("每月定时发送日", default=1, help_text="北京时间每月 1–28 日，不能早于开始分析时间。")
+    send_time = models.TimeField("定时发送时间", default=default_analysis_send_time, help_text="到点后发送已完成报告；未完成则完成后补发。工作进程每 60 秒检查一次。")
     report_kinds = models.JSONField("分析种类", default=default_kinds)
     notification_group = models.ForeignKey(DingtalkGroupConfig, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="通知群")
 
@@ -921,9 +923,11 @@ class ErpAnalysisSchedule(TimeStampedModel):
 
         errors = {}
         if not 1 <= self.day <= 28:
-            errors["day"] = "运行日须为 1 至 28，避免短月没有运行日期"
-        if not 0 <= self.hour <= 23:
-            errors["hour"] = "小时须为 0 至 23"
+            errors["day"] = "开始分析日须为 1 至 28，避免短月没有运行日期"
+        if not 1 <= self.send_day <= 28:
+            errors["send_day"] = "定时发送日须为 1 至 28"
+        if self.start_time and self.send_time and (self.send_day, self.send_time) < (self.day, self.start_time):
+            errors["send_time"] = "定时发送时间不能早于开始分析时间"
         try:
             validate_kinds(self.report_kinds)
         except (ValueError, TypeError) as exc:
@@ -972,6 +976,7 @@ class ErpAnalysisTask(TimeStampedModel):
     notification_group = models.ForeignKey(DingtalkGroupConfig, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="通知群")
     notification_status = models.CharField("通知状态", max_length=12, choices=NotificationStatus.choices, default=NotificationStatus.NONE)
     notification_error = models.TextField("通知错误", blank=True)
+    notification_scheduled_at = models.DateTimeField("计划发送时间", null=True, blank=True, help_text="创建定时任务时保存的北京时间点；为空表示生成后立即通知。")
     started_at = models.DateTimeField("开始时间", null=True, blank=True)
     finished_at = models.DateTimeField("完成时间", null=True, blank=True)
 

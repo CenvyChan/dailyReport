@@ -3,6 +3,8 @@
 生成简洁、适合移动端阅读的Markdown格式消息。
 """
 
+from integrations.services.expense_reporting import expense_report_title, expense_scope_note
+
 import logging
 from decimal import Decimal
 
@@ -60,11 +62,12 @@ def build_payment_report_message(data, period_info, report_type='week', mention_
     Returns:
         str: Markdown格式的消息内容
     """
-    title = '付款申请' + dict(day='日报', week='周报', month='月报')[report_type]
+    title = expense_report_title(report_type)
 
     # 消息头部
     lines = [
         f"📊 {title}",
+        expense_scope_note(data),
         "━━━━━━━━━━━━━━━━━━",
         f"📅 {period_info['start_date'].strftime('%Y-%m-%d')} 至 "
         f"{period_info['end_date'].strftime('%Y-%m-%d')}",

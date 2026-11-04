@@ -5,6 +5,8 @@
 指标口径与卡片保持一一对应，便于群里点开链接后核对同一组数字。
 """
 
+from integrations.services.expense_reporting import expense_report_title, expense_scope_note, sorted_expense_details, source_description
+
 import math
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -380,7 +382,7 @@ def payment_context(snapshot):
         "snapshot": snapshot,
         "report": data,
         "company_name": data.get("company_name") or snapshot.company.name,
-        "report_title": f"付款申请{snapshot.get_report_type_display()}",
+        "report_title": expense_report_title(snapshot.report_type),
         "period_label": snapshot.period_label,
         "period_display": f"{snapshot.period_start:%Y.%m.%d}—{snapshot.period_end:%Y.%m.%d}",
         "total_count": total_count,
@@ -396,7 +398,10 @@ def payment_context(snapshot):
             status_counts, status_amounts, total_amount, daily, recipients
         ),
         "detail_groups": _detail_groups(recipients),
+        "details": [dict(row, amount_text=_money(row.get("amount")), status_text=STATUS_TEXT.get(row.get("status"), row.get("status") or "未知")) for row in sorted_expense_details(data)],
+        "source_note": source_description(data),
+        "source_rows": [dict(row, amount_text=_money(row.get("amount")), percent=_percent(row.get("amount", 0), total_amount)) for row in data.get("sources", [])],
         "warning": warning,
-        "scope_note": SCOPE_NOTE,
+        "scope_note": expense_scope_note(data),
         "unit_note": UNIT_NOTE,
     }

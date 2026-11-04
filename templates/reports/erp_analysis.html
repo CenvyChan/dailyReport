@@ -6,11 +6,12 @@
 <div class="page-head"><div><p class="ea-eyebrow">ERP · MONTHLY INSIGHTS</p><h1>经营分析</h1><p class="sub">{{ request.company.name }} · 六类经营分析，基于金蝶原始报表与单据。</p></div><a class="button secondary" href="/reports/comparison/">返回采销对比</a></div>
 <div class="ea-layout">
 <section class="card ea-generator" aria-labelledby="generate-title">
-  <h2 id="generate-title">生成分析报告</h2><p class="sub">选择结束月份，分析截至该月的近 12 个月。每份报告独立生成。</p>
+  <h2 id="generate-title">生成分析报告</h2><p class="sub">选择结束月份与分析窗口。每份报告独立生成。</p>
   {% if binding %}<p class="ea-binding">账套：<strong>{{ binding.account.name }}</strong> · 组织：{{ binding.org_name|default:binding.org_number }}（{{ binding.org_number }}）</p>{% else %}<div class="ea-warning" role="alert">本公司尚未配置启用的金蝶账套与组织绑定。请在集成配置中设置后生成。</div>{% endif %}
   <form method="post" action="{% url 'reports:erp_analysis_generate' %}">
     {% csrf_token %}{{ form.non_field_errors }}
     <label class="ea-period" for="id_period">分析月份 {{ form.period }}</label>{{ form.period.errors }}
+    <label class="ea-period" for="id_window_months">分析窗口 {{ form.window_months }}</label>{{ form.window_months.errors }}
     <fieldset class="ea-fieldset"><legend>选择分析内容</legend>{{ form.report_kinds.errors }}
       <div class="ea-kind-grid">{% for checkbox in form.report_kinds %}<label class="ea-kind">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>{% endfor %}</div>
     </fieldset>

@@ -599,19 +599,48 @@ class ErpAnalysisScheduleForm(forms.ModelForm):
 
     class Meta:
         model = ErpAnalysisSchedule
-        fields = ("company", "enabled", "day", "hour", "report_kinds", "notification_group")
+        fields = ("company", "enabled", "day", "start_time", "send_day", "send_time", "report_kinds", "notification_group")
+        widgets = {
+            "start_time": forms.TimeInput(format="%H:%M", attrs={"type": "time", "step": "60"}),
+            "send_time": forms.TimeInput(format="%H:%M", attrs={"type": "time", "step": "60"}),
+        }
 
 
 @admin.register(ErpAnalysisSchedule)
 class ErpAnalysisScheduleAdmin(AuditedAdmin):
     form = ErpAnalysisScheduleForm
-    list_display = ("company", "enabled", "day", "hour", "notification_group")
+    list_display = ("company", "enabled", "analysis_timing", "send_timing", "notification_group")
     list_filter = ("enabled", "company")
+    fieldsets = (
+        ("基本设置", {"fields": ("company", "enabled", "report_kinds", "notification_group")}),
+        ("开始分析时间", {"fields": (("day", "start_time"),), "description": "到点开始生成截至上个月末的近 12 个月分析，此时不发送通知。所有时间均为北京时间。"}),
+        ("定时发送时间", {"fields": (("send_day", "send_time"),), "description": "报告提前完成也会等待到此时间发送；届时未完成则完成后补发。留空通知群只生成不推送。检查间隔约 60 秒，不保证整点整分秒级送达。"}),
+    )
+
+    @admin.display(description="开始分析时间")
+    def analysis_timing(self, obj):
+        return f"每月 {obj.day} 日 {obj.start_time:%H:%M}"
+
+    @admin.display(description="定时发送时间")
+    def send_timing(self, obj):
+        return f"每月 {obj.send_day} 日 {obj.send_time:%H:%M}"
 
 
 @admin.register(ErpAnalysisTask)
 class ErpAnalysisTaskAdmin(admin.ModelAdmin):
-    list_display = ("id", "company", "period", "status", "notification_status", "created_at")
+    actions = ("retry_failed_reports", "recover_stopped_tasks")
+
+    @admin.action(description="重试失败/部分完成的报告（保留成功项，不自动重发通知）")
+    def retry_failed_reports(self, request, queryset):
+        count = queryset.filter(status__in=["FAILED","PARTIAL"]).update(status="PENDING", error="", finished_at=None)
+        self.message_user(request, f"{count} 个任务恢复排队；已成功项与通知状态均保留")
+
+    @admin.action(description="确认原工作进程停止后，恢复卡住的生成中任务")
+    def recover_stopped_tasks(self, request, queryset):
+        count = queryset.filter(status="RUNNING").update(status="PENDING", error="")
+        self.message_user(request, f"{count} 个任务恢复排队。此操作须确认原工作进程已停止，避免并行处理。")
+
+    list_display = ("id", "company", "period", "status", "notification_status", "notification_scheduled_at", "created_at")
     list_filter = ("company", "status", "notification_status")
     readonly_fields = [field.name for field in ErpAnalysisTask._meta.fields]
 

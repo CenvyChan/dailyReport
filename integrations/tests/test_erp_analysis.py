@@ -283,7 +283,7 @@ class TaskAndViewTests(TestCase):
 
     def test_scheduler_previous_month_once_and_no_default_side_effects(self):
         schedule = ErpAnalysisSchedule.objects.create(
-            company=self.company, enabled=False, report_kinds=["purchase"], day=1, hour=8
+            company=self.company, enabled=False, report_kinds=["purchase"], day=1, start_time=time(8)
         )
         now = datetime(2026, 6, 1, 9, tzinfo=ZoneInfo("Asia/Shanghai"))
         self.assertEqual(enqueue_due(now), [])
@@ -503,6 +503,45 @@ class TaskAndViewTests(TestCase):
         self.assertIn("销售漏斗分析（失败）", payload["text"])
         self.assertIn(REPORT_KINDS["purchase"]["description"], payload["text"])
         self.assertIn("/public/?token=", payload["messageUrl"])
+
+    def test_all_reports_render_tabs_navigation_chart_and_table_topics(self):
+        from integrations.services.erp_analysis.runner import render_report
+
+        task = self.task(list(REPORT_KINDS))
+        query = SourcesTestsQuery()
+        for kind in REPORT_KINDS:
+            data = analyze(kind, query, {"id": "100071", "number": "001", "name": "Org"}, task.period, 1)
+            task.results[kind] = {"status": "SUCCESS", "report": serializable(data)}
+            html = render_report(task, kind)
+            for panel in ("overview", "charts", "data", "methodology"):
+                self.assertIn(f'id="panel-{panel}"', html)
+                self.assertIn(f'data-tab="{panel}"', html)
+            self.assertIn('aria-label="本页导航"', html)
+            self.assertIn('id="chart-topic"', html)
+            self.assertIn('id="data-topic"', html)
+            self.assertEqual(html.count('class="data-view"'), len(data["sections"]))
+            self.assertIn('class="chart-empty"', html)
+            self.assertNotIn("script src=", html)
+            self.assertNotIn('id="chart-trend"', html)
+            self.assertIn("完整数据仍保留在报告与 ZIP 中", html)
+
+    def test_public_report_has_signed_directory_and_zip_controls(self):
+        task = self.task()
+        data = analyze(
+            "purchase", SourcesTestsQuery(), {"id": "100071", "number": "001", "name": "Org"}, task.period, 1
+        )
+        task.results = {"purchase": {"status": "SUCCESS", "report": serializable(data)}}
+        task.status = "SUCCESS"
+        task.bundle_path = "present-for-rendering-only"
+        task.save()
+        self.client.logout()
+        response = self.client.get(
+            reverse("reports:erp_analysis_public_report", args=[task.pk, "purchase"]), {"token": snapshot_token(task)}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "分析包目录")
+        self.assertContains(response, "下载 ZIP 分析包")
+        self.assertContains(response, "download=zip")
 
 
 class SourcesTestsQuery:

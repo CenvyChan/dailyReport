@@ -14,6 +14,7 @@ from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
 
 from integrations.models import DingtalkApprovalInstance
+from integrations.services.expense_fields import source_kind
 
 logger = logging.getLogger("integrations")
 
@@ -145,12 +146,13 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
         }
     """
     # 查询审批实例
+    codes = [process_code] if isinstance(process_code, str) else list(process_code)
     queryset = DingtalkApprovalInstance.objects.filter(
         company=company,
-        process_code=process_code,
+        process_code__in=codes,
         create_time__gte=start_time,
         create_time__lte=end_time,
-    ).order_by('create_time')
+    ).order_by('-create_time', '-pk')
 
     total_count = queryset.count()
     if total_count == 0:
@@ -198,12 +200,16 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
             if resolve_company(app, instance.form_values).pk != company.pk:
                 raise ValueError("审批申请公司与项目组织不一致，请先运行 reconcile_payment_organizations")
         # 从表单值提取收款人(尝试多个可能的字段名)
+        kind = source_kind(instance.process_name)
+        if kind in ('salary', 'reimbursement') and instance.amount is None:
+            raise ValueError('薪资/报销申请金额未提取，拒绝混入汇总')
         recipient = _extract_form_value(
             instance.form_values,
             '收款人全称', '收款人', '收款方', '收款单位', '供应商'
-        ) or '未知收款人'
+        ) or ('薪资发放（公司汇总）' if kind == 'salary' else '日常报销申请' if kind == 'reimbursement' else '未知收款人')
 
         # 从表单值提取其他字段
+        expense = instance.form_values.get('__expense', {}) if isinstance(instance.form_values, dict) else {}
         payment_reason = _extract_form_value(
             instance.form_values,
             '付款事由', '事由', '用途', '备注'
@@ -243,7 +249,12 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
         # 添加明细
         recipients[recipient]['details'].append({
             'process_instance_id': instance.process_instance_id,
+            'source': instance.process_name,
+            'result': instance.result,
+            'posting_time': expense.get('posting_time', ''),
+            'expense_line_count': len(expense.get('lines', [])),
             'create_date': create_time.strftime('%Y-%m-%d') if create_time else '',
+            'create_time': create_time.isoformat() if create_time else '',
             'amount': instance.amount or Decimal('0'),
             'reason': payment_reason[:100],  # 限制长度
             'expected_date': expected_date,

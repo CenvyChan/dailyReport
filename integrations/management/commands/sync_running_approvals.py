@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
+from django.db.models import Q
 
 from core.models import Company
 from integrations.models import DingtalkApprovalInstance, DingtalkProcessConfig
@@ -65,11 +66,8 @@ class Command(BaseCommand):
             raise Exception('钉钉应用未启用')
 
         # 获取所有付款申请模板
-        process_configs = DingtalkProcessConfig.objects.filter(
-            app=app,
-            is_active=True,
-            name__icontains='付款申请',
-        )
+        process_configs = DingtalkProcessConfig.objects.filter(app=app, is_active=True).filter(
+            Q(name__icontains='付款申请') | Q(name__in=['员工薪资发放申请A','日常报销单据']))
 
         if not process_configs.exists():
             raise Exception('未配置付款申请审批模板')
@@ -105,6 +103,7 @@ class Command(BaseCommand):
 
             # 2. 过滤：只处理RUNNING或本地不存在的
             from integrations.services.payment_organizations import approval_scope
+            instance_ids = list(dict.fromkeys(instance_ids + list(approval_scope(config.app, config.process_code).filter(status='RUNNING').values_list('process_instance_id', flat=True))))
             need_sync = []
             for iid in instance_ids:
                 inst = approval_scope(config.app, config.process_code).filter(process_instance_id=iid).first()

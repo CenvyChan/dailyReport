@@ -6,6 +6,9 @@
 - 月报: 每月1日早上 09:00 运行 send_payment_report month
 """
 
+from integrations.services.expense_reporting import expense_report_title
+from integrations.services.expense_summary import analyze_expenses, expense_processes, expense_snapshot_key
+
 import json
 import logging
 import os
@@ -131,12 +134,8 @@ class Command(BaseCommand):
 
         # 确定要处理的公司
         if options['company']:
-            if options['company'] not in PAYMENT_REPORT_COMPANY_CODES:
-                allowed = "、".join(
-                    f"{code}（{name}）"
-                    for code, name in PAYMENT_REPORT_COMPANY_APPLICATION_NAMES.items()
-                )
-                raise CommandError(f"付款申请报表仅支持以下公司：{allowed}")
+            if report_type == 'day' and options['company'] not in PAYMENT_REPORT_COMPANY_CODES:
+                raise CommandError('原付款申请日报仅支持FNS/NBHH；其他申请公司请使用周/月度支出报表')
             try:
                 companies = [Company.objects.get(code=options['company'], is_active=True)]
             except Company.DoesNotExist as exc:
@@ -145,12 +144,13 @@ class Command(BaseCommand):
             # 获取所有启用钉钉应用的公司
             companies = Company.objects.filter(
                 is_active=True,
-                code__in=PAYMENT_REPORT_COMPANY_CODES,
             ).filter(
                 Q(dingtalk_app__is_active=True, dingtalk_app__company_mappings__isnull=True)
                 | Q(dingtalk_company_mappings__app__is_active=True)
             ).distinct()
 
+        if report_type == 'day' and not options.get('company'):
+            companies = companies.filter(code__in=PAYMENT_REPORT_COMPANY_CODES)
         if options.get("app_id") and not options.get("company"):
             companies = companies.filter(Q(dingtalk_app__pk=options["app_id"]) | Q(dingtalk_company_mappings__app_id=options["app_id"])).distinct()
 
@@ -186,24 +186,19 @@ class Command(BaseCommand):
 
                 # 获取审批模板
                 process_code = options.get('process_code')
-                if not process_code:
-                    process_configs = list(DingtalkProcessConfig.objects.filter(
-                        app=dingtalk_app, is_active=True, name__icontains='付款申请',
-                    ))
+                expense_configs = expense_processes(dingtalk_app) if report_type in ('week', 'month') and not process_code else []
+                if expense_configs:
+                    process_code = expense_snapshot_key(expense_configs)
+                    if len(expense_configs) == 1 and '付款申请' in expense_configs[0].name:
+                        expense_configs = []
+                elif not process_code:
+                    process_configs = list(DingtalkProcessConfig.objects.filter(app=dingtalk_app, is_active=True, name__icontains='付款申请'))
                     if len(process_configs) != 1:
                         raise CommandError("需明确一个付款申请模板，请用 --process-code 指定")
                     process_code = process_configs[0].process_code
-
                 self.stdout.write(f"  审批模板: {process_code}")
-
-                # 汇总数据
-                self.stdout.write(f"  汇总付款申请...")
-                data = analyze_payment_applications(
-                    company,
-                    period_info['start'],
-                    period_info['end'],
-                    process_code
-                )
+                data = analyze_expenses(company, period_info['start'], period_info['end'], expense_configs) if expense_configs else analyze_payment_applications(company, period_info['start'], period_info['end'], process_code)
+                data['report_type'] = report_type
 
                 total_count = data['summary']['total_count']
                 total_amount = data['summary']['total_amount']
@@ -230,7 +225,7 @@ class Command(BaseCommand):
                 # 生成Excel
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 excel_filename = (
-                    f"付款申请{dict(day='日报', week='周报', month='月报')[report_type]}_"
+                    f"{expense_report_title(report_type)}_"
                     f"{company.code}_{timestamp}.xlsx"
                 )
                 excel_path = output_dir / excel_filename
@@ -372,8 +367,7 @@ class Command(BaseCommand):
                             'msgKey': 'sampleLink',
                             'msgParam': json.dumps({
                                 'title': (
-                                    f"{report_company_name} 付款申请"
-                                    f"{dict(day='日报', week='周报', month='月报')[report_type]}"
+                                    f"{report_company_name} {expense_report_title(report_type)}"
                                     f" · {period_info['label']}"
                                 ),
                                 'text': '点击查看完整报表（含图表与明细），手机端无需下载附件',

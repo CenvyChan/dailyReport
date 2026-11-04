@@ -19,6 +19,7 @@ from django.urls import reverse
 from core.services.permissions import can_view_comparison
 from integrations.models import PaymentReportSnapshot
 from integrations.services.payment_excel import export_payment_excel_bytes
+from integrations.services.expense_reporting import expense_report_title
 from integrations.services.payment_snapshot import (
     PAYMENT_SNAPSHOT_LINK_SALT,
     render_payment_snapshot_pdf,
@@ -32,7 +33,7 @@ XLSX_CONTENT_TYPE = (
 )
 # 模板结构变化时递增，避免继续命中旧缓存（与采销日报的 PDF_CACHE_VERSION 同理）。
 # v2：状态构成表用「发起的流程数」合计行替换恒为 0 的「新建」行。
-PDF_CACHE_VERSION = "v2"
+PDF_CACHE_VERSION = "v3-expense-date-desc"
 
 
 def _period_info(snapshot):
@@ -67,7 +68,7 @@ def _download_response(snapshot, kind):
     else:
         raise ValueError("未知下载类型")
     filename = (
-        f"{snapshot.company.code}_付款申请{snapshot.get_report_type_display()}"
+        f"{snapshot.company.code}_{expense_report_title(snapshot.report_type)}"
         f"_{snapshot.period_start:%Y%m%d}.{extension}"
     )
     response = HttpResponse(content, content_type=content_type)

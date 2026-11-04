@@ -184,7 +184,7 @@ class PaymentSummaryContextTests(SimpleTestCase):
         self.assertEqual(metrics["收款人数量"], "3 家")
         self.assertEqual(metrics["平均单笔"], "¥93.75")
         self.assertEqual(context["warning"], "")
-        self.assertEqual(context["report_title"], "付款申请周报")
+        self.assertEqual(context["report_title"], "周度支出报表")
 
     def test_daily_chart_covers_every_day_of_period(self):
         context = payment_context(make_snapshot(self.company))
@@ -307,7 +307,7 @@ class PaymentSnapshotPublicViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
-        self.assertIn("付款申请周报", body)
+        self.assertIn("周度支出报表", body)
         self.assertIn("申请明细", body)
         self.assertIn('name="viewport"', body)
         self.assertEqual(response["X-Robots-Tag"], "noindex, nofollow")
@@ -336,7 +336,7 @@ class PaymentSnapshotPublicViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
-        self.assertIn("付款申请月报", body)
+        self.assertIn("月度支出报表", body)
         self.assertIn('class="report-toc"', body)
 
     def test_bad_or_mismatched_token_is_forbidden(self):

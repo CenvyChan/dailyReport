@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from integrations.models import DingtalkApprovalInstance, DingtalkApp, DingtalkCompanyMapping
+from integrations.services.expense_fields import normalize_expense_form, source_kind
 
 PAYMENT_REPORT_COMPANY_APPLICATION_NAMES = {
     "FNS": "慈溪飞诺斯电子科技有限公司",
@@ -79,11 +80,13 @@ def parse_datetime(value):
 
 
 def instance_defaults(app, process, raw, instance_id):
-    form = flatten_form(raw.get("form_component_values", []))
+    form = normalize_expense_form(process, raw.get("form_component_values", []))
     try:
         amount = Decimal(str(form.get(process.amount_component, "")).replace(",", "").strip())
     except (InvalidOperation, ValueError, TypeError):
         amount = None
+    if source_kind(process.name) in ("salary", "reimbursement"):
+        amount = Decimal(form["__expense"]["amount"])
     return {
         "company": resolve_company(app, form) if "付款申请" in process.name or "申请公司" in form else app.company,
         "process_instance_id": str(instance_id),

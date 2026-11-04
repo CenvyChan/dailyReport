@@ -11,7 +11,7 @@ from integrations.services.erp_analysis.calculators import (
     sales,
     subcontract,
 )
-from integrations.services.erp_analysis.presentation import trend_chart
+from integrations.services.erp_analysis.presentation import supporting_charts, trend_chart
 from integrations.services.erp_analysis.common import parse_date, period_window
 
 
@@ -178,3 +178,61 @@ class AnalysisPresentationTests(SimpleTestCase):
             {"metrics": {"monthly": [{"month": "2026-09", "amount": 100}, {"month": "2026-10", "amount": 120}]}},
         )
         self.assertEqual(len(chart["labels"]), 2)
+
+
+class SupportingChartTests(SimpleTestCase):
+    def test_purchase_has_real_amount_delivery_and_supplier_charts(self):
+        data = {
+            "metrics": {
+                "summary": {"payable": "100", "settled": "30", "unsettled": "70"},
+                "delivery": {"entry_count": 10, "exact_count": 6, "short_count": 3, "over_count": 1},
+                "rankings": {"supplier": [{"name": "供应商甲", "unsettled": "70"}]},
+            }
+        }
+        charts = supporting_charts("purchase", data)
+        self.assertEqual([chart["type"] for chart in charts], ["bar", "donut", "bar"])
+        self.assertEqual(charts[1]["total"], "10")
+        self.assertEqual([item["value"] for item in charts[1]["items"]], ["6", "3", "1"])
+        self.assertEqual(charts[2]["items"][0]["label"], "供应商甲")
+        self.assertEqual(charts[2]["items"][0]["value"], "70")
+
+    def test_sales_negative_debt_is_drawn_left_of_zero(self):
+        charts = supporting_charts(
+            "sales",
+            {
+                "metrics": {
+                    "summary": {"out": 100, "receivable": 90, "settled": 110},
+                    "customers": [{"name": "超收客户", "unsettled": -20}, {"name": "欠款客户", "unsettled": 30}],
+                }
+            },
+        )
+        item = next(item for item in charts[1]["items"] if item["value"] == "-20")
+        self.assertLess(item["x"], charts[1]["zero_x"])
+        self.assertGreater(item["width"], 0)
+
+    def test_empty_chart_does_not_invent_a_full_donut(self):
+        from integrations.services.erp_analysis.presentation import donut_chart
+
+        chart = donut_chart("empty", "无数据", [("交齐", 0), ("欠交", 0)], "分录数")
+        self.assertTrue(chart["empty"])
+        self.assertEqual(chart["segments"], [])
+        self.assertEqual(chart["total"], "0")
+
+    def test_inventory_negative_amount_uses_bar_not_pie(self):
+        charts = supporting_charts(
+            "inventory",
+            {
+                "metrics": {
+                    "buckets": [{"name": "正库存", "amount": 100}, {"name": "负库存", "amount": -10}],
+                    "materials": [],
+                }
+            },
+        )
+        self.assertEqual(charts[0]["type"], "bar")
+        self.assertIn("-10", [item["value"] for item in charts[0]["items"]])
+
+    def test_all_six_reports_have_chart_sections_without_data(self):
+        for kind in ("purchase", "receivable", "inventory", "sales", "production", "subcontract"):
+            charts = supporting_charts(kind, {"metrics": {}})
+            self.assertTrue(charts)
+            self.assertTrue(all(chart["empty"] for chart in charts))

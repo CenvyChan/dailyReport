@@ -61,6 +61,7 @@
 </header>
 {% if warning %}<div class="warning">{{ warning }}</div>{% endif %}
 <section class="metrics" id="overview" aria-label="付款申请汇总指标">{% for metric in metrics %}<div class="metric"><div class="label">{{ metric.label }}</div><strong>{{ metric.value }}</strong><span class="hint">{{ metric.hint }}</span></div>{% endfor %}</section>
+{% if source_rows %}<section class="card" id="sources"><h2>支出来源构成</h2><p class="muted">按申请公司和申请发起日期归集；下列为申请金额，不是实际付款金额。</p><div class="table-wrap"><table class="table"><thead><tr><th>来源流程</th><th class="num">申请数</th><th class="num">支出申请额</th><th class="num">金额占比</th></tr></thead><tbody>{% for row in source_rows %}<tr><td>{{ row.name }}</td><td class="num">{{ row.count }}</td><td class="num">{{ row.amount_text }}</td><td class="num">{{ row.percent|floatformat:1 }}%</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 <section class="card" id="status">
 <h2>审批状态构成</h2>
 <p class="muted">金额单位：元 · 占比按申请金额计算</p>
@@ -90,14 +91,14 @@
 <div class="focus-grid">{% for item in focus_items %}<div class="focus"><strong>{{ item.title }}</strong><p>{{ item.desc }}</p></div>{% endfor %}</div>
 </section>{% endif %}
 <section class="card" id="details">
-<h2>申请明细</h2>
+<h2>支出申请明细</h2>
 <p class="muted">共 {{ total_count }} 笔 · 合计 {{ total_amount_text }} · 按收款人金额倒序，同一收款人按申请日期倒序 · 表格可左右滑动</p>
 {% if detail_groups %}<div class="table-wrap"><table class="table">
-<thead><tr><th>申请日期</th><th>收款人</th><th class="num">金额</th><th>付款事由</th><th class="nw">期望付款日</th><th class="nw">状态</th><th class="nw">申请人</th></tr></thead>
-<tbody>{% for group in detail_groups %}{% for detail in group.details %}<tr><td class="nw">{{ detail.create_date }}</td><td>{{ group.recipient }}</td><td class="num">{{ detail.amount_text }}</td><td class="reason">{{ detail.reason }}</td><td class="nw">{{ detail.expected_date }}</td><td class="nw">{{ detail.status_text }}</td><td class="nw">{{ detail.originator }}</td></tr>{% endfor %}{% endfor %}</tbody>
+<thead><tr><th>申请日期</th><th>来源流程</th><th>收款人 / 支出对象</th><th class="num">金额</th><th>付款事由</th><th class="nw">期望付款日</th><th class="nw">状态</th><th class="nw">申请人</th></tr></thead>
+<tbody>{% for detail in details %}<tr><td class="nw">{{ detail.create_date }}</td><td>{{ detail.source|default:"付款申请" }}</td><td>{{ detail.recipient }}</td><td class="num">{{ detail.amount_text }}</td><td class="reason">{{ detail.reason }}</td><td class="nw">{{ detail.expected_date }}</td><td class="nw">{{ detail.status_text }}</td><td class="nw">{{ detail.originator }}</td></tr>{% endfor %}</tbody>
 </table></div>{% else %}<p class="empty">本期暂无付款申请。</p>{% endif %}
 </section>
-<footer class="note">{{ scope_note }}{{ unit_note }}数据来源：已同步的钉钉付款申请 · 快照生成于 {{ snapshot.generated_at|date:"Y-m-d H:i" }}。</footer>
+<footer class="note">{{ scope_note }}{{ unit_note }}数据来源：已同步的钉钉{{ source_note }} · 快照生成于 {{ snapshot.generated_at|date:"Y-m-d H:i" }}。</footer>
 </article>
 <script>
 (function () {

@@ -37,6 +37,7 @@ def build_payment_snapshot_data(data, report_type, period_info, company_name):
     return _json_safe(
         {
             "company_name": company_name,
+            "sources": data.get("sources", []),
             "report_type": report_type,
             "period": {
                 "label": period_info["label"],

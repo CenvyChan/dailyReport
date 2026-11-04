@@ -7,6 +7,8 @@
 4. 原始JSON数据
 """
 
+from integrations.services.expense_reporting import expense_report_title, expense_scope_note, sorted_expense_details
+
 import json
 import logging
 from decimal import Decimal
@@ -77,6 +79,8 @@ def generate_payment_excel(data, period_info, filename):
 
     # 数据行
     summary_rows = [
+        ['报表名称', expense_report_title(data.get('report_type', 'month'))],
+        ['统计口径', expense_scope_note(data)],
         ['统计周期', period_info['label']],
         ['起始日期', period_info['start_date'].strftime('%Y-%m-%d')],
         ['结束日期', period_info['end_date'].strftime('%Y-%m-%d')],
@@ -93,6 +97,15 @@ def generate_payment_excel(data, period_info, filename):
     for idx, row in enumerate(summary_rows, start=2):
         summary_sheet[f'A{idx}'] = row[0]
         summary_sheet[f'B{idx}'] = row[1]
+
+    if data.get('sources'):
+        source_sheet = workbook.create_sheet('支出来源汇总')
+        source_sheet.append(['来源流程', '申请数', '支出申请额'])
+        for source in data['sources']:
+            source_sheet.append([source['name'], source['count'], _format_money(source['amount'])])
+        source_sheet.column_dimensions['A'].width = 35
+        source_sheet.column_dimensions['B'].width = 12
+        source_sheet.column_dimensions['C'].width = 22
 
     # ========== 工作表2:按收款人汇总 ==========
     recipient_sheet = workbook.create_sheet('按收款人汇总')
@@ -149,18 +162,20 @@ def generate_payment_excel(data, period_info, filename):
 
     # 数据行
     row_idx = 2
-    for recipient_data in data['by_recipient']:
-        for detail in recipient_data['details']:
-            detail_sheet.cell(row=row_idx, column=1, value=detail['create_date'])
-            detail_sheet.cell(row=row_idx, column=2, value=recipient_data['recipient'])
-            detail_sheet.cell(row=row_idx, column=3, value=_format_money(detail['amount']))
-            detail_sheet.cell(row=row_idx, column=4, value=detail['reason'])
-            detail_sheet.cell(row=row_idx, column=5, value=detail['expected_date'])
-            detail_sheet.cell(row=row_idx, column=6, value=_format_status(detail['status']))
-            detail_sheet.cell(row=row_idx, column=7, value=detail['originator'])
-            detail_sheet.cell(row=row_idx, column=8, value=detail['title'])
-            detail_sheet.cell(row=row_idx, column=9, value=detail['process_instance_id'])
-            row_idx += 1
+    for detail in sorted_expense_details(data):
+        detail_sheet.cell(row=row_idx, column=1, value=detail['create_date'])
+        detail_sheet.cell(row=row_idx, column=2, value=detail['recipient'])
+        detail_sheet.cell(row=row_idx, column=3, value=_format_money(detail['amount']))
+        detail_sheet.cell(row=row_idx, column=4, value=detail['reason'])
+        detail_sheet.cell(row=row_idx, column=5, value=detail['expected_date'])
+        detail_sheet.cell(row=row_idx, column=6, value=_format_status(detail['status']))
+        detail_sheet.cell(row=row_idx, column=7, value=detail['originator'])
+        detail_sheet.cell(row=row_idx, column=8, value=detail['title'])
+        detail_sheet.cell(row=row_idx, column=9, value=detail['process_instance_id'])
+        detail_sheet.cell(row=row_idx, column=10, value=detail.get('source', '付款申请'))
+        detail_sheet.cell(row=row_idx, column=11, value=detail.get('posting_time', ''))
+        detail_sheet.cell(row=row_idx, column=12, value=detail.get('result', ''))
+        row_idx += 1
 
     # ========== 工作表4:原始JSON数据 ==========
     raw_sheet = workbook.create_sheet('原始数据')

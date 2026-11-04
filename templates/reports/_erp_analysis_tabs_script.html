@@ -1,0 +1,74 @@
+<script>
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.report-tabs [role="tab"]'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.tab-panel'));
+  var links = Array.prototype.slice.call(document.querySelectorAll('.report-toc a[href^="#"]'));
+  var charts = Array.prototype.slice.call(document.querySelectorAll('.visuals > .chart-card'));
+  var tables = Array.prototype.slice.call(document.querySelectorAll('.data-view'));
+  var chartChoice = document.getElementById('chart-topic');
+  var dataChoice = document.getElementById('data-topic');
+  var chosenChart = charts.length ? charts[0].id : '';
+  var chosenTable = tables.length ? tables[0].id : '';
+  var selected = 'overview';
+  function selectTopic(items, id) {
+    items.forEach(function (item) { item.hidden = item.id !== id; });
+  }
+  function activate(name, target, saveHash) {
+    if (!tabs.some(function (tab) { return tab.dataset.tab === name; })) return;
+    selected = name;
+    if (name === 'charts' && target && charts.some(function (item) { return item.id === target; })) chosenChart = target;
+    if (name === 'data' && target && tables.some(function (item) { return item.id === target; })) chosenTable = target;
+    tabs.forEach(function (tab) {
+      var active = tab.dataset.tab === name;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    panels.forEach(function (panel) { panel.hidden = panel.id !== 'panel-' + name; });
+    selectTopic(charts, chosenChart);
+    selectTopic(tables, chosenTable);
+    if (chartChoice) chartChoice.value = chosenChart;
+    if (dataChoice) dataChoice.value = chosenTable;
+    var current = name === 'charts' ? chosenChart : name === 'data' ? chosenTable : name;
+    links.forEach(function (link) {
+      var active = link.getAttribute('href') === '#' + current;
+      link.classList.toggle('on', active);
+      if (active) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+    });
+    if (saveHash && current) {
+      try { history.replaceState(null, '', '#' + current); } catch (_) { /* 本地离线文件不依赖 History API。 */ }
+    }
+  }
+  function openHash(hash) {
+    var id = hash.replace(/^#/, '');
+    if (id === 'charts' || id.indexOf('chart-') === 0) activate('charts', id, false);
+    else if (id === 'data' || id.indexOf('analysis-section-') === 0) activate('data', id, false);
+    else activate(id === 'methodology' ? 'methodology' : 'overview', id, false);
+  }
+  tabs.forEach(function (tab, index) {
+    tab.addEventListener('click', function () { activate(tab.dataset.tab, null, true); });
+    tab.addEventListener('keydown', function (event) {
+      var next = index;
+      if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      tabs[next].focus();
+      activate(tabs[next].dataset.tab, null, true);
+    });
+  });
+  links.forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      openHash(link.getAttribute('href'));
+      activate(selected, null, true);
+    });
+  });
+  if (chartChoice) chartChoice.addEventListener('change', function () { activate('charts', chartChoice.value, true); });
+  if (dataChoice) dataChoice.addEventListener('change', function () { activate('data', dataChoice.value, true); });
+  window.addEventListener('hashchange', function () { openHash(location.hash); });
+  document.documentElement.classList.add('is-enhanced');
+  openHash(location.hash);
+})();
+</script>
