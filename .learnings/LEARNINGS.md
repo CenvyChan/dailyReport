@@ -106,3 +106,12 @@ Corrections and best practices captured during development.
 - Source: user_feedback
 - Related Files: integrations/services/snapshot_export.py, templates/integrations/report_snapshot_book.html, integrations/tests/test_operations_details.py
 - Pattern-Key: reports.preserve-empty-schema-and-original-detail
+
+## [LRN-20261104-REIMBURSE-MAPPING] correction
+
+**Logged**: 2026-11-04
+**Priority**: high
+**Status**: resolved
+**Area**: backend
+
+日常报销不能复用付款申请的收款人/付款事由表头映射：收款人须取不具名 DDBizSuite 表头归属人的显示姓名；事由取报销明细费用说明，多行保持顺序且不截断。统计金额和申请公司不因此改变。修复需同时验证规范化存储、历史快照和实际Excel/PDF，不能只修新同步入口。

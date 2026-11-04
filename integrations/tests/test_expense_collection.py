@@ -84,3 +84,87 @@ class ExpenseCollectionTests(TestCase):
         ):
             call_command("sync_expense_approvals", app_id=self.app.pk, period="2026-10", stdout=StringIO())
         self.assertEqual(DingtalkApprovalInstance.objects.count(), 0)
+
+
+class ReimbursementReportMappingTests(TestCase):
+    def setUp(self):
+        self.a, self.b = company_a(), company_b()
+        self.app = DingtalkApp.objects.create(company=self.a, name="app", app_key="test", app_secret="test")
+        DingtalkCompanyMapping.objects.create(app=self.app, application_company="Company B", company=self.b)
+        self.process = DingtalkProcessConfig.objects.create(
+            app=self.app, name="日常报销单据", process_code="reimburse", amount_component="报销金额（元）"
+        )
+        self.start = timezone.make_aware(datetime(2026, 10, 1))
+        self.end = timezone.make_aware(datetime(2026, 11, 1))
+
+    def report(self):
+        return analyze_expenses(self.b, self.start, self.end, [self.process])
+
+    def test_owner_and_expense_descriptions_override_payment_fields(self):
+        from integrations.services.payment_organizations import save_approval
+
+        form = reimbursement_form()
+        form += [{"name": "收款人", "value": "旧付款收款人"}, {"name": "备注", "value": "非费用说明"}]
+        form[1]["value"].append(
+            {"props": {"label": "归属人"}, "value": "归属人员甲", "extValue": [{"name": "归属人员甲", "emplId": "ID"}]}
+        )
+        reasons = ["交通费用", "住宿费用" + "说明" * 70]
+        for row, reason in zip(form[1]["value"][0]["value"], reasons, strict=True):
+            row["rowValue"][1]["value"] = reason
+        save_approval(
+            self.app,
+            self.process,
+            {
+                "form_component_values": form,
+                "originator_name": "申请人乙",
+                "create_time": "2026-10-15 12:00:00",
+                "status": "RUNNING",
+            },
+            "reimbursement-id",
+        )
+        data = self.report()
+        self.assertEqual(data["summary"]["total_amount"], Decimal(30))
+        self.assertEqual(data["summary"]["total_count"], 1)
+        self.assertEqual(data["by_recipient"][0]["recipient"], "归属人员甲")
+        self.assertEqual(data["by_recipient"][0]["details"][0]["reason"], "；".join(reasons))
+        self.assertEqual(data["by_recipient"][0]["details"][0]["originator"], "申请人乙")
+        from io import BytesIO
+        from openpyxl import load_workbook
+        from integrations.services.payment_excel import export_payment_excel_bytes
+
+        period = {"label": "2026年10月", "start_date": self.start.date(), "end_date": self.end.date()}
+        book = load_workbook(BytesIO(export_payment_excel_bytes(data, period)))
+        exported = list(book["详细清单"].values)[1]
+        self.assertEqual(exported[1], "归属人员甲")
+        self.assertEqual(exported[3], "；".join(reasons))
+        book.close()
+
+    def test_missing_owner_does_not_fall_back_to_applicant(self):
+        from integrations.services.payment_organizations import save_approval
+
+        save_approval(
+            self.app,
+            self.process,
+            {
+                "form_component_values": reimbursement_form(),
+                "originator_name": "申请人乙",
+                "create_time": "2026-10-15 12:00:00",
+            },
+            "missing-owner",
+        )
+        self.assertEqual(self.report()["by_recipient"][0]["recipient"], "归属人未填写")
+
+    def test_legacy_normalized_record_reads_owner_from_saved_raw(self):
+        from integrations.services.payment_organizations import save_approval
+
+        form = reimbursement_form()
+        form[1]["value"].append({"props": {"label": "归属人"}, "value": "归属人员丙"})
+        record, _, _ = save_approval(
+            self.app,
+            self.process,
+            {"form_component_values": form, "create_time": "2026-10-15 12:00:00"},
+            "legacy-record",
+        )
+        record.form_values["__expense"].pop("owner_name", None)
+        record.save(update_fields=["form_values"])
+        self.assertEqual(self.report()["by_recipient"][0]["recipient"], "归属人员丙")

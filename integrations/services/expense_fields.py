@@ -33,6 +33,40 @@ def money(value):
     return amount
 
 
+def reimbursement_owner_name(values):
+    """只读取报销套件表头归属人显示名；绝不拿申请人或人员ID代替。"""
+    suites = (
+        [
+            decode(item.get("value"))
+            for item in values or []
+            if isinstance(item, dict) and item.get("component_type", item.get("componentType")) == "DDBizSuite"
+        ]
+        if isinstance(values, list)
+        else []
+    )
+    names = []
+    for suite in suites:
+        if not isinstance(suite, list):
+            continue
+        for node in suite:
+            if not isinstance(node, dict) or node.get("props", {}).get("label") != "归属人":
+                continue
+            metadata = decode(node.get("extValue"))
+            contacts = metadata if isinstance(metadata, list) else [metadata] if isinstance(metadata, dict) else []
+            contact_names = [
+                contact["name"].strip()
+                for contact in contacts
+                if isinstance(contact, dict) and isinstance(contact.get("name"), str) and contact["name"].strip()
+            ]
+            if contact_names:
+                names.extend(contact_names)
+            elif not contacts:
+                value = node.get("value")
+                if isinstance(value, str) and value.strip():
+                    names.append(value.strip())
+    return "、".join(dict.fromkeys(names))
+
+
 def normalize_expense_form(process, values):
     form = (
         dict(values)
@@ -115,5 +149,6 @@ def normalize_expense_form(process, values):
         "amount": str(total),
         "lines": lines,
         "posting_time": posting,
+        "owner_name": reimbursement_owner_name(values),
     }
     return form

@@ -70,6 +70,36 @@ class ExpenseFieldTests(SimpleTestCase):
         result = normalize_expense_form(process, form)
         self.assertEqual(result["__expense"]["amount"], "30")
 
+    def test_reimbursement_owner_uses_contact_names_not_user_ids(self):
+        process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
+        form = reimbursement_form()
+        form[1]["value"].append(
+            {
+                "componentType": "InnerContactField",
+                "props": {"label": "归属人"},
+                "value": "employee-id",
+                "extValue": json.dumps([{"emplId": "employee-id", "name": "归属人员甲"}]),
+            }
+        )
+        expense = normalize_expense_form(process, form)["__expense"]
+        self.assertEqual(expense["owner_name"], "归属人员甲")
+        self.assertNotIn("employee-id", str(expense))
+
+    def test_contact_without_name_does_not_display_employee_id(self):
+        process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
+        form = reimbursement_form()
+        form[1]["value"].append(
+            {"props": {"label": "归属人"}, "value": "employee-id", "extValue": [{"emplId": "employee-id"}]}
+        )
+        self.assertEqual(normalize_expense_form(process, form)["__expense"]["owner_name"], "")
+
+    def test_reimbursement_owner_display_value_and_missing_are_explicit(self):
+        process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
+        form = reimbursement_form()
+        form[1]["value"].append({"props": {"label": "归属人"}, "value": "归属人员乙"})
+        self.assertEqual(normalize_expense_form(process, form)["__expense"]["owner_name"], "归属人员乙")
+        self.assertEqual(normalize_expense_form(process, reimbursement_form())["__expense"]["owner_name"], "")
+
     def test_reimbursement_mismatch_and_schema_change_fail(self):
         process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
         with self.assertRaisesRegex(ValueError, "合计"):

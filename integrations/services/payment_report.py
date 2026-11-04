@@ -14,7 +14,7 @@ from django.db.models import Count, Q, Sum
 from django.db.models.functions import Coalesce
 
 from integrations.models import DingtalkApprovalInstance
-from integrations.services.expense_fields import source_kind
+from integrations.services.expense_fields import reimbursement_owner_name, source_kind
 
 logger = logging.getLogger("integrations")
 
@@ -203,22 +203,15 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
         kind = source_kind(instance.process_name)
         if kind in ('salary', 'reimbursement') and instance.amount is None:
             raise ValueError('薪资/报销申请金额未提取，拒绝混入汇总')
-        recipient = _extract_form_value(
-            instance.form_values,
-            '收款人全称', '收款人', '收款方', '收款单位', '供应商'
-        ) or ('薪资发放（公司汇总）' if kind == 'salary' else '日常报销申请' if kind == 'reimbursement' else '未知收款人')
-
-        # 从表单值提取其他字段
         expense = instance.form_values.get('__expense', {}) if isinstance(instance.form_values, dict) else {}
-        payment_reason = _extract_form_value(
-            instance.form_values,
-            '付款事由', '事由', '用途', '备注'
-        ) or ''
-
-        expected_date = _extract_form_value(
-            instance.form_values,
-            '期望付款日期', '期望日期', '计划付款日期'
-        ) or ''
+        if kind == 'reimbursement':
+            owner = expense.get('owner_name') if 'owner_name' in expense else reimbursement_owner_name((instance.raw or {}).get('form_component_values', []))
+            recipient = owner or '归属人未填写'
+            payment_reason = '；'.join(str(row.get('reason') or '') for row in expense.get('lines', []) if row.get('reason'))
+        else:
+            recipient = _extract_form_value(instance.form_values, '收款人全称', '收款人', '收款方', '收款单位', '供应商') or ('薪资发放（公司汇总）' if kind == 'salary' else '未知收款人')
+            payment_reason = _extract_form_value(instance.form_values, '付款事由', '事由', '用途', '备注') or ''
+        expected_date = _extract_form_value(instance.form_values, '期望付款日期', '期望日期', '计划付款日期') or ''
 
         # 初始化收款人分组
         if recipient not in recipients:
@@ -256,7 +249,7 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
             'create_date': create_time.strftime('%Y-%m-%d') if create_time else '',
             'create_time': create_time.isoformat() if create_time else '',
             'amount': instance.amount or Decimal('0'),
-            'reason': payment_reason[:100],  # 限制长度
+            'reason': payment_reason if kind == 'reimbursement' else payment_reason[:100], # 报销保留完整费用说明
             'expected_date': expected_date,
             'status': instance.status,
             'originator': instance.originator_name,
