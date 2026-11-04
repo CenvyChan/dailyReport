@@ -11,6 +11,7 @@ from integrations.services.erp_analysis.calculators import (
     sales,
     subcontract,
 )
+from integrations.services.erp_analysis.presentation import trend_chart
 from integrations.services.erp_analysis.common import parse_date, period_window
 
 
@@ -162,3 +163,18 @@ class AnalysisMetricTests(SimpleTestCase):
         for result in results:
             self.assertTrue(result["sections"])
             self.assertTrue(all(section["headers"] for section in result["sections"]))
+
+
+class AnalysisPresentationTests(SimpleTestCase):
+    def test_single_month_has_no_empty_trend_line(self):
+        self.assertIsNone(
+            trend_chart(
+                "purchase",
+                {"metrics": {"monthly": [{"month": "2026-10", "amount": 100, "settled": 20, "unsettled": 80}]}},
+            )
+        )
+        chart = trend_chart(
+            "purchase",
+            {"metrics": {"monthly": [{"month": "2026-09", "amount": 100}, {"month": "2026-10", "amount": 120}]}},
+        )
+        self.assertEqual(len(chart["labels"]), 2)

@@ -15,7 +15,8 @@ COLORS = ("#4f46e5", "#0891b2", "#b45309")
 
 def trend_chart(kind, data):
     monthly = [row for row in data["metrics"].get("monthly", []) if row.get("month", row.get("name")) != "未识别"]
-    if not monthly:
+    # 单月没有跨月趋势，避免绘制只有一个点的空折线图。
+    if len(monthly) < 2:
         return None
     values = [float(number(row.get(key))) for key, _ in SERIES[kind] for row in monthly]
     low, high = min(0, min(values)), max(0, max(values))
