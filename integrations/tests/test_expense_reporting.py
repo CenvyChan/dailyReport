@@ -69,6 +69,14 @@ class ExpenseReportPresentationTests(SimpleTestCase):
         )
         self.assertIn("月度支出报表", str(list(book["汇总统计"].values)))
 
+    def test_frozen_source_amount_strings_render_as_decimal(self):
+        data = self.data()
+        data['sources'] = [{'name':'付款申请','amount':'30.00','count':3}]
+        snapshot = SimpleNamespace(data=data, company=SimpleNamespace(name='Test'), period_label='2026年10月',
+            period_start=date(2026,10,1), period_end=date(2026,10,31), report_type='month')
+        context = payment_context(snapshot)
+        self.assertEqual(context['source_rows'][0]['percent'],100.0)
+
     def test_context_and_push_use_expenditure_name_and_coverage(self):
         snapshot = SimpleNamespace(
             data=self.data(),

@@ -400,7 +400,7 @@ def payment_context(snapshot):
         "detail_groups": _detail_groups(recipients),
         "details": [dict(row, amount_text=_money(row.get("amount")), status_text=STATUS_TEXT.get(row.get("status"), row.get("status") or "未知")) for row in sorted_expense_details(data)],
         "source_note": source_description(data),
-        "source_rows": [dict(row, amount_text=_money(row.get("amount")), percent=_percent(row.get("amount", 0), total_amount)) for row in data.get("sources", [])],
+        "source_rows": [dict(row, amount_text=_money(row.get("amount")), percent=_percent(_amount(row.get("amount", 0)), total_amount)) for row in data.get("sources", [])],
         "warning": warning,
         "scope_note": expense_scope_note(data),
         "unit_note": UNIT_NOTE,
