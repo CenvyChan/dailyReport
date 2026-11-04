@@ -98,7 +98,10 @@ def normalize_expense_form(process, values):
             }
         )
     total = sum((Decimal(line["amount"]) for line in lines), Decimal(0))
-    stats = decode(table.get("extValue", {}).get("statValue")) or []
+    ext = decode(table.get("extValue")) or {}
+    if not isinstance(ext, dict):
+        raise ValueError("报销统计合计结构无法识别")
+    stats = decode(ext.get("statValue")) or []
     matches = [stat for stat in stats if stat.get("id") == amount_id]
     if len(matches) != 1 or money(matches[0].get("num")) != total:
         raise ValueError("报销明细求和与审批组件合计不一致，拒绝落库和汇总")

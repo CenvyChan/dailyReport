@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -60,6 +61,14 @@ class ExpenseFieldTests(SimpleTestCase):
         self.assertEqual(expense["posting_time"], "2026-10-15 12:00")
         self.assertEqual(expense["lines"][0]["expense_date"], "")
         self.assertNotIn("private", str(expense))
+
+    def test_reimbursement_accepts_json_string_stat_metadata(self):
+        process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
+        form = reimbursement_form()
+        table = form[1]["value"][0]
+        table["extValue"] = json.dumps(table["extValue"])
+        result = normalize_expense_form(process, form)
+        self.assertEqual(result["__expense"]["amount"], "30")
 
     def test_reimbursement_mismatch_and_schema_change_fail(self):
         process = SimpleNamespace(name="日常报销单据", amount_component="报销金额（元）")
