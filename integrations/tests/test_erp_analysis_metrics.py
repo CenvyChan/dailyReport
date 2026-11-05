@@ -314,6 +314,7 @@ class SupportingChartTests(SimpleTestCase):
         self.assertNotIn('<script>alert("click")</script>', html)
         self.assertIn('客户完整名称&lt;script&gt;', html)
         self.assertIn('textContent = trigger.dataset.chartLabel', html)
+        self.assertIn("detail.scrollIntoView({ block: 'nearest' });", html)
 
     def test_sales_negative_debt_is_drawn_left_of_zero(self):
         charts = supporting_charts(

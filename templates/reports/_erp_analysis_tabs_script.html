@@ -90,6 +90,7 @@
       ratio.textContent = ratio.hidden ? '' : '占当前图表合计 ' + trigger.dataset.chartRatio + '%';
       triggers.forEach(function (item) { item.setAttribute('aria-pressed', String(item.dataset.chartIndex === selectedIndex)); });
       detail.hidden = false;
+      if (window.matchMedia('(max-width: 580px)').matches) detail.scrollIntoView({ block: 'nearest' });
     }
     card.addEventListener('click', function (event) {
       var trigger = event.target.closest('.chart-trigger');
