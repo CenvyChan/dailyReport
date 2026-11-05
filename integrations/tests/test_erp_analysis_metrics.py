@@ -260,6 +260,61 @@ class SupportingChartTests(SimpleTestCase):
         self.assertEqual(charts[2]["items"][0]["label"], "供应商甲")
         self.assertEqual(charts[2]["items"][0]["value"], "70")
 
+    def test_click_details_have_units_and_match_donut_segments(self):
+        from integrations.services.erp_analysis.presentation import bar_chart, donut_chart
+
+        bar = bar_chart("values", "精确数值", [("长名称", "-12.345"), ("零值", 0)], "原值", unit_label="元")
+        self.assertEqual(bar["unit_label"], "元")
+        self.assertEqual([(v["index"], v["value"]) for v in bar["items"]], [(0, "-12.345"), (1, "0")])
+        donut = donut_chart("parts", "构成", [("小项", 1), ("零值", 0), ("大项", 3)], "原值", unit_label="条")
+        self.assertEqual(donut["unit_label"], "条")
+        self.assertEqual([v["index"] for v in donut["segments"]], [0, 2])
+        self.assertEqual([v["ratio"] for v in donut["segments"]], ["25.0", "75.0"])
+        for segment in donut["segments"]:
+            item = donut["items"][segment["index"]]
+            self.assertEqual((segment["label"], segment["value"], segment["ratio"]), (item["label"], item["value"], item["ratio"]))
+        negative = donut_chart("parts", "负值", [("正值", 1), ("负值", -2)], "原值", unit_label="元")
+        self.assertEqual(negative["type"], "bar")
+        self.assertEqual(negative["unit_label"], "元")
+        self.assertEqual(negative["items"][1]["value"], "-2")
+
+    def test_supporting_chart_units_are_explicit_for_all_reports(self):
+        expected = {
+            "purchase": ["元", "条", "元"], "receivable": ["元", "元"],
+            "inventory": ["元", "元"], "sales": ["元", "元"],
+            "production": ["条", "原始数量单位"], "subcontract": ["条", "原始数量单位"],
+        }
+        for kind, units in expected.items():
+            with self.subTest(kind=kind):
+                charts = supporting_charts(kind, {"metrics": {}})
+                self.assertEqual([chart["unit_label"] for chart in charts], units)
+
+    def test_html_click_targets_include_full_names_zero_legend_and_escaped_data(self):
+        from integrations.services.erp_analysis.presentation import bar_chart, donut_chart
+
+        label = '客户完整名称<script>alert("click")</script>'
+        visuals = [
+            bar_chart("values", "金额", [(label, "-12.345"), ("零金额", 0)], "口径", unit_label="元"),
+            donut_chart("parts", "数量构成", [("小项", 1), ("零值", 0), ("大项", 3)], "口径", unit_label="条"),
+        ]
+        html = render_to_string("reports/erp_analysis_report.html", {
+            "task": SimpleNamespace(company=SimpleNamespace(name="Test"), period=date(2026, 10, 1), org_number="001", created_at=None),
+            "title": "分析", "report": {"cards": [], "sections": [], "notes": []},
+            "chart": None, "supporting_charts": visuals,
+        })
+        self.assertIn('class="chart-trigger bar-item"', html)
+        self.assertIn('class="chart-trigger donut-segment"', html)
+        self.assertIn('class="chart-trigger donut-legend-button"', html)
+        self.assertIn('data-chart-index="1" data-chart-label="零值" data-chart-value="0"', html)
+        self.assertIn('data-chart-value="-12.345"', html)
+        self.assertIn('data-chart-ratio="25.0"', html)
+        self.assertIn('aria-controls="chart-detail-values"', html)
+        self.assertIn('role="status" aria-live="polite"', html)
+        self.assertIn('aria-pressed="false"', html)
+        self.assertNotIn('<script>alert("click")</script>', html)
+        self.assertIn('客户完整名称&lt;script&gt;', html)
+        self.assertIn('textContent = trigger.dataset.chartLabel', html)
+
     def test_sales_negative_debt_is_drawn_left_of_zero(self):
         charts = supporting_charts(
             "sales",

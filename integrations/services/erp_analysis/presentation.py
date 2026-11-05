@@ -84,7 +84,7 @@ def display_number(value):
     )
 
 
-def bar_chart(chart_id, title, values, note):
+def bar_chart(chart_id, title, values, note, *, unit_label="数值"):
     values = [(str(label), number(value)) for label, value in values]
     low = min([number(0)] + [value for _, value in values])
     high = max([number(0)] + [value for _, value in values])
@@ -98,11 +98,13 @@ def bar_chart(chart_id, title, values, note):
     for index, (label, value) in enumerate(values):
         items.append(
             {
+                "index": index,
                 "label": label,
                 "value": display_number(value),
                 "x": min(zero, x(value)),
                 "width": round(abs(x(value) - zero), 2),
                 "y": 18 + index * 44,
+                "hit_y": 10 + index * 44,
                 "text_y": 36 + index * 44,
                 "color": CHART_COLORS[index % len(CHART_COLORS)],
             }
@@ -111,6 +113,7 @@ def bar_chart(chart_id, title, values, note):
         "id": chart_id,
         "title": title,
         "type": "bar",
+        "unit_label": unit_label,
         "items": items,
         "note": note,
         "zero_x": zero,
@@ -119,17 +122,18 @@ def bar_chart(chart_id, title, values, note):
     }
 
 
-def donut_chart(chart_id, title, values, note):
+def donut_chart(chart_id, title, values, note, *, unit_label="数值"):
     values = [(str(label), number(value)) for label, value in values]
     # 币种/金额负数不能塞进饼图；改为保留正负方向的条形图。
     if any(value < 0 for _, value in values):
-        return bar_chart(chart_id, title, values, note + "；含负值，改用条形图保留原值。")
+        return bar_chart(chart_id, title, values, note + "；含负值，改用条形图保留原值。", unit_label=unit_label)
     total = sum((value for _, value in values), number(0))
     items, segments, offset = [], [], 0.0
     circumference = 2 * pi * 76
     for index, (label, value) in enumerate(values):
         share = value / total if total else number(0)
         item = {
+            "index": index,
             "label": label,
             "value": display_number(value),
             "ratio": format(rounded(share * 100, 1), "f"),
@@ -140,8 +144,10 @@ def donut_chart(chart_id, title, values, note):
             length = float(share) * circumference
             segments.append(
                 {
+                    "index": index,
                     "label": label,
                     "value": item["value"],
+                    "ratio": item["ratio"],
                     "color": item["color"],
                     "dash": f"{length:.6f} {circumference - length:.6f}",
                     "offset": f"{-offset:.6f}",
@@ -152,6 +158,7 @@ def donut_chart(chart_id, title, values, note):
         "id": chart_id,
         "title": title,
         "type": "donut",
+        "unit_label": unit_label,
         "items": items,
         "segments": segments,
         "total": display_number(total),
@@ -178,6 +185,7 @@ def supporting_charts(kind, data):
                 "应付与结算金额对比",
                 summary_values((("payable", "应付金额"), ("settled", "已结算"), ("unsettled", "未结算"))),
                 "采购报表金额口径。未结算逐行截零，图中三项是独立金额，不强制认定已结算＋未结算＝应付。",
+                unit_label="元",
             ),
             donut_chart(
                 "delivery",
@@ -187,12 +195,14 @@ def supporting_charts(kind, data):
                     for key, label in (("exact_count", "已交齐"), ("short_count", "欠交"), ("over_count", "超交"))
                 ],
                 "分母为采购订单分录数，不使用采购报表展开行数；中心显示分录总数。",
+                unit_label="条",
             ),
             bar_chart(
                 "supplier-debt",
                 "供应商未结算金额 TOP 10",
                 ranking_values(metrics.get("rankings", {}).get("supplier", []), "unsettled"),
                 "取现有供应商未结算排行前 10 家；完整 TOP 50 见下方明细，不代表全体供应商的金额集中度。",
+                unit_label="元",
             ),
         ]
     if kind == "receivable":
@@ -202,12 +212,14 @@ def supporting_charts(kind, data):
                 "应收与收款计划金额",
                 summary_values((("amount", "表头应收总额"), ("settled", "计划已收"), ("unsettled", "计划未收"))),
                 "表头与收款计划来自不同字段；不强制平衡，差异仍见核对表。",
+                unit_label="元",
             ),
             bar_chart(
                 "customer-debt",
                 "客户未收金额 TOP 10",
                 ranking_values(metrics.get("customers", []), "unsettled"),
                 "客户未收取计划原值，不推算逾期账龄；负值原样保留。",
+                unit_label="元",
             ),
         ]
     if kind == "inventory":
@@ -218,12 +230,14 @@ def supporting_charts(kind, data):
                 "库存覆盖分层 · 期末金额构成",
                 [(row["name"], row["amount"]) for row in metrics.get("buckets", [])],
                 "分层来自最新有数据期间的期末金额；覆盖月数不是库龄，负金额改用条形图。",
+                unit_label="元",
             ),
             bar_chart(
                 "stock-materials",
                 "期末库存金额 TOP 10 物料",
                 [(row["name"], row["end_amount"]) for row in materials[:10]],
                 "只使用最新有效期末库存，不累计多个期间的期末金额。",
+                unit_label="元",
             ),
         ]
     if kind == "sales":
@@ -233,12 +247,14 @@ def supporting_charts(kind, data):
                 "出库—应收—实收金额对比",
                 summary_values((("out", "出库金额"), ("receivable", "应收金额"), ("settled", "实收金额"))),
                 "原始金额可以超额，不绘制强制递减的漏斗；整体与分组结算率分母仍以正文为准。",
+                unit_label="元",
             ),
             bar_chart(
                 "sales-customer-debt",
                 "客户未结算金额 TOP 10",
                 ranking_values(metrics.get("customers", []), "unsettled"),
                 "未结算＝应收−实收，超收负值向零轴左侧展示，不截零。",
+                unit_label="元",
             ),
         ]
     if kind == "production":
@@ -248,12 +264,14 @@ def supporting_charts(kind, data):
                 "生产订单状态构成",
                 [(row["name"], row["count"]) for row in metrics.get("status", [])],
                 "按 ERP 状态编码汇总分录数；完工认定仍依据实际完工日期。",
+                unit_label="条",
             ),
             bar_chart(
                 "workshop-backlog",
                 "车间未入库数量 TOP 10",
                 ranking_values(metrics.get("rankings", {}).get("workshop", []), "remaining"),
                 "展示订单未入库数量，非产值或金额；不同物料数量需结合单位和明细阅读。",
+                unit_label="原始数量单位",
             ),
         ]
     if kind == "subcontract":
@@ -271,12 +289,14 @@ def supporting_charts(kind, data):
                     )
                 ],
                 "仅含已完工分录；图中包含缺计划日期，准时率的判定分母仍排除缺计划日期项。",
+                unit_label="条",
             ),
             bar_chart(
                 "subcontract-wip",
                 "供应商在制数量 TOP 10",
                 ranking_values(metrics.get("wip_ranking", []), "wip"),
                 "使用当前 ERP 在制原值，不是分析月末历史余额；负值向零轴左侧展示。",
+                unit_label="原始数量单位",
             ),
         ]
     raise ValueError("未知的经营分析种类")

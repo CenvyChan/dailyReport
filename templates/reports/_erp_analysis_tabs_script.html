@@ -67,6 +67,49 @@
   });
   if (chartChoice) chartChoice.addEventListener('change', function () { activate('charts', chartChoice.value, true); });
   if (dataChoice) dataChoice.addEventListener('change', function () { activate('data', dataChoice.value, true); });
+  charts.forEach(function (card) {
+    var detail = card.querySelector('.chart-detail');
+    if (!detail) return;
+    var triggers = Array.prototype.slice.call(card.querySelectorAll('.chart-trigger'));
+    var selectedIndex = null;
+    var lastTrigger = null;
+    function clearDetail(returnFocus) {
+      triggers.forEach(function (trigger) { trigger.setAttribute('aria-pressed', 'false'); });
+      detail.hidden = true;
+      selectedIndex = null;
+      if (returnFocus && lastTrigger) lastTrigger.focus();
+    }
+    function showDetail(trigger) {
+      if (selectedIndex === trigger.dataset.chartIndex) { clearDetail(false); return; }
+      selectedIndex = trigger.dataset.chartIndex;
+      lastTrigger = trigger;
+      detail.querySelector('.chart-detail-name').textContent = trigger.dataset.chartLabel;
+      detail.querySelector('.chart-detail-value').textContent = trigger.dataset.chartValue;
+      var ratio = detail.querySelector('.chart-detail-ratio');
+      ratio.hidden = trigger.dataset.chartRatio === undefined;
+      ratio.textContent = ratio.hidden ? '' : '占当前图表合计 ' + trigger.dataset.chartRatio + '%';
+      triggers.forEach(function (item) { item.setAttribute('aria-pressed', String(item.dataset.chartIndex === selectedIndex)); });
+      detail.hidden = false;
+    }
+    card.addEventListener('click', function (event) {
+      var trigger = event.target.closest('.chart-trigger');
+      if (trigger && card.contains(trigger)) showDetail(trigger);
+    });
+    card.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !detail.hidden) {
+        event.preventDefault();
+        clearDetail(true);
+        return;
+      }
+      var trigger = event.target.closest('.chart-trigger');
+      if (!trigger || trigger.tagName.toLowerCase() === 'button' || event.repeat) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        showDetail(trigger);
+      }
+    });
+    detail.querySelector('.chart-detail-close').addEventListener('click', function () { clearDetail(true); });
+  });
   window.addEventListener('hashchange', function () { openHash(location.hash); });
   document.documentElement.classList.add('is-enhanced');
   openHash(location.hash);
