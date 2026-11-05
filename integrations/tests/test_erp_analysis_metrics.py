@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 
 from integrations.services.erp_analysis.calculators import (
@@ -178,6 +180,68 @@ class AnalysisPresentationTests(SimpleTestCase):
             {"metrics": {"monthly": [{"month": "2026-09", "amount": 100}, {"month": "2026-10", "amount": 120}]}},
         )
         self.assertEqual(len(chart["labels"]), 2)
+
+
+    def test_trend_hover_keeps_monthly_values_and_amount_units(self):
+        data = {"metrics": {"monthly": [
+            {"month": "2026-09", "amount": "1234.56", "settled": "20.01", "unsettled": "1214.55"},
+            {"month": "2026-10", "amount": "-12.34", "settled": "0", "unsettled": "-12.34"},
+        ]}}
+        chart = trend_chart("purchase", data)
+        self.assertEqual(chart["unit_label"], "金额（元）")
+        self.assertEqual([sample["month"] for sample in chart["samples"]], ["2026-09", "2026-10"])
+        self.assertEqual(
+            [(value["label"], value["text"]) for value in chart["samples"][0]["values"]],
+            [("订单金额", "1,234.56"), ("已结算", "20.01"), ("未结算", "1,214.55")],
+        )
+        self.assertEqual(chart["samples"][1]["values"][0]["text"], "-12.34")
+        self.assertIn("2026-09", chart["samples"][0]["description"])
+        self.assertIn("订单金额：1,234.56", chart["samples"][0]["description"])
+        for sample in chart["samples"]:
+            self.assertGreater(sample["hit_width"], 0)
+            self.assertGreaterEqual(sample["tooltip_x"], 8)
+            self.assertLessEqual(sample["tooltip_x"] + 230, 892)
+        for series_index, line in enumerate(chart["lines"]):
+            for sample, coordinates in zip(chart["samples"], line["points"].split(), strict=True):
+                self.assertEqual(coordinates, f"{sample['x']},{sample['values'][series_index]['y']}")
+        self.assertEqual(data["metrics"]["monthly"][0]["amount"], "1234.56")
+
+    def test_trend_hover_quantity_precision_and_unrecognized_month(self):
+        chart = trend_chart("production", {"metrics": {"monthly": [
+            {"month": "2026-09", "qty": "1234.56789", "stockin": "0", "remaining": "-2.500"},
+            {"month": "未识别", "qty": "99999"},
+            {"month": "2026-10", "qty": "12"},
+        ]}})
+        self.assertEqual(chart["unit_label"], "数量（原始单位）")
+        self.assertEqual([sample["month"] for sample in chart["samples"]], ["2026-09", "2026-10"])
+        self.assertEqual([v["text"] for v in chart["samples"][0]["values"]], ["1,234.56789", "0", "-2.5"])
+
+    def test_trend_hover_is_available_for_all_six_reports(self):
+        for kind in ("purchase", "receivable", "inventory", "sales", "production", "subcontract"):
+            with self.subTest(kind=kind):
+                chart = trend_chart(kind, {"metrics": {"monthly": [{"month": "2026-09"}, {"month": "2026-10"}]}})
+                self.assertEqual(len(chart["samples"]), 2)
+                self.assertTrue(all(len(sample["values"]) == 3 for sample in chart["samples"]))
+
+    def test_html_trend_hover_is_keyboard_accessible_and_escaped(self):
+        chart = trend_chart("purchase", {"metrics": {"monthly": [
+            {"month": '<script>alert("hover")</script>', "amount": "1234.56"},
+            {"month": "2026-10", "amount": "5"},
+        ]}})
+        html = render_to_string("reports/erp_analysis_report.html", {
+            "task": SimpleNamespace(company=SimpleNamespace(name="Test"), period=date(2026, 10, 1), org_number="001", created_at=None),
+            "title": "采购执行分析", "report": {"cards": [], "sections": [], "notes": []},
+            "chart": chart, "supporting_charts": [],
+        })
+        self.assertEqual(html.count('class="trend-sample"'), 2)
+        self.assertEqual(html.count('class="trend-point"'), 6)
+        self.assertIn('tabindex="0" role="group"', html)
+        self.assertIn('.trend-sample:hover .trend-tooltip', html)
+        self.assertIn('.trend-sample:focus-visible .trend-tooltip', html)
+        self.assertIn('class="trend-tooltip"', html)
+        self.assertIn("订单金额：1,234.56", html)
+        self.assertNotIn('<script>alert("hover")</script>', html)
+        self.assertIn('&lt;script&gt;', html)
 
 
 class SupportingChartTests(SimpleTestCase):

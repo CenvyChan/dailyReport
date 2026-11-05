@@ -37,7 +37,32 @@ def trend_chart(kind, data):
         }
         for index, (key, label) in enumerate(SERIES[kind])
     ]
+    is_amount = kind in ("purchase", "receivable", "inventory", "sales")
+    unit_label = "金额（元）" if is_amount else "数量（原始单位）"
+    samples = []
+    for index, (x, row) in enumerate(zip(x_values, monthly, strict=True)):
+        month = row.get("month", row.get("name"))
+        values = []
+        for series_index, (key, label) in enumerate(SERIES[kind]):
+            value = number(row.get(key))
+            text = format(value, ",.2f") if is_amount else format(value, ",f")
+            if not is_amount and "." in text:
+                text = text.rstrip("0").rstrip(".")
+            values.append({
+                "label": label, "color": COLORS[series_index], "text": text,
+                "y": y(value), "text_y": 44 + series_index * 19,
+            })
+        left = (x_values[index - 1] + x) / 2 if index else 65
+        right = (x + x_values[index + 1]) / 2 if index + 1 < len(x_values) else 825
+        samples.append({
+            "month": month, "x": x, "values": values,
+            "hit_x": round(left, 2), "hit_width": round(right - left, 2),
+            "tooltip_x": max(8, min(x + 12, 662)),
+            "description": f"{month}，{unit_label}；" + "；".join(f"{item['label']}：{item['text']}" for item in values),
+        })
     return {
+        "samples": samples,
+        "unit_label": unit_label,
         "lines": lines,
         "labels": [
             {"x": x, "text": row.get("month", row.get("name"))} for x, row in zip(x_values, monthly, strict=True)
