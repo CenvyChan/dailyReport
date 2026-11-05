@@ -160,13 +160,13 @@ def analyze(kind, query, org, period, months=12):
         if not re.fullmatch(r"\d{3,}", org["number"]):
             raise ValueError("应收销售组织编码须为至少三位数字，保留前导零，例如 001")
         config = RECEIVABLENORMALIZER
-        filters = config["FILTER_TEMPLATE"] % (start, end, org["number"])
-        heads = normalizer.rows(
-            query.bill(config["FORM_ID"], config["HEAD_FIELD_KEYS"], filters), schema("bill,date:d,customer,amount:n")
-        )
-        plans = normalizer.rows(
-            query.bill(config["FORM_ID"], config["PLAN_FIELD_KEYS"], filters), schema("bill,settled:n,unsettled:n")
-        )
+        raw_heads, raw_plans = [], []
+        for first, last in windows:
+            filters = config["FILTER_TEMPLATE"] % (first, last, org["number"])
+            raw_heads.extend(query.bill(config["FORM_ID"], config["HEAD_FIELD_KEYS"], filters))
+            raw_plans.extend(query.bill(config["FORM_ID"], config["PLAN_FIELD_KEYS"], filters))
+        heads = normalizer.rows(raw_heads, schema("bill,date:d,customer,amount:n"))
+        plans = normalizer.rows(raw_plans, schema("bill,settled:n,unsettled:n"))
         seen, unique_heads = set(), []
         for row in heads:
             if row["bill"] and row["bill"] not in seen:

@@ -174,6 +174,33 @@ class SourcesTests(SimpleTestCase):
         self.assertEqual(result["metrics"]["summary"]["bill_count"], 1)
         self.assertEqual(result["metrics"]["summary"]["unsettled"], 170)
 
+    def test_receivable_slices_months_before_deduplication_and_aggregation(self):
+        self.query.bill.side_effect = [
+            [["AR1", "2026/1/4", "Customer", 100]] * 2,
+            [["AR1", 10, 90], ["AR1", "10.00", "90.0"]],
+            [["AR2", "2026/2/4", "Customer", 200]],
+            [["AR2", 20, 180]],
+        ]
+        result = analyze("receivable", self.query, self.org, date(2026, 2, 1), 2)
+        calls = self.query.bill.call_args_list
+        self.assertEqual(len(calls), 4)
+        for call, start, end in zip(
+            calls,
+            ["2026-01-01", "2026-01-01", "2026-02-01", "2026-02-01"],
+            ["2026-01-31", "2026-01-31", "2026-02-28", "2026-02-28"],
+            strict=True,
+        ):
+            self.assertEqual(call.args[0], "AR_receivable")
+            self.assertIn(start, call.args[2])
+            self.assertIn(end, call.args[2])
+            self.assertIn("FSALEORGID.FNumber = '001'", call.args[2])
+        summary = result["metrics"]["summary"]
+        self.assertEqual(summary["bill_count"], 2)
+        self.assertEqual(summary["amount"], 300)
+        self.assertEqual(summary["settled"], 30)
+        self.assertEqual(summary["unsettled"], 270)
+        self.assertEqual(summary["head_plan_diff"], 0)
+
     def test_receivable_leading_zero_guard(self):
         with self.assertRaisesRegex(ValueError, "三位"):
             analyze("receivable", self.query, dict(self.org, number="1"), date(2026, 5, 1), 1)
