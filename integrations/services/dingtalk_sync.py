@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from integrations.models import DingtalkApp, DingtalkApprovalInstance, SyncRun
 from integrations.services.dingtalk_client import DingtalkClient
+from integrations.services.user_names import UserNameDirectory
 
 logger = logging.getLogger("integrations")
 
@@ -47,13 +48,15 @@ def _flatten_form(instance):
     return values
 
 
-def _upsert_instance(company, process, instance, run, instance_id=None):
+def _upsert_instance(company, process, instance, run, instance_id=None, name_resolver=None):
     from integrations.services.payment_organizations import save_approval
 
     pid = instance_id or instance.get("process_instance_id") or instance.get("id")
     if not pid:
         return False
-    save_approval(process.app, process, instance, pid, run=run)
+    save_approval(
+        process.app, process, instance, pid, run=run, name_resolver=name_resolver
+    )
     return True
 
 
@@ -79,6 +82,7 @@ def sync_dingtalk(as_of=None, company=None, dry_run=False, client_factory=Dingta
             )
         try:
             client = client_factory(app)
+            names = UserNameDirectory(client)
             upserted = 0
             earliest = now.date()
             for process in processes:
@@ -89,7 +93,9 @@ def sync_dingtalk(as_of=None, company=None, dry_run=False, client_factory=Dingta
                 ids = client.list_instance_ids(process.process_code, start_ms, end_ms)
                 for pid in ids:
                     instance = client.get_instance(pid)
-                    if not dry_run and _upsert_instance(app.company, process, instance, run, instance_id=pid):
+                    if not dry_run and _upsert_instance(
+                        app.company, process, instance, run, instance_id=pid, name_resolver=names.originator_name
+                    ):
                         upserted += 1
                 if dry_run:
                     upserted += len(ids)

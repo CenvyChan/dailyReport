@@ -14,6 +14,7 @@ from django.db.models import Q
 from core.models import Company
 from integrations.models import DingtalkApprovalInstance, DingtalkProcessConfig
 from integrations.services.dingtalk_client import DingtalkClient
+from integrations.services.user_names import UserNameDirectory
 
 logger = logging.getLogger("integrations")
 
@@ -73,6 +74,7 @@ class Command(BaseCommand):
             raise Exception('未配置付款申请审批模板')
 
         client = DingtalkClient(app)
+        names = UserNameDirectory(client)
         total_created = 0
         total_updated = 0
         total_status_changed = 0
@@ -117,7 +119,7 @@ class Command(BaseCommand):
                 try:
                     detail = client.get_instance(iid)
                     created, updated, status_changed, _ = self._save_instance(
-                        company, config, iid, detail
+                        company, config, iid, detail, name_resolver=names.originator_name
                     )
                     total_created += created
                     total_updated += updated
@@ -131,7 +133,9 @@ class Command(BaseCommand):
             'status_changed': total_status_changed,
         }
 
-    def _save_instance(self, company, config, instance_id, instance_data):
+    def _save_instance(self, company, config, instance_id, instance_data, name_resolver=None):
         from integrations.services.payment_organizations import save_approval
-        row, created, previous = save_approval(config.app, config, instance_data, instance_id)
+        row, created, previous = save_approval(
+            config.app, config, instance_data, instance_id, name_resolver=name_resolver
+        )
         return int(created), int(not created), int(not created and previous["status"] != row.status), int(not created and previous["amount"] != row.amount)

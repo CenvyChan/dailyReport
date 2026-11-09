@@ -13,6 +13,7 @@ from integrations.models import DingtalkApp, DingtalkCompanyMapping, SyncRun
 from integrations.services.dingtalk_client import DingtalkClient
 from integrations.services.expense_fields import normalize_expense_form, source_kind
 from integrations.services.payment_organizations import application_company_name, resolve_company, save_approval
+from integrations.services.user_names import UserNameDirectory
 from integrations.services.erp_analysis.common import period_window
 
 
@@ -83,8 +84,11 @@ class Command(BaseCommand):
                 window_end=last,
                 status=SyncRun.Status.RUNNING,
             )
+            names = UserNameDirectory(client)
             for config, pid, raw in jobs:
-                save_approval(app, config, raw, pid, run=run)
+                save_approval(
+                    app, config, raw, pid, run=run, name_resolver=names.originator_name
+                )
             run.status = SyncRun.Status.SUCCESS
             run.rows_upserted = len(jobs)
             run.finished_at = timezone.now()

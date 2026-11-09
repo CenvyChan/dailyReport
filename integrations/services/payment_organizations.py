@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from integrations.models import DingtalkApprovalInstance, DingtalkApp, DingtalkCompanyMapping
 from integrations.services.expense_fields import normalize_expense_form, source_kind
+from integrations.services.user_names import resolve_originator_name
 
 PAYMENT_REPORT_COMPANY_APPLICATION_NAMES = {
     "FNS": "慈溪飞诺斯电子科技有限公司",
@@ -79,7 +80,7 @@ def parse_datetime(value):
     return timezone.make_aware(result) if timezone.is_naive(result) else result
 
 
-def instance_defaults(app, process, raw, instance_id):
+def instance_defaults(app, process, raw, instance_id, name_resolver=None):
     form = normalize_expense_form(process, raw.get("form_component_values", []))
     try:
         amount = Decimal(str(form.get(process.amount_component, "")).replace(",", "").strip())
@@ -92,7 +93,8 @@ def instance_defaults(app, process, raw, instance_id):
         "process_instance_id": str(instance_id),
         "process_code": process.process_code, "process_name": process.name,
         "title": raw.get("title") or "", "originator_userid": raw.get("originator_userid") or "",
-        "originator_name": raw.get("originator_name") or "",
+        # 审批详情接口不返回姓名，必须用通讯录或标题补齐，否则报表「申请人」恒为空。
+        "originator_name": resolve_originator_name(raw, name_resolver),
         "dept_name": raw.get("originator_dept_name") or raw.get("dept_name") or "",
         "status": raw.get("status") or "", "result": raw.get("result") or "",
         "amount": amount, "create_time": parse_datetime(raw.get("create_time")),
@@ -101,10 +103,10 @@ def instance_defaults(app, process, raw, instance_id):
 
 
 @transaction.atomic
-def save_approval(app, process, raw, instance_id, run=None, repair=False):
+def save_approval(app, process, raw, instance_id, run=None, repair=False, name_resolver=None):
     if not instance_id:
         raise ValueError("同步必须使用列表接口返回的审批实例ID")
-    data = instance_defaults(app, process, raw, instance_id)
+    data = instance_defaults(app, process, raw, instance_id, name_resolver=name_resolver)
     scope = approval_scope(app, process.process_code).select_for_update()
     canonical = list(scope.filter(process_instance_id=str(instance_id)))
     aliases = []
@@ -127,6 +129,9 @@ def save_approval(app, process, raw, instance_id, run=None, repair=False):
     if run:
         data["sync_run"] = run
     if existing:
+        # 通讯录暂时不可用时不要把已回填的姓名清空。
+        if not data.get("originator_name"):
+            data["originator_name"] = existing.originator_name
         for key, value in data.items():
             setattr(existing, key, value)
         existing.save()

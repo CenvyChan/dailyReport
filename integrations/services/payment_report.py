@@ -15,6 +15,7 @@ from django.db.models.functions import Coalesce
 
 from integrations.models import DingtalkApprovalInstance
 from integrations.services.expense_fields import reimbursement_owner_name, source_kind
+from integrations.services.user_names import name_from_title
 
 logger = logging.getLogger("integrations")
 
@@ -252,7 +253,9 @@ def analyze_payment_applications(company, start_time, end_time, process_code):
             'reason': payment_reason if kind == 'reimbursement' else payment_reason[:100], # 报销保留完整费用说明
             'expected_date': expected_date,
             'status': instance.status,
-            'originator': instance.originator_name,
+            # 历史记录可能没有姓名（审批接口只给 userid）；标题前缀可兜底，
+            # 避免已冻结/未回填的数据在报表里继续空着。
+            'originator': instance.originator_name or name_from_title(instance.title),
             'title': instance.title,
             'deep_link': deep_link,
         })

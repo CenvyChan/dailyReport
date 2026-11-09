@@ -240,16 +240,20 @@ class Command(BaseCommand):
 
     def _sync_instances(self, company, config, client, instance_ids, dry_run, track_changes):
         from integrations.services.payment_organizations import approval_scope, instance_defaults, save_approval
+        from integrations.services.user_names import UserNameDirectory
 
+        names = UserNameDirectory(client)
         counts = dict(created=0, updated=0, status_changed=0, amount_changed=0)
         for instance_id in instance_ids:
             raw = client.get_instance(instance_id)
             if dry_run:
-                instance_defaults(config.app, config, raw, instance_id)
+                instance_defaults(config.app, config, raw, instance_id, name_resolver=names.originator_name)
                 exists = approval_scope(config.app, config.process_code).filter(process_instance_id=instance_id).exists()
                 counts["updated" if exists else "created"] += 1
                 continue
-            row, created, previous = save_approval(config.app, config, raw, instance_id)
+            row, created, previous = save_approval(
+                config.app, config, raw, instance_id, name_resolver=names.originator_name
+            )
             counts["created" if created else "updated"] += 1
             if track_changes and not created:
                 counts["status_changed"] += previous["status"] != row.status

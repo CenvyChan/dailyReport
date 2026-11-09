@@ -84,6 +84,23 @@ class DingtalkClient:
             raise DingtalkError(f"拉取审批实例详情失败（{process_instance_id}）：{data}")
         return data.get("process_instance", {}) or {}
 
+    def get_user_name(self, userid):
+        """按 userid 查通讯录姓名。
+
+        审批详情接口只给 originator_userid，姓名必须单独查；调用方负责缓存。
+        权限或网络异常直接抛 DingtalkError，由上层决定是否降级。
+        """
+        resp = _requests().post(
+            f"{BASE}/topapi/v2/user/get",
+            params={"access_token": self.token()},
+            json={"userid": str(userid)},
+            timeout=20,
+        )
+        data = resp.json()
+        if data.get("errcode") != 0:
+            raise DingtalkError(f"查询钉钉用户姓名失败（{userid}）：{data}")
+        return ((data.get("result") or {}).get("name") or "").strip()
+
     def post(self, path, payload):
         """调用新版开放平台 API（api.dingtalk.com），path 形如 /v1.0/robot/groupMessages/send。
 
